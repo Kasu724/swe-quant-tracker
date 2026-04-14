@@ -1,0 +1,41 @@
+import { Button, Card, CardContent, Container, PageHeader } from "@faang-quant/ui";
+import { unsubscribeAction } from "../../lib/actions";
+
+export default async function UnsubscribePage({
+  searchParams
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  const token = Array.isArray(resolvedSearchParams?.token)
+    ? resolvedSearchParams?.token[0]
+    : resolvedSearchParams?.token;
+  const success =
+    (Array.isArray(resolvedSearchParams?.success)
+      ? resolvedSearchParams?.success[0]
+      : resolvedSearchParams?.success) === "1";
+
+  return (
+    <Container className="space-y-8 py-12">
+      <PageHeader
+        eyebrow="Email Preferences"
+        title={success ? "Alerts disabled" : "Unsubscribe from email alerts"}
+        description={
+          success
+            ? "You will no longer receive internship alert emails."
+            : "Confirm if you want to disable all future alert emails for this account."
+        }
+      />
+      <Card className="max-w-xl">
+        <CardContent className="space-y-4">
+          {!success && token ? (
+            <form action={unsubscribeAction}>
+              <input type="hidden" name="token" value={token} />
+              <Button type="submit">Disable alert emails</Button>
+            </form>
+          ) : null}
+        </CardContent>
+      </Card>
+    </Container>
+  );
+}

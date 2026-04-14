@@ -1,0 +1,323 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CompanyBucket {
+  FAANG
+  BIG_TECH
+  QUANT
+  TRADING
+  HEDGE_FUND
+  OTHER
+}
+
+enum SourceType {
+  GREENHOUSE
+  LEVER
+  ASHBY
+  WORKDAY
+  CUSTOM_HTML
+  CUSTOM_API
+  BROWSER_AUTOMATION
+}
+
+enum RoleCategory {
+  SWE
+  QUANT_DEV
+  QUANT_RESEARCH
+  TRADING
+  DATA_ML_AI
+  SECURITY
+  INFRA_SYSTEMS
+  HARDWARE_FPGA_LOW_LATENCY
+  PRODUCT_PM
+  OTHER
+}
+
+enum RemoteType {
+  REMOTE
+  HYBRID
+  ONSITE
+  UNKNOWN
+}
+
+enum CompensationInterval {
+  HOUR
+  YEAR
+  MONTH
+  WEEK
+  DAY
+  UNKNOWN
+}
+
+enum AlertCadence {
+  IMMEDIATE
+  DAILY
+}
+
+enum AlertChannel {
+  EMAIL
+  DISCORD
+}
+
+enum AlertDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum ApplicationState {
+  NONE
+  APPLIED
+  HIDDEN
+}
+
+enum IngestionRunStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum VerificationPurpose {
+  EMAIL_VERIFY
+}
+
+model User {
+  id                 String                 @id @default(cuid())
+  email              String                 @unique
+  name               String?
+  image              String?
+  passwordHash       String?
+  emailVerified      DateTime?
+  role               UserRole               @default(USER)
+  alertEmailsEnabled Boolean                @default(true)
+  digestTimezone     String                 @default("America/New_York")
+  unsubscribeToken   String                 @unique @default(cuid())
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+  savedSearches      SavedSearch[]
+  favorites          UserFavorite[]
+  applicationStates  UserApplicationState[]
+  alertDeliveries    AlertDelivery[]
+  verificationTokens VerificationToken[]
+}
+
+model VerificationToken {
+  id         String              @id @default(cuid())
+  userId     String?
+  user       User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  identifier String
+  token      String              @unique
+  purpose    VerificationPurpose @default(EMAIL_VERIFY)
+  expires    DateTime
+  consumedAt DateTime?
+  createdAt  DateTime            @default(now())
+
+  @@index([identifier, purpose])
+  @@index([expires])
+}
+
+model Company {
+  id            String            @id @default(cuid())
+  name          String
+  slug          String            @unique
+  websiteUrl    String?
+  careersUrl    String?
+  companyBucket CompanyBucket
+  tags          String[]          @default([])
+  isActive      Boolean           @default(true)
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  sources       CompanySource[]
+  postings      InternshipPosting[]
+
+  @@index([companyBucket, isActive])
+  @@index([tags], type: Gin)
+}
+
+model CompanySource {
+  id                String              @id @default(cuid())
+  companyId         String
+  company           Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sourceType        SourceType
+  sourceName        String
+  sourceIdentifier  String
+  sourceUrl         String
+  pollingEnabled    Boolean             @default(true)
+  priority          Int                 @default(100)
+  requestConfigJson Json?
+  parserConfigJson  Json?
+  lastPolledAt      DateTime?
+  isActive          Boolean             @default(true)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  sourceRecords     PostingSourceRecord[]
+  canonicalPostings InternshipPosting[] @relation("CanonicalCompanySource")
+  ingestionRuns     IngestionRun[]
+
+  @@unique([companyId, sourceType, sourceIdentifier], map: "company_source_unique_identifier")
+  @@index([isActive, pollingEnabled, priority])
+}
+
+model InternshipPosting {
+  id                   String               @id @default(cuid())
+  slug                 String               @unique
+  companyId            String
+  company              Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  canonicalSourceId    String?
+  canonicalSource      CompanySource?       @relation("CanonicalCompanySource", fields: [canonicalSourceId], references: [id], onDelete: SetNull)
+  externalJobId        String?
+  companyNameSnapshot  String
+  title                String
+  normalizedTitle      String
+  roleCategory         RoleCategory         @default(OTHER)
+  internshipFlag       Boolean              @default(true)
+  season               String?
+  year                 Int?
+  employmentType       String?
+  locationRaw          String?
+  locationsNormalized  Json?
+  locationCountries    String[]             @default([])
+  remoteType           RemoteType           @default(UNKNOWN)
+  compensationMin      Decimal?             @db.Decimal(12, 2)
+  compensationMax      Decimal?             @db.Decimal(12, 2)
+  compensationCurrency String?
+  compensationInterval CompensationInterval @default(UNKNOWN)
+  payRaw               String?
+  postingDate          DateTime?
+  discoveredAt         DateTime             @default(now())
+  lastSeenAt           DateTime             @default(now())
+  applicationUrl       String
+  sourceUrl            String?
+  sourceType           SourceType
+  sourceName           String
+  isActive             Boolean              @default(true)
+  dedupeFingerprint    String
+  descriptionRaw       String?
+  descriptionText      String?
+  requirementsText     String?
+  metadataJson         Json?
+  rawPostingJson       Json?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  sourceRecords        PostingSourceRecord[]
+  favorites            UserFavorite[]
+  applicationStates    UserApplicationState[]
+  alertDeliveries      AlertDelivery[]
+
+  @@index([companyId, isActive, discoveredAt])
+  @@index([postingDate])
+  @@index([discoveredAt])
+  @@index([roleCategory, year, season])
+  @@index([remoteType, isActive])
+  @@index([dedupeFingerprint])
+  @@index([normalizedTitle])
+  @@index([locationCountries], type: Gin)
+}
+
+model PostingSourceRecord {
+  id                  String            @id @default(cuid())
+  internshipPostingId String
+  internshipPosting   InternshipPosting @relation(fields: [internshipPostingId], references: [id], onDelete: Cascade)
+  companySourceId     String
+  companySource       CompanySource     @relation(fields: [companySourceId], references: [id], onDelete: Cascade)
+  externalJobId       String
+  rawPayloadJson      Json
+  lastSeenAt          DateTime          @default(now())
+  sourceUrl           String?
+  applicationUrl      String
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([companySourceId, externalJobId], map: "source_record_unique_external_job")
+  @@index([internshipPostingId])
+}
+
+model SavedSearch {
+  id            String          @id @default(cuid())
+  userId        String
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name          String
+  filterJson    Json
+  alertsEnabled Boolean         @default(true)
+  alertCadence  AlertCadence    @default(IMMEDIATE)
+  lastAlertedAt DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  deliveries    AlertDelivery[]
+
+  @@unique([userId, name], map: "saved_search_unique_name_per_user")
+  @@index([userId, alertsEnabled])
+}
+
+model UserFavorite {
+  id                  String            @id @default(cuid())
+  userId              String
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  internshipPostingId String
+  internshipPosting   InternshipPosting @relation(fields: [internshipPostingId], references: [id], onDelete: Cascade)
+  createdAt           DateTime          @default(now())
+
+  @@unique([userId, internshipPostingId], map: "user_favorite_unique_posting")
+}
+
+model UserApplicationState {
+  id                  String            @id @default(cuid())
+  userId              String
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  internshipPostingId String
+  internshipPosting   InternshipPosting @relation(fields: [internshipPostingId], references: [id], onDelete: Cascade)
+  state               ApplicationState  @default(NONE)
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([userId, internshipPostingId], map: "user_application_state_unique_posting")
+}
+
+model AlertDelivery {
+  id                  String              @id @default(cuid())
+  userId              String
+  user                User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  savedSearchId       String
+  savedSearch         SavedSearch         @relation(fields: [savedSearchId], references: [id], onDelete: Cascade)
+  internshipPostingId String
+  internshipPosting   InternshipPosting   @relation(fields: [internshipPostingId], references: [id], onDelete: Cascade)
+  channel             AlertChannel
+  status              AlertDeliveryStatus @default(PENDING)
+  sentAt              DateTime?
+  providerMessageId   String?
+  dedupeKey           String              @unique
+  errorText           String?
+  createdAt           DateTime            @default(now())
+
+  @@index([userId, channel, status])
+  @@index([savedSearchId, createdAt])
+}
+
+model IngestionRun {
+  id              String             @id @default(cuid())
+  sourceType      SourceType
+  companySourceId String?
+  companySource   CompanySource?     @relation(fields: [companySourceId], references: [id], onDelete: SetNull)
+  status          IngestionRunStatus @default(RUNNING)
+  startedAt       DateTime           @default(now())
+  finishedAt      DateTime?
+  statsJson       Json?
+  errorText       String?
+  createdAt       DateTime           @default(now())
+
+  @@index([companySourceId, startedAt])
+  @@index([status, startedAt])
+}

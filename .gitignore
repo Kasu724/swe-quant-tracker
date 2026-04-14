@@ -1,0 +1,15 @@
+node_modules
+.next
+.turbo
+dist
+coverage
+.env
+.env.local
+.env.*.local
+package-lock.json
+yarn.lock
+*.log
+postgres-data
+apps/web/.next
+apps/web/.vercel
+packages/db/generated

@@ -1,0 +1,25 @@
+{
+  "name": "faang-quant-tracker",
+  "private": true,
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "dev": "turbo run dev --parallel",
+    "dev:web": "pnpm --filter @faang-quant/web dev",
+    "dev:worker": "pnpm --filter @faang-quant/worker dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @faang-quant/db generate",
+    "db:migrate": "pnpm --filter @faang-quant/db migrate",
+    "db:seed": "pnpm --filter @faang-quant/db seed",
+    "db:studio": "pnpm --filter @faang-quant/db studio",
+    "worker:ingest": "pnpm --filter @faang-quant/worker ingest",
+    "worker:digest": "pnpm --filter @faang-quant/worker digest"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
+  }
+}
+

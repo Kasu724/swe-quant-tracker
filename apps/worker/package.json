@@ -1,0 +1,28 @@
+{
+  "name": "@faang-quant/worker",
+  "private": true,
+  "scripts": {
+    "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "ingest": "dotenv -e ../../.env -- tsx src/cli.ts ingest",
+    "digest": "dotenv -e ../../.env -- tsx src/cli.ts digest"
+  },
+  "dependencies": {
+    "@faang-quant/config": "workspace:*",
+    "@faang-quant/db": "workspace:*",
+    "@faang-quant/email": "workspace:*",
+    "@faang-quant/shared": "workspace:*",
+    "@prisma/client": "^6.6.0",
+    "date-fns": "^4.1.0",
+    "node-cron": "^4.1.0",
+    "pino": "^9.6.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.2",
+    "dotenv-cli": "^8.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
