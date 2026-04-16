@@ -11,6 +11,21 @@ export interface SourceAdapter {
   fetchPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]>;
 }
 
+function mergeHeaders(
+  baseHeaders: NonNullable<RequestInit["headers"]>,
+  extraHeaders?: RequestInit["headers"]
+): Headers {
+  const headers = new Headers(baseHeaders);
+
+  if (extraHeaders) {
+    new Headers(extraHeaders).forEach((value, key) => {
+      headers.set(key, value);
+    });
+  }
+
+  return headers;
+}
+
 export async function fetchJson<T>(context: AdapterFetchContext, url: string): Promise<T> {
   const fetchImpl = context.fetchImpl ?? fetch;
   const response = await fetchImpl(url, {
@@ -19,6 +34,31 @@ export async function fetchJson<T>(context: AdapterFetchContext, url: string): P
       Accept: "application/json",
       "User-Agent": "faang-quant-tracker/1.0"
     }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch ${url}: ${response.status} ${response.statusText}`);
+  }
+
+  return (await response.json()) as T;
+}
+
+export async function fetchJsonRequest<T>(
+  context: AdapterFetchContext,
+  url: string,
+  init?: RequestInit
+): Promise<T> {
+  const fetchImpl = context.fetchImpl ?? fetch;
+  const response = await fetchImpl(url, {
+    ...init,
+    signal: context.signal,
+    headers: mergeHeaders(
+      {
+        Accept: "application/json",
+        "User-Agent": "faang-quant-tracker/1.0"
+      },
+      init?.headers
+    )
   });
 
   if (!response.ok) {

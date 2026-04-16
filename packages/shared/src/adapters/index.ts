@@ -4,6 +4,7 @@ import { CustomApiAdapter } from "./custom-api";
 import { CustomHtmlAdapter } from "./custom-html";
 import { GreenhouseAdapter } from "./greenhouse";
 import { LeverAdapter } from "./lever";
+import { WorkdayAdapter } from "./workday";
 
 export { type SourceAdapter } from "./base";
 export { AshbyAdapter } from "./ashby";
@@ -11,13 +12,15 @@ export { CustomApiAdapter } from "./custom-api";
 export { CustomHtmlAdapter } from "./custom-html";
 export { GreenhouseAdapter } from "./greenhouse";
 export { LeverAdapter } from "./lever";
+export { WorkdayAdapter } from "./workday";
 
 const adapters = [
   new GreenhouseAdapter(),
   new LeverAdapter(),
   new AshbyAdapter(),
   new CustomApiAdapter(),
-  new CustomHtmlAdapter()
+  new CustomHtmlAdapter(),
+  new WorkdayAdapter()
 ];
 
 export function getAdapter(type: SourceTypeValue) {

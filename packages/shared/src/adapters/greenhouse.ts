@@ -1,6 +1,21 @@
 import { parseCompensation } from "../normalization/compensation";
 import type { AdapterFetchContext, AdapterFetchedPosting } from "../types";
-import { fetchJson, type SourceAdapter } from "./base";
+import {
+  compensationFromStructuredRange,
+  fetchJson,
+  type SourceAdapter
+} from "./base";
+
+type GreenhouseStructuredCurrencyRange = {
+  unit?: string | null;
+  min_value?: string | number | null;
+  max_value?: string | number | null;
+};
+
+type GreenhouseMetadataField = {
+  name?: string;
+  value?: string | GreenhouseStructuredCurrencyRange | null;
+};
 
 type GreenhouseJob = {
   id: number;
@@ -11,7 +26,7 @@ type GreenhouseJob = {
   offices?: Array<{ name?: string }>;
   departments?: Array<{ name?: string }>;
   content?: string;
-  metadata?: Array<{ name?: string; value?: string | null }>;
+  metadata?: GreenhouseMetadataField[];
 };
 
 type GreenhouseResponse = {
@@ -25,12 +40,94 @@ function buildGreenhouseUrl(context: AdapterFetchContext): string {
   );
 }
 
+function findPayField(job: GreenhouseJob): GreenhouseMetadataField | undefined {
+  return job.metadata?.find((field) => /(salary|compensation|pay)/i.test(field.name ?? ""));
+}
+
+function asNumber(value: string | number | null | undefined): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+}
+
+function formatStructuredPayRaw(value: GreenhouseStructuredCurrencyRange): string | undefined {
+  const min = asNumber(value.min_value);
+  const max = asNumber(value.max_value);
+  const currency = value.unit ?? undefined;
+
+  if (min === undefined && max === undefined) {
+    return undefined;
+  }
+
+  const formatter = new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0
+  });
+  const formattedMin = min !== undefined ? formatter.format(min) : undefined;
+  const formattedMax = max !== undefined ? formatter.format(max) : undefined;
+
+  if (formattedMin && formattedMax && formattedMin !== formattedMax) {
+    return currency ? `${currency} ${formattedMin} - ${formattedMax}` : `${formattedMin} - ${formattedMax}`;
+  }
+
+  const formatted = formattedMin ?? formattedMax;
+
+  return formatted ? (currency ? `${currency} ${formatted}` : formatted) : undefined;
+}
+
 function extractPayRaw(job: GreenhouseJob): string | undefined {
+  const payField = findPayField(job);
+
+  if (!payField) {
+    return undefined;
+  }
+
+  if (typeof payField.value === "string") {
+    return payField.value;
+  }
+
+  if (payField.value && typeof payField.value === "object") {
+    return formatStructuredPayRaw(payField.value);
+  }
+
+  return undefined;
+}
+
+function extractStructuredCompensation(job: GreenhouseJob) {
+  const payField = findPayField(job);
+
+  if (!payField?.value || typeof payField.value !== "object") {
+    return undefined;
+  }
+
+  return compensationFromStructuredRange({
+    min: asNumber(payField.value.min_value),
+    max: asNumber(payField.value.max_value),
+    currency: payField.value.unit,
+    interval: payField.name && /hour/i.test(payField.name) ? "1 HOUR" : "1 YEAR",
+    raw: formatStructuredPayRaw(payField.value)
+  });
+}
+
+function extractCompensation(job: GreenhouseJob, payRaw?: string) {
   const payField = job.metadata?.find((field) =>
     /(salary|compensation|pay)/i.test(field.name ?? "")
   );
 
-  return payField?.value ?? undefined;
+  if (payField?.value && typeof payField.value === "object") {
+    return extractStructuredCompensation(job);
+  }
+
+  return payRaw ? parseCompensation(payRaw) : undefined;
 }
 
 export class GreenhouseAdapter implements SourceAdapter {
@@ -54,7 +151,7 @@ export class GreenhouseAdapter implements SourceAdapter {
           job.offices?.map((office) => office.name).filter(Boolean).join(" | ") ??
           undefined,
         payRaw,
-        compensation: payRaw ? parseCompensation(payRaw) : undefined,
+        compensation: extractCompensation(job, payRaw),
         metadata: {
           departments: job.departments?.map((department) => department.name).filter(Boolean),
           offices: job.offices?.map((office) => office.name).filter(Boolean),
@@ -65,4 +162,3 @@ export class GreenhouseAdapter implements SourceAdapter {
     });
   }
 }
-

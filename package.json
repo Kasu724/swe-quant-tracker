@@ -14,7 +14,8 @@
     "db:seed": "pnpm --filter @faang-quant/db seed",
     "db:studio": "pnpm --filter @faang-quant/db studio",
     "worker:ingest": "pnpm --filter @faang-quant/worker ingest",
-    "worker:digest": "pnpm --filter @faang-quant/worker digest"
+    "worker:digest": "pnpm --filter @faang-quant/worker digest",
+    "worker:links": "pnpm --filter @faang-quant/worker links"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
@@ -22,4 +23,3 @@
     "vitest": "^3.1.1"
   }
 }
-

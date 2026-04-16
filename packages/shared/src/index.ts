@@ -11,4 +11,5 @@ export * from "./normalization/posting";
 export * from "./normalization/role";
 export * from "./normalization/season";
 export * from "./normalization/text";
+export * from "./posting-links";
 export * from "./types";

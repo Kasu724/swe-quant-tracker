@@ -6,7 +6,8 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "ingest": "dotenv -e ../../.env -- tsx src/cli.ts ingest",
-    "digest": "dotenv -e ../../.env -- tsx src/cli.ts digest"
+    "digest": "dotenv -e ../../.env -- tsx src/cli.ts digest",
+    "links": "dotenv -e ../../.env -- tsx src/cli.ts links"
   },
   "dependencies": {
     "@faang-quant/config": "workspace:*",

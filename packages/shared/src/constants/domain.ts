@@ -54,30 +54,57 @@ export const LISTING_SORT_OPTIONS = [
   "location"
 ] as const;
 
-export const INTERNSHIP_INCLUDE_PATTERNS = [
+export const INTERNSHIP_TITLE_INCLUDE_PATTERNS = [
   /\bintern(ship)?\b/i,
   /\bsummer analyst\b/i,
   /\bsummer associate\b/i,
   /\bsummer intern\b/i,
   /\boff[- ]cycle\b/i,
   /\bco[- ]?op\b/i,
-  /\bstudent\b/i,
-  /\buniversity\b/i,
-  /\bcampus\b/i,
-  /\bearly careers?\b/i,
-  /\bundergraduate\b/i
+  /\bworking student\b/i,
+  /\bstudent worker\b/i,
+  /\bstudent technician\b/i,
+  /\bapprentice(ship)?\b/i
 ] as const;
 
-export const INTERNSHIP_EXCLUDE_PATTERNS = [
+export const INTERNSHIP_BODY_INCLUDE_PATTERNS = [
+  /\bintern(ship)?\b/i,
+  /\bsummer analyst\b/i,
+  /\bsummer associate\b/i,
+  /\bsummer intern\b/i,
+  /\boff[- ]cycle\b/i,
+  /\bco[- ]?op\b/i,
+  /\bworking student\b/i,
+  /\bstudent worker\b/i,
+  /\bstudent technician\b/i,
+  /\bapprentice(ship)?\b/i
+] as const;
+
+export const INTERNSHIP_HARD_EXCLUDE_PATTERNS = [
+  /\bfull[- ]time\b/i,
+  /\bpermanent\b/i,
+  /\bnew grad(uate)?\b/i,
+  /\bearly career\b/i,
+  /\breturnship\b/i,
+  /\bexpression(s)? of interest\b/i,
+  /\bfuture ?focus\b/i,
+  /\bmasterclass\b/i,
+  /\bsummit\b/i,
+  /\bacademy\b/i,
+  /\bevents?\b/i,
+  /\btable\b/i
+] as const;
+
+export const INTERNSHIP_SOFT_EXCLUDE_PATTERNS = [
   /\bprincipal\b/i,
   /\bstaff\b/i,
   /\bsenior\b/i,
   /\blead\b/i,
-  /\bmanager\b/i,
   /\bdirector\b/i,
   /\bexperienced\b/i,
-  /\bfull[- ]time\b/i,
-  /\bpermanent\b/i
+  /\brecruit(er|ing)\b/i,
+  /\bcoordinator\b/i,
+  /\bbusiness partner\b/i
 ] as const;
 
 export const US_STATE_NAME_BY_CODE: Record<string, string> = {

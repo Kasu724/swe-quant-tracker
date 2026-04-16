@@ -1,6 +1,7 @@
 import { subDays } from "date-fns";
 import { prisma, type Prisma } from "@faang-quant/db";
 import {
+  getPreferredPostingUrl,
   listingFilterSchema,
   matchesListingFilters,
   serializeRowsToCsv,
@@ -50,6 +51,22 @@ function readNumberParam(value: string | string[] | undefined): number | undefin
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function normalizeSortParam(
+  value: string | string[] | undefined
+): ListingFilters["sort"] | undefined {
+  const first = Array.isArray(value) ? value[0] : value;
+
+  if (!first) {
+    return undefined;
+  }
+
+  if (first === "newest") {
+    return "postingDate";
+  }
+
+  return first as ListingFilters["sort"];
+}
+
 export function parseListingFilters(searchParams: SearchParams): ListingFilters {
   return listingFilterSchema.parse({
     q: Array.isArray(searchParams.q) ? searchParams.q[0] : searchParams.q,
@@ -67,7 +84,7 @@ export function parseListingFilters(searchParams: SearchParams): ListingFilters 
     usOnly: readBooleanParam(searchParams.usOnly, false),
     includeMissingLocation: readBooleanParam(searchParams.includeMissingLocation, true),
     includeMissingPay: readBooleanParam(searchParams.includeMissingPay, true),
-    sort: (Array.isArray(searchParams.sort) ? searchParams.sort[0] : searchParams.sort) ?? "newest"
+    sort: normalizeSortParam(searchParams.sort) ?? "postingDate"
   });
 }
 
@@ -110,9 +127,9 @@ function sortListings(
   sorted.sort((left, right) => {
     switch (sort) {
       case "postingDate":
+      case "newest":
         return (right.postingDate?.getTime() ?? 0) - (left.postingDate?.getTime() ?? 0);
       case "discoveredDate":
-      case "newest":
         return (right.discoveredAt?.getTime() ?? 0) - (left.discoveredAt?.getTime() ?? 0);
       case "company":
         return left.companyNameSnapshot.localeCompare(right.companyNameSnapshot);
@@ -170,9 +187,12 @@ export async function getListings(filters: ListingFilters) {
     include: {
       company: true
     },
-    orderBy: {
-      discoveredAt: "desc"
-    },
+    orderBy:
+      filters.sort === "postingDate" || filters.sort === "newest"
+        ? [{ postingDate: "desc" }, { discoveredAt: "desc" }]
+        : {
+            discoveredAt: "desc"
+          },
     take: 500
   });
 
@@ -238,20 +258,69 @@ export async function getHomeStats() {
 }
 
 export async function getCompaniesOverview() {
-  return prisma.company.findMany({
-    orderBy: { name: "asc" },
-    include: {
+  const companies = await prisma.company.findMany({
+    where: {
+      isActive: true,
       sources: {
-        orderBy: { priority: "asc" }
-      },
-      _count: {
+        some: {
+          isActive: true,
+          pollingEnabled: true
+        }
+      }
+    },
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      websiteUrl: true,
+      careersUrl: true,
+      companyBucket: true,
+      tags: true,
+      sources: {
+        where: {
+          isActive: true,
+          pollingEnabled: true
+        },
+        orderBy: [{ priority: "asc" }, { sourceType: "asc" }],
         select: {
-          postings: true,
-          sources: true
+          id: true,
+          sourceType: true,
+          sourceName: true,
+          sourceIdentifier: true,
+          sourceUrl: true
         }
       }
     }
   });
+
+  if (companies.length === 0) {
+    return [];
+  }
+
+  const postingCounts = await prisma.internshipPosting.groupBy({
+    by: ["companyId"],
+    where: {
+      companyId: {
+        in: companies.map((company) => company.id)
+      },
+      internshipFlag: true,
+      isActive: true
+    },
+    _count: {
+      _all: true
+    }
+  });
+
+  const postingCountByCompanyId = new Map(
+    postingCounts.map((entry) => [entry.companyId, entry._count._all])
+  );
+
+  return companies.map((company) => ({
+    ...company,
+    trackedSourceCount: company.sources.length,
+    activeInternshipCount: postingCountByCompanyId.get(company.id) ?? 0
+  }));
 }
 
 export async function getInternshipBySlug(slug: string, userId?: string) {
@@ -473,7 +542,7 @@ export async function exportListingsCsv(filters: ListingFilters) {
         typeof listing.compensationMax?.toString === "function"
           ? listing.compensationMax.toString()
           : "",
-      applicationUrl: listing.applicationUrl
+      applicationUrl: getPreferredPostingUrl(listing) ?? listing.applicationUrl
     }))
   );
 }

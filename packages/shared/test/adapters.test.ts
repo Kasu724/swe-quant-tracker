@@ -4,6 +4,7 @@ import { CustomApiAdapter } from "../src/adapters/custom-api";
 import { CustomHtmlAdapter } from "../src/adapters/custom-html";
 import { GreenhouseAdapter } from "../src/adapters/greenhouse";
 import { LeverAdapter } from "../src/adapters/lever";
+import { WorkdayAdapter } from "../src/adapters/workday";
 
 describe("structured adapters", () => {
   it("normalizes greenhouse responses", async () => {
@@ -35,6 +36,48 @@ describe("structured adapters", () => {
 
     expect(postings[0]?.externalJobId).toBe("123");
     expect(postings[0]?.locationRaw).toBe("New York, NY");
+  });
+
+  it("normalizes greenhouse structured compensation metadata", async () => {
+    const adapter = new GreenhouseAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "MongoDB", slug: "mongodb" },
+      source: {
+        sourceType: "GREENHOUSE",
+        sourceName: "Official Greenhouse Board",
+        sourceIdentifier: "mongodb",
+        sourceUrl: "https://boards-api.greenhouse.io/v1/boards/mongodb/jobs?content=true"
+      },
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            jobs: [
+              {
+                id: 456,
+                title: "Program Management Intern",
+                absolute_url: "https://www.mongodb.com/careers/job/?gh_jid=456",
+                updated_at: "2026-04-14T00:00:00.000Z",
+                location: { name: "New York, NY" },
+                metadata: [
+                  {
+                    name: "Baseline Budgeted Salary",
+                    value: {
+                      unit: "USD",
+                      min_value: "70200.0",
+                      max_value: "70200.0"
+                    }
+                  }
+                ]
+              }
+            ]
+          })
+        )
+    });
+
+    expect(postings[0]?.payRaw).toBe("USD 70,200");
+    expect(postings[0]?.compensation?.min).toBe(70200);
+    expect(postings[0]?.compensation?.max).toBe(70200);
+    expect(postings[0]?.compensation?.currency).toBe("USD");
   });
 
   it("normalizes lever responses", async () => {
@@ -150,6 +193,58 @@ describe("structured adapters", () => {
     expect(postings[0]?.locationRaw).toBe("Munich");
   });
 
+  it("stops Apple pagination after a short final page", async () => {
+    const adapter = new CustomHtmlAdapter();
+    let calls = 0;
+    const pageHtml = (jobId: string) => `
+      <li>
+        <div id="search-search-job-title-${jobId}-1">
+          <div class="job-title-link">
+            <h3>
+              <a href="/en-us/details/${jobId}/software-engineering-intern?team=STDNT">
+                Software Engineering Intern
+              </a>
+            </h3>
+            <span class="team-name">Students</span>
+            <span class="job-posted-date">Apr 01, 2026</span>
+          </div>
+          <div id="search-location-search-job-title-${jobId}-1">
+            <span id="search-store-name-container-1">Cupertino</span>
+          </div>
+        </div>
+      </li>
+    `;
+
+    const postings = await adapter.fetchPostings({
+      company: { name: "Apple", slug: "apple" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official Apple internships search",
+        sourceIdentifier: "apple-internships",
+        sourceUrl: "https://jobs.apple.com/en-us/search?team=internships-STDNT-INTRN",
+        requestConfigJson: { maxPages: 8, pageSize: 2 },
+        parserConfigJson: { parserId: "apple-search" }
+      },
+      fetchImpl: async (input) => {
+        calls += 1;
+        const url = String(input);
+
+        if (url.includes("page=3")) {
+          return new Response(pageHtml("2003"));
+        }
+
+        if (url.includes("page=4")) {
+          throw new Error("should not fetch page 4");
+        }
+
+        return new Response(`${pageHtml(`200${calls}a`)}${pageHtml(`200${calls}b`)}`);
+      }
+    });
+
+    expect(calls).toBe(3);
+    expect(postings).toHaveLength(5);
+  });
+
   it("normalizes Netflix smart apply search HTML responses", async () => {
     const adapter = new CustomHtmlAdapter();
     const postings = await adapter.fetchPostings({
@@ -175,6 +270,68 @@ describe("structured adapters", () => {
       "https://explore.jobs.netflix.net/careers/job/790313241540"
     );
     expect(postings[0]?.title).toContain("Intern");
+  });
+
+  it("normalizes Google careers search HTML responses", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Google", slug: "google" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official Google careers search",
+        sourceIdentifier: "google-careers",
+        sourceUrl: "https://www.google.com/about/careers/applications/jobs/results?q=intern",
+        requestConfigJson: { maxPages: 1 },
+        parserConfigJson: { parserId: "google-careers-search" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <html>
+            <body>
+              <a href="jobs/results/135846492295307974-research-scientist-intern-summer-2026?q=intern">
+                Research Scientist Intern
+              </a>
+              <script>
+                AF_initDataCallback({key: 'ds:1', hash: '2', data:[[[
+                  '135846492295307974',
+                  'Research Scientist Intern, Summer 2026',
+                  'https://www.google.com/about/careers/applications/signin?jobId=abc',
+                  [null, '<ul><li>Participate in research.</li></ul>'],
+                  [null, '<h3>Minimum qualifications:</h3><ul><li>Currently enrolled in a PhD program.</li></ul>'],
+                  'projects/gweb-careers-proto/company/google',
+                  null,
+                  'Google',
+                  'en-US',
+                  [
+                    ['Sydney NSW, Australia', ['Sydney NSW, Australia'], 'Sydney', null, 'NSW', 'AU'],
+                    ['Melbourne VIC, Australia', ['Melbourne VIC, Australia'], 'Melbourne', null, 'VIC', 'AU']
+                  ],
+                  [null, '<p>Our Summer Internships start in late November 2026.</p>'],
+                  [3, 4],
+                  [1774528281, 475000000],
+                  [1774528281, 475000000],
+                  [1774528281, 603000000],
+                  [null, '<p>Additional note.</p>'],
+                  null,
+                  null,
+                  [null, ''],
+                  [null, '<ul><li>Currently enrolled in a PhD program.</li></ul>'],
+                  5
+                ]], null, 1, 20], sideChannel: {}});
+              </script>
+            </body>
+          </html>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("135846492295307974");
+    expect(postings[0]?.title).toBe("Research Scientist Intern, Summer 2026");
+    expect(postings[0]?.sourceUrl).toBe(
+      "https://www.google.com/about/careers/applications/jobs/results/135846492295307974-research-scientist-intern-summer-2026?q=intern"
+    );
+    expect(postings[0]?.locationRaw).toBe("Sydney NSW, Australia");
+    expect(postings[0]?.additionalLocations).toEqual(["Melbourne VIC, Australia"]);
   });
 
   it("normalizes Amazon official search JSON responses", async () => {
@@ -239,5 +396,406 @@ describe("structured adapters", () => {
     expect(postings[0]?.locationRaw).toBe("Madrid, Community of Madrid, Spain");
     expect(postings[0]?.additionalLocations).toEqual(["Barcelona, Catalonia, Spain"]);
     expect(postings[0]?.remoteTypeHint).toBe("ONSITE");
+  });
+
+  it("normalizes Microsoft careers API responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Microsoft", slug: "microsoft" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Microsoft careers search",
+        sourceIdentifier: "microsoft-pcsx",
+        sourceUrl:
+          "https://apply.careers.microsoft.com/api/pcsx/search?domain=microsoft.com&query=intern&location=&filter_employment_type=Internship",
+        requestConfigJson: { pageSize: 10, maxPages: 1, fetchDetails: true },
+        parserConfigJson: { parserId: "microsoft-pcsx-search" }
+      },
+      fetchImpl: async (url) => {
+        const requestUrl = typeof url === "string" ? url : url.toString();
+
+        if (requestUrl.includes("/api/pcsx/search")) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                count: 1,
+                positions: [
+                  {
+                    id: 1970393556856340,
+                    displayJobId: "200034082",
+                    name: "Research Intern - AI Frontiers - Reasoning & Agentic Models",
+                    locations: ["United States, Washington, Redmond"],
+                    standardizedLocations: ["Redmond, WA, US"],
+                    postedTs: 1775169318,
+                    department: "Applied Sciences",
+                    workLocationOption: "onsite",
+                    atsJobId: "200034082",
+                    positionUrl: "/careers/job/1970393556856340"
+                  }
+                ]
+              }
+            })
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            data: {
+              id: 1970393556856340,
+              displayJobId: "200034082",
+              name: "Research Intern - AI Frontiers - Reasoning & Agentic Models",
+              locations: ["United States, Washington, Redmond"],
+              standardizedLocations: ["Redmond, WA, US", "Mountain View, CA, US"],
+              postedTs: 1775169318,
+              department: "Applied Sciences",
+              workLocationOption: "onsite",
+              atsJobId: "200034082",
+              publicUrl: "https://apply.careers.microsoft.com/careers/job/1970393556856340",
+              location: "United States, Washington, Redmond",
+              jobDescription:
+                "<b>Overview</b><p>Research Internships at Microsoft provide a dynamic environment.</p><p>Applied Sciences IC2 - The base pay range for this internship is USD $5,610 - $11,010 per month.</p>",
+              efcustomTextEmploymentType: ["Internship"]
+            }
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("200034082");
+    expect(postings[0]?.applicationUrl).toBe(
+      "https://apply.careers.microsoft.com/careers/job/1970393556856340"
+    );
+    expect(postings[0]?.locationRaw).toBe("United States, Washington, Redmond");
+    expect(postings[0]?.additionalLocations).toEqual(["Mountain View, CA, US"]);
+    expect(postings[0]?.payRaw).toContain("USD $5,610 - $11,010 per month");
+  });
+
+  it("normalizes GitHub careers API responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "GitHub", slug: "github" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official GitHub careers API",
+        sourceIdentifier: "github-jibe",
+        sourceUrl: "https://www.github.careers/api/jobs",
+        requestConfigJson: { maxPages: 3 },
+        parserConfigJson: { parserId: "github-jibe-jobs" }
+      },
+      fetchImpl: async (url) => {
+        const requestUrl = new URL(typeof url === "string" ? url : url.toString());
+        const page = requestUrl.searchParams.get("page") ?? "1";
+
+        if (page === "2") {
+          return new Response(
+            JSON.stringify({
+              count: 2,
+              totalCount: 2,
+              jobs: [
+                {
+                  data: {
+                    slug: "6001",
+                    req_id: "6001",
+                    title: "Software Engineering Intern",
+                    description: "<p>Compensation range: USD $40.00 - $50.00 /Hr.</p>",
+                    location_name: "Remote, United States",
+                    country: "United States",
+                    country_code: "US",
+                    location_type: "ANY",
+                    posted_date: "2026-04-12",
+                    apply_url: "https://careers-githubinc.icims.com/jobs/6001/login",
+                    category: "Engineering",
+                    meta_data: {
+                      canonical_url: "https://githubinc.jibeapply.com/jobs/6001?lang=en-us"
+                    }
+                  }
+                }
+              ]
+            })
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            count: 2,
+            totalCount: 2,
+            jobs: [
+              {
+                data: {
+                  slug: "5239",
+                  req_id: "5239",
+                  title: "Master Data Management & Data Quality Intern",
+                  description:
+                    "In this role you can work from Remote, United States. Compensation Range The base salary range for this job is USD $31.82 - USD $84.42 /Hr.",
+                  location_name: "US Remote",
+                  country: "United States",
+                  country_code: "US",
+                  location_type: "ANY",
+                  posted_date: "2026-03-27",
+                  apply_url: "https://careers-githubinc.icims.com/jobs/5239/login",
+                  categories: [{ name: "Revenue" }],
+                  tags2: ["US-Remote"],
+                  meta_data: {
+                    canonical_url: "https://githubinc.jibeapply.com/jobs/5239?lang=en-us"
+                  }
+                }
+              }
+            ]
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(2);
+    expect(postings[0]?.externalJobId).toBe("5239");
+    expect(postings[0]?.sourceUrl).toBe("https://githubinc.jibeapply.com/jobs/5239?lang=en-us");
+    expect(postings[0]?.applicationUrl).toBe("https://careers-githubinc.icims.com/jobs/5239/login");
+    expect(postings[0]?.locationRaw).toBe("US Remote");
+    expect(postings[0]?.remoteTypeHint).toBe("Remote");
+    expect(postings[0]?.payRaw).toContain("USD $31.82 - USD $84.42 /Hr.");
+    expect(postings[1]?.title).toBe("Software Engineering Intern");
+  });
+
+  it("normalizes AMD careers Jibe API responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "AMD", slug: "amd" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official AMD careers API",
+        sourceIdentifier: "amd-jibe",
+        sourceUrl: "https://careers.amd.com/api/jobs",
+        requestConfigJson: { maxPages: 2, query: "intern", queryParamName: "keywords" },
+        parserConfigJson: { parserId: "jibe-jobs" }
+      },
+      fetchImpl: async (url) => {
+        const requestUrl = new URL(typeof url === "string" ? url : url.toString());
+        const page = requestUrl.searchParams.get("page") ?? "1";
+
+        if (page === "2") {
+          return new Response(
+            JSON.stringify({
+              count: 2,
+              totalCount: 2,
+              jobs: [
+                {
+                  data: {
+                    slug: "76975",
+                    req_id: "76975",
+                    title: "Summer 2026 - Data Analyst Intern",
+                    description:
+                      "<p>As an AMD intern, you'll work full time during Summer 2026.</p>",
+                    location_name: "TW,Taipei",
+                    full_location: "Taipei City 115, Taiwan",
+                    country: "Taiwan",
+                    country_code: "TW",
+                    posted_date: "2025-12-31T04:58:00+0000",
+                    apply_url: "https://globalcampus-amd.icims.com/jobs/76975/login",
+                    categories: [{ name: "Student / Intern / Temp" }],
+                    tags2: ["TWD NT$0.00/Yr."],
+                    meta_data: {
+                      canonical_url: "https://careers.amd.com/jobs/76975?lang=en-us"
+                    }
+                  }
+                }
+              ]
+            })
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            count: 2,
+            totalCount: 2,
+            jobs: [
+              {
+                data: {
+                  slug: "80001",
+                  req_id: "80001",
+                  title: "GPU Performance Intern",
+                  description: "<p>Internship role</p>",
+                  location_name: "Austin, TX",
+                  full_location: "Austin, Texas, United States",
+                  country: "United States",
+                  country_code: "US",
+                  posted_date: "2026-01-15T00:00:00+0000",
+                  apply_url: "https://globalcampus-amd.icims.com/jobs/80001/login",
+                  categories: [{ name: "Student / Intern / Temp" }],
+                  meta_data: {
+                    canonical_url: "https://careers.amd.com/jobs/80001?lang=en-us"
+                  }
+                }
+              }
+            ]
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(2);
+    expect(postings[0]?.applicationUrl).toBe("https://globalcampus-amd.icims.com/jobs/80001/login");
+    expect(postings[0]?.sourceUrl).toBe("https://careers.amd.com/jobs/80001?lang=en-us");
+    expect(postings[1]?.title).toBe("Summer 2026 - Data Analyst Intern");
+  });
+
+  it("normalizes generic pcsx responses on non-Microsoft domains", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Qualcomm", slug: "qualcomm" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Qualcomm careers search",
+        sourceIdentifier: "qualcomm-pcsx",
+        sourceUrl:
+          "https://careers.qualcomm.com/api/pcsx/search?domain=qualcomm.com&query=intern&location=",
+        requestConfigJson: { pageSize: 10, maxPages: 1 },
+        parserConfigJson: { parserId: "pcsx-search" }
+      },
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            data: {
+              count: 1,
+              positions: [
+                {
+                  id: 446717272560,
+                  displayJobId: "3087413",
+                  name: "2026 Summer Intern-Computer Vision Research intern",
+                  locations: ["Shanghai, Shanghai, China"],
+                  standardizedLocations: ["Shanghai, Shanghai, CN"],
+                  postedTs: 1772755200,
+                  department: "Interim Engineering Intern - SW",
+                  workLocationOption: "onsite",
+                  atsJobId: "3087413",
+                  positionUrl: "/careers/job/446717272560"
+                }
+              ]
+            }
+          })
+        )
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("3087413");
+    expect(postings[0]?.applicationUrl).toBe("https://careers.qualcomm.com/careers/job/446717272560");
+    expect(postings[0]?.locationRaw).toBe("Shanghai, Shanghai, CN");
+  });
+
+  it("normalizes Salesforce RSS job feeds", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Salesforce", slug: "salesforce" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Salesforce jobs RSS",
+        sourceIdentifier: "salesforce-rss",
+        sourceUrl: "https://careers.salesforce.com/en/jobs/xml/?rss=true",
+        parserConfigJson: { parserId: "salesforce-rss" }
+      },
+      fetchImpl: async () =>
+        new Response(`<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+          <source>
+            <job>
+              <title><![CDATA[Software Engineering Intern]]></title>
+              <date><![CDATA[Wed, 15 Apr 2026 00:00:00 GMT]]></date>
+              <requisitionid><![CDATA[JR999999]]></requisitionid>
+              <apijobid><![CDATA[jr999999]]></apijobid>
+              <url><![CDATA[https://careers.salesforce.com/en/jobs/jr999999/software-engineering-intern/]]></url>
+              <company><![CDATA[Salesforce, Inc.]]></company>
+              <city><![CDATA[San Francisco]]></city>
+              <state><![CDATA[California]]></state>
+              <country><![CDATA[United States of America]]></country>
+              <description><![CDATA[<p>Join Futureforce as a software engineering intern.</p>]]></description>
+              <jobtype><![CDATA[Internship]]></jobtype>
+              <category><![CDATA[Engineering]]></category>
+              <sourcename><![CDATA[Salesforce, Inc.]]></sourcename>
+              <remotetype><![CDATA[Hybrid]]></remotetype>
+            </job>
+          </source>`)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("JR999999");
+    expect(postings[0]?.locationRaw).toBe("San Francisco, California, United States of America");
+    expect(postings[0]?.employmentType).toBe("Internship");
+    expect(postings[0]?.remoteTypeHint).toBe("Hybrid");
+  });
+
+  it("normalizes Workday internship responses", async () => {
+    const adapter = new WorkdayAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Nvidia", slug: "nvidia" },
+      source: {
+        sourceType: "WORKDAY",
+        sourceName: "Official Nvidia Workday",
+        sourceIdentifier: "nvidia-workday",
+        sourceUrl: "https://nvidia.wd5.myworkdayjobs.com/wday/cxs/nvidia/NVIDIAExternalCareerSite/jobs",
+        requestConfigJson: {
+          pageSize: 20,
+          maxPages: 1,
+          appliedFacets: {
+            workerSubType: ["0c40f6bd1d8f10adf6dae42e46d44a17"]
+          }
+        }
+      },
+      fetchImpl: async (url, init) => {
+        const requestUrl = typeof url === "string" ? url : url.toString();
+
+        if (requestUrl.endsWith("/jobs") && init?.method === "POST") {
+          return new Response(
+            JSON.stringify({
+              total: 1,
+              jobPostings: [
+                {
+                  title: "AI for Chip Design Intern - Summer 2026",
+                  externalPath:
+                    "/job/US-CA-Santa-Clara/AI-for-Chip-Design-Intern---Summer-2026_JR2011182",
+                  locationsText: "US, CA, Santa Clara",
+                  postedOn: "Posted 13 Days Ago",
+                  bulletFields: ["JR2011182"]
+                }
+              ]
+            })
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            jobPostingInfo: {
+              title: "AI for Chip Design Intern - Summer 2026",
+              jobDescription:
+                "<p>NVIDIA has been redefining computer graphics.</p><p>The hourly rate for our interns is 20 USD - 71 USD.</p>",
+              location: "US, CA, Santa Clara",
+              postedOn: "Posted 13 Days Ago",
+              startDate: "2026-03-10",
+              timeType: "Full time",
+              jobReqId: "JR2011182",
+              jobPostingId: "AI-for-Chip-Design-Intern---Summer-2026_JR2011182",
+              externalUrl:
+                "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/AI-for-Chip-Design-Intern---Summer-2026_JR2011182",
+              canApply: true,
+              posted: true,
+              jobRequisitionLocation: {
+                descriptor: "US, CA, Santa Clara",
+                country: {
+                  descriptor: "United States of America",
+                  alpha2Code: "US"
+                }
+              }
+            }
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("JR2011182");
+    expect(postings[0]?.title).toBe("AI for Chip Design Intern - Summer 2026");
+    expect(postings[0]?.applicationUrl).toBe(
+      "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite/job/US-CA-Santa-Clara/AI-for-Chip-Design-Intern---Summer-2026_JR2011182"
+    );
+    expect(postings[0]?.locationRaw).toBe("US, CA, Santa Clara");
+    expect(postings[0]?.payRaw).toContain("20 USD - 71 USD");
   });
 });

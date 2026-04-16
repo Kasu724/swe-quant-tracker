@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Badge, Button, Card, CardContent, Container, PageHeader } from "@faang-quant/ui";
+import { getPreferredPostingUrl } from "@faang-quant/shared";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../../../lib/actions";
 import { getCurrentSession } from "../../../lib/auth";
 import { getInternshipBySlug } from "../../../lib/queries";
@@ -18,6 +19,7 @@ export default async function InternshipDetailPage({
   }
 
   const { posting, favorite, applicationState } = result;
+  const outboundUrl = getPreferredPostingUrl(posting);
 
   return (
     <Container className="space-y-8 py-12">
@@ -26,11 +28,13 @@ export default async function InternshipDetailPage({
         title={posting.title}
         description={`${posting.companyNameSnapshot} · ${posting.locationRaw ?? "Location not listed"} · ${posting.remoteType}`}
         actions={
-          <Button asChild>
-            <a href={posting.applicationUrl} target="_blank" rel="noreferrer">
-              Apply now
-            </a>
-          </Button>
+          outboundUrl ? (
+            <Button asChild>
+              <a href={outboundUrl} target="_blank" rel="noreferrer">
+                Apply now
+              </a>
+            </Button>
+          ) : undefined
         }
       />
 
@@ -130,4 +134,3 @@ export default async function InternshipDetailPage({
     </Container>
   );
 }
-

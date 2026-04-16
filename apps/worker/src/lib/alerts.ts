@@ -1,6 +1,7 @@
 import { readBaseEnv } from "@faang-quant/config";
 import { prisma, AlertCadence, AlertDeliveryStatus, AlertChannel } from "@faang-quant/db";
 import {
+  getPreferredPostingUrl,
   listingFilterSchema,
   matchesListingFilters,
   type ListingFilters,
@@ -122,7 +123,7 @@ export async function sendImmediateAlertsForPostings(postingIds: string[]) {
             company: posting.companyNameSnapshot,
             title: posting.title,
             location: posting.locationRaw,
-            applicationUrl: posting.applicationUrl
+            applicationUrl: getPreferredPostingUrl(posting) ?? posting.applicationUrl
           }
         ],
         manageUrl: `${env.APP_BASE_URL}/saved-searches`,
@@ -235,7 +236,7 @@ export async function sendDailyDigests() {
         company: posting.companyNameSnapshot,
         title: posting.title,
         location: posting.locationRaw,
-        applicationUrl: posting.applicationUrl
+        applicationUrl: getPreferredPostingUrl(posting) ?? posting.applicationUrl
       })),
       manageUrl: `${env.APP_BASE_URL}/saved-searches`,
       unsubscribeUrl: `${env.APP_BASE_URL}/unsubscribe?token=${search.user.unsubscribeToken}`

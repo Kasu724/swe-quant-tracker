@@ -2,6 +2,7 @@ import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { Badge, Button, Card, CardContent } from "@faang-quant/ui";
 import type { InternshipPosting, ApplicationState } from "@faang-quant/db";
+import { getPreferredPostingUrl } from "@faang-quant/shared";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../lib/actions";
 
 export function ListingCard({
@@ -21,6 +22,7 @@ export function ListingCard({
       : "Pay unknown";
 
   const isNew = Date.now() - posting.discoveredAt.getTime() < 1000 * 60 * 60 * 24 * 7;
+  const outboundUrl = getPreferredPostingUrl(posting);
 
   return (
     <Card>
@@ -66,11 +68,13 @@ export function ListingCard({
           </div>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button asChild>
-            <a href={posting.applicationUrl} target="_blank" rel="noreferrer">
-              Apply
-            </a>
-          </Button>
+          {outboundUrl ? (
+            <Button asChild>
+              <a href={outboundUrl} target="_blank" rel="noreferrer">
+                Apply
+              </a>
+            </Button>
+          ) : null}
           <form action={toggleFavoriteAction}>
             <input type="hidden" name="postingId" value={posting.id} />
             <input type="hidden" name="redirectTo" value={redirectTo} />

@@ -140,7 +140,6 @@ function FilterSidebarForm({
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-700">Sort</label>
         <Select name="sort" defaultValue={filters.sort}>
-          <option value="newest">Newest</option>
           <option value="postingDate">Posting date</option>
           <option value="discoveredDate">Discovered date</option>
           <option value="company">Company</option>

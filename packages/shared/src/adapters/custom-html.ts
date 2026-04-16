@@ -2,7 +2,10 @@ import { decodeHtmlEntities, normalizeWhitespace, uniqueStrings } from "../norma
 import type { AdapterFetchContext, AdapterFetchedPosting } from "../types";
 import { fetchText, type SourceAdapter } from "./base";
 
-type CustomHtmlParserId = "apple-search" | "netflix-smartapply-search";
+type CustomHtmlParserId =
+  | "apple-search"
+  | "netflix-smartapply-search"
+  | "google-careers-search";
 
 type NetflixPosition = {
   id?: number | string;
@@ -25,11 +28,18 @@ type NetflixPosition = {
 
 const APPLE_CARD_PATTERN =
   /<div id="search-search-job-title-(?<jobKey>[^"]+)-\d+"[\s\S]*?<h3>\s*<a[^>]+href="(?<href>[^"]+)"[^>]*>(?<title>[\s\S]*?)<\/a>\s*<\/h3>[\s\S]*?<span[^>]+class="team-name[^"]*"[^>]*>(?<team>[\s\S]*?)<\/span>[\s\S]*?<span[^>]+class="job-posted-date"[^>]*>(?<postingDate>[\s\S]*?)<\/span>[\s\S]*?<div id="search-location-search-job-title-[^"]+"[\s\S]*?<span id="search-store-name-container-\d+">(?<location>[\s\S]*?)<\/span>/gi;
+const GOOGLE_INIT_DATA_PATTERN = /AF_initDataCallback\((\{key: 'ds:1'[\s\S]*?sideChannel:\s*\{\}\})\);/;
+const GOOGLE_RESULT_HREF_PATTERN =
+  /href="(?<href>jobs\/results\/(?<jobId>\d+)-[^"]+)"/g;
 
 function getParserId(context: AdapterFetchContext): CustomHtmlParserId {
   const parserId = context.source.parserConfigJson?.parserId;
 
-  if (parserId === "apple-search" || parserId === "netflix-smartapply-search") {
+  if (
+    parserId === "apple-search" ||
+    parserId === "netflix-smartapply-search" ||
+    parserId === "google-careers-search"
+  ) {
     return parserId;
   }
 
@@ -52,8 +62,37 @@ function getNumericConfig(value: unknown, fallback: number): number {
   return fallback;
 }
 
+function getPositiveNumericConfig(value: unknown, fallback: number): number {
+  const parsed = getNumericConfig(value, fallback);
+
+  return parsed > 0 ? parsed : fallback;
+}
+
 function toAbsoluteUrl(baseUrl: string, href: string): string {
   return new URL(href, baseUrl).toString();
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" ? normalizeWhitespace(decodeHtmlEntities(value)) : undefined;
+}
+
+function asHtmlFragment(value: unknown): string | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return asString(value[1]);
+}
+
+function timestampTupleToDate(value: unknown): Date | undefined {
+  if (!Array.isArray(value) || typeof value[0] !== "number") {
+    return undefined;
+  }
+
+  const seconds = value[0];
+  const nanos = typeof value[1] === "number" ? value[1] : 0;
+
+  return new Date(seconds * 1_000 + Math.floor(nanos / 1_000_000));
 }
 
 function parseApplePage(html: string, baseUrl: string): AdapterFetchedPosting[] {
@@ -98,6 +137,7 @@ function parseApplePage(html: string, baseUrl: string): AdapterFetchedPosting[] 
 
 async function fetchApplePostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
   const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 6);
+  const pageSize = getPositiveNumericConfig(context.source.requestConfigJson?.pageSize, 20);
   const seen = new Set<string>();
   const postings: AdapterFetchedPosting[] = [];
 
@@ -128,6 +168,168 @@ async function fetchApplePostings(context: AdapterFetchContext): Promise<Adapter
 
     if (newCount === 0) {
       break;
+    }
+
+    if (pagePostings.length < pageSize) {
+      break;
+    }
+  }
+
+  return postings;
+}
+
+function parseGoogleInitData(html: string): { data?: unknown[] } {
+  const match = html.match(GOOGLE_INIT_DATA_PATTERN);
+
+  if (!match?.[1]) {
+    throw new Error("Unable to find Google careers init data");
+  }
+
+  return Function(`return (${match[1]})`)() as { data?: unknown[] };
+}
+
+function buildGoogleHrefMap(html: string, baseUrl: string): Map<string, string> {
+  const base = new URL("/about/careers/applications/", baseUrl).toString();
+  const hrefMap = new Map<string, string>();
+
+  for (const match of html.matchAll(GOOGLE_RESULT_HREF_PATTERN)) {
+    const groups = match.groups;
+
+    if (!groups?.jobId || !groups.href) {
+      continue;
+    }
+
+    hrefMap.set(groups.jobId, toAbsoluteUrl(base, decodeHtmlEntities(groups.href)));
+  }
+
+  return hrefMap;
+}
+
+function formatGoogleLocations(value: unknown): {
+  locationRaw?: string;
+  additionalLocations: string[];
+} {
+  if (!Array.isArray(value)) {
+    return {
+      additionalLocations: []
+    };
+  }
+
+  const locations = uniqueStrings(
+    value.map((entry) => (Array.isArray(entry) ? asString(entry[0]) : undefined))
+  );
+
+  return {
+    locationRaw: locations[0],
+    additionalLocations: locations.slice(1)
+  };
+}
+
+function buildGoogleDescription(job: unknown[]): string | undefined {
+  const sections = [
+    asHtmlFragment(job[10]),
+    asHtmlFragment(job[3]),
+    asHtmlFragment(job[4]),
+    asHtmlFragment(job[15]),
+    asHtmlFragment(job[18]),
+    asHtmlFragment(job[19])
+  ].filter((section): section is string => Boolean(section));
+
+  return sections.length > 0 ? sections.join("<br/><br/>") : undefined;
+}
+
+function normalizeGooglePosting(
+  job: unknown[],
+  hrefMap: Map<string, string>,
+  baseUrl: string
+): AdapterFetchedPosting | undefined {
+  const externalJobId = asString(job[0]);
+  const title = asString(job[1]);
+  const applicationUrl = asString(job[2]);
+
+  if (!externalJobId || !title || !applicationUrl) {
+    return undefined;
+  }
+
+  const { locationRaw, additionalLocations } = formatGoogleLocations(job[9]);
+  const sourceUrl = hrefMap.get(externalJobId);
+  const postingDate =
+    timestampTupleToDate(job[12]) ??
+    timestampTupleToDate(job[13]) ??
+    timestampTupleToDate(job[14]);
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl,
+    sourceUrl: sourceUrl ?? applicationUrl,
+    postingDate,
+    descriptionHtml: buildGoogleDescription(job),
+    locationRaw,
+    additionalLocations,
+    metadata: {
+      companyName: asString(job[7]),
+      companyResourcePath: asString(job[5]),
+      locale: asString(job[8]),
+      categoryIndexes: Array.isArray(job[11]) ? job[11] : undefined
+    },
+    raw: job
+  };
+}
+
+function buildGoogleSearchUrl(sourceUrl: string, page: number): string {
+  const url = new URL(sourceUrl);
+
+  if (!url.searchParams.has("q")) {
+    url.searchParams.set("q", "intern");
+  }
+
+  if (page > 1) {
+    url.searchParams.set("page", String(page));
+  } else {
+    url.searchParams.delete("page");
+  }
+
+  return url.toString();
+}
+
+async function fetchGooglePostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 3);
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+  let totalPages = 1;
+
+  for (let page = 1; page <= Math.min(maxPages, totalPages); page += 1) {
+    const searchUrl = buildGoogleSearchUrl(context.source.sourceUrl, page);
+    const html = await fetchText(context, searchUrl);
+    const initData = parseGoogleInitData(html);
+    const jobs = Array.isArray(initData.data?.[0]) ? (initData.data?.[0] as unknown[]) : [];
+    const total =
+      typeof initData.data?.[2] === "number" ? (initData.data[2] as number) : jobs.length;
+    const pageSize =
+      typeof initData.data?.[3] === "number" ? (initData.data[3] as number) : jobs.length || 20;
+
+    totalPages = Math.max(1, Math.ceil(total / Math.max(pageSize, 1)));
+
+    if (jobs.length === 0) {
+      break;
+    }
+
+    const hrefMap = buildGoogleHrefMap(html, searchUrl);
+
+    for (const job of jobs) {
+      if (!Array.isArray(job)) {
+        continue;
+      }
+
+      const posting = normalizeGooglePosting(job, hrefMap, searchUrl);
+
+      if (!posting || seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
     }
   }
 
@@ -228,6 +430,8 @@ export class CustomHtmlAdapter implements SourceAdapter {
     switch (getParserId(context)) {
       case "apple-search":
         return fetchApplePostings(context);
+      case "google-careers-search":
+        return fetchGooglePostings(context);
       case "netflix-smartapply-search":
         return fetchNetflixPostings(context);
       default:

@@ -24,7 +24,7 @@ export const listingFilterSchema = z.object({
   usOnly: z.boolean().default(false),
   includeMissingLocation: z.boolean().default(true),
   includeMissingPay: z.boolean().default(true),
-  sort: z.enum(LISTING_SORT_OPTIONS).default("newest")
+  sort: z.enum(LISTING_SORT_OPTIONS).default("postingDate")
 });
 
 export type ListingFilters = z.infer<typeof listingFilterSchema>;

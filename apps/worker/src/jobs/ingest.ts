@@ -7,6 +7,7 @@ import {
   type Prisma
 } from "@faang-quant/db";
 import {
+  getPreferredPostingUrl,
   getAdapter,
   isPotentialDuplicate,
   normalizeFetchedPosting,
@@ -15,6 +16,7 @@ import {
 import { subDays } from "date-fns";
 import { sendImmediateAlertsForPostings } from "../lib/alerts";
 import { runWithConcurrency } from "../lib/concurrency";
+import { resolveLivePostingUrl } from "../lib/link-health";
 import { logger } from "../lib/logger";
 
 type SourceWithCompany = Prisma.CompanySourceGetPayload<{
@@ -35,6 +37,24 @@ function toObject(value: Prisma.JsonValue | null): Record<string, unknown> | und
   }
 
   return value as Record<string, unknown>;
+}
+
+function readBooleanConfig(value: unknown, fallback = false): boolean {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    if (value.toLowerCase() === "true") {
+      return true;
+    }
+
+    if (value.toLowerCase() === "false") {
+      return false;
+    }
+  }
+
+  return fallback;
 }
 
 function extractLocationKeys(value: Prisma.JsonValue | null): string[] {
@@ -93,7 +113,11 @@ function buildCanonicalData(input: {
     payRaw: normalized.payRaw,
     postingDate: normalized.postingDate,
     lastSeenAt: new Date(),
-    applicationUrl: normalized.applicationUrl,
+    applicationUrl:
+      getPreferredPostingUrl({
+        sourceUrl: normalized.sourceUrl,
+        applicationUrl: normalized.applicationUrl
+      }) ?? normalized.applicationUrl,
     sourceUrl: normalized.sourceUrl,
     sourceType: normalized.sourceType,
     sourceName: normalized.sourceName,
@@ -289,6 +313,7 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
   };
 
   try {
+    const requestConfig = toObject(source.requestConfigJson);
     const postings = await adapter.fetchPostings({
       company: {
         id: source.company.id,
@@ -301,7 +326,7 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
         sourceName: source.sourceName,
         sourceIdentifier: source.sourceIdentifier,
         sourceUrl: source.sourceUrl,
-        requestConfigJson: toObject(source.requestConfigJson),
+        requestConfigJson: requestConfig,
         parserConfigJson: toObject(source.parserConfigJson)
       }
     });
@@ -330,6 +355,20 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
       if (!normalized.internshipFlag || !normalized.applicationUrl) {
         stats.skipped += 1;
         continue;
+      }
+
+      if (readBooleanConfig(requestConfig?.validatePostingUrls, false)) {
+        const liveUrl = await resolveLivePostingUrl({
+          sourceUrl: normalized.sourceUrl,
+          applicationUrl: normalized.applicationUrl
+        });
+
+        if (!liveUrl) {
+          stats.skipped += 1;
+          continue;
+        }
+
+        normalized.applicationUrl = liveUrl;
       }
 
       stats.normalized += 1;
