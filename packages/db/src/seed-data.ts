@@ -294,6 +294,18 @@ const urlOverrides: Record<string, Pick<SeedCompany, "websiteUrl" | "careersUrl"
     websiteUrl: "https://www.dropbox.com",
     careersUrl: "https://jobs.dropbox.com/all-jobs"
   },
+  "belvedere-trading": {
+    websiteUrl: "https://www.belvederetrading.com",
+    careersUrl: "https://www.belvederetrading.com/our-positions"
+  },
+  ctc: {
+    websiteUrl: "https://www.ctccapital.com",
+    careersUrl: "https://www.ctccapital.com/careers"
+  },
+  drw: {
+    websiteUrl: "https://www.drw.com",
+    careersUrl: "https://www.drw.com/work-at-drw/listings"
+  },
   "five-rings": {
     websiteUrl: "https://fiverings.com",
     careersUrl: "https://fiverings.com/careers/"
@@ -301,6 +313,14 @@ const urlOverrides: Record<string, Pick<SeedCompany, "websiteUrl" | "careersUrl"
   figma: {
     websiteUrl: "https://www.figma.com",
     careersUrl: "https://www.figma.com/careers"
+  },
+  "flow-traders": {
+    websiteUrl: "https://www.flowtraders.com",
+    careersUrl: "https://www.flowtraders.com/careers/"
+  },
+  "geneva-trading": {
+    websiteUrl: "https://www.genevatrading.com",
+    careersUrl: "https://www.genevatrading.com/career-in-trading/"
   },
   "hudson-river-trading": {
     websiteUrl: "https://www.hudsonrivertrading.com",
@@ -314,9 +334,21 @@ const urlOverrides: Record<string, Pick<SeedCompany, "websiteUrl" | "careersUrl"
     websiteUrl: "https://www.intel.com",
     careersUrl: "https://jobs.intel.com/en"
   },
+  "jane-street": {
+    websiteUrl: "https://www.janestreet.com",
+    careersUrl: "https://www.janestreet.com/join-jane-street/open-roles/"
+  },
+  "jump-trading": {
+    websiteUrl: "https://www.jumptrading.com",
+    careersUrl: "https://www.jumptrading.com/hr/students-new-grads"
+  },
   mongodb: {
     websiteUrl: "https://www.mongodb.com",
     careersUrl: "https://www.mongodb.com/careers"
+  },
+  "old-mission": {
+    websiteUrl: "https://www.oldmissioncapital.com",
+    careersUrl: "https://www.oldmissioncapital.com/careers/"
   },
   vercel: {
     websiteUrl: "https://vercel.com",
@@ -381,6 +413,14 @@ const urlOverrides: Record<string, Pick<SeedCompany, "websiteUrl" | "careersUrl"
   workday: {
     websiteUrl: "https://www.workday.com",
     careersUrl: "https://workday.wd5.myworkdayjobs.com/Workday"
+  },
+  "virtu-financial": {
+    websiteUrl: "https://www.virtu.com",
+    careersUrl: "https://www.virtu.com/careers/"
+  },
+  "wolverine-trading": {
+    websiteUrl: "https://www.wolve.com",
+    careersUrl: "https://www.wolve.com/careers/"
   },
   zoom: {
     websiteUrl: "https://www.zoom.com",
@@ -825,11 +865,94 @@ export const companySourceSeeds: SeedCompanySource[] = [
     isActive: true
   },
   {
+    companySlug: "belvedere-trading",
+    sourceType: SourceType.LEVER,
+    sourceName: "Official careers site via Lever",
+    sourceIdentifier: "belvederetrading",
+    sourceUrl: "https://api.lever.co/v0/postings/belvederetrading?mode=json",
+    pollingEnabled: true,
+    priority: 9,
+    requestConfigJson: { limit: 100, rateLimitMs: 1000 },
+    isActive: true
+  },
+  {
+    companySlug: "ctc",
+    sourceType: SourceType.GREENHOUSE,
+    sourceName: "Official careers site via Greenhouse",
+    sourceIdentifier: "chicagotrading",
+    sourceUrl: "https://boards-api.greenhouse.io/v1/boards/chicagotrading/jobs?content=true",
+    pollingEnabled: true,
+    priority: 10,
+    requestConfigJson: { content: true, rateLimitMs: 1000 },
+    parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
+    companySlug: "drw",
+    sourceType: SourceType.CUSTOM_HTML,
+    sourceName: "Official DRW careers listings",
+    sourceIdentifier: "drw-listings",
+    sourceUrl: "https://www.drw.com/work-at-drw/listings",
+    pollingEnabled: true,
+    priority: 6,
+    requestConfigJson: { rateLimitMs: 1500 },
+    parserConfigJson: { parserId: "drw-listings" },
+    isActive: true
+  },
+  {
+    companySlug: "flow-traders",
+    sourceType: SourceType.GREENHOUSE,
+    sourceName: "Official careers site via Greenhouse",
+    sourceIdentifier: "flowtraders",
+    sourceUrl: "https://boards-api.greenhouse.io/v1/boards/flowtraders/jobs?content=true",
+    pollingEnabled: true,
+    priority: 10,
+    requestConfigJson: { content: true, rateLimitMs: 1000 },
+    parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
+    companySlug: "geneva-trading",
+    sourceType: SourceType.GREENHOUSE,
+    sourceName: "Official careers site via Greenhouse",
+    sourceIdentifier: "genevatrading",
+    sourceUrl: "https://boards-api.greenhouse.io/v1/boards/genevatrading/jobs?content=true",
+    pollingEnabled: true,
+    priority: 10,
+    requestConfigJson: { content: true, rateLimitMs: 1000 },
+    parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
     companySlug: "optiver",
     sourceType: SourceType.GREENHOUSE,
     sourceName: "Official careers site via Greenhouse",
     sourceIdentifier: "optiverus",
     sourceUrl: "https://boards-api.greenhouse.io/v1/boards/optiverus/jobs?content=true",
+    pollingEnabled: true,
+    priority: 10,
+    requestConfigJson: { content: true, rateLimitMs: 1000 },
+    parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
+    companySlug: "jane-street",
+    sourceType: SourceType.GREENHOUSE,
+    sourceName: "Official careers site via Greenhouse",
+    sourceIdentifier: "janestreet",
+    sourceUrl: "https://boards-api.greenhouse.io/v1/boards/janestreet/jobs?content=true",
+    pollingEnabled: true,
+    priority: 10,
+    requestConfigJson: { content: true, rateLimitMs: 1000 },
+    parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
+    companySlug: "jump-trading",
+    sourceType: SourceType.GREENHOUSE,
+    sourceName: "Official careers site via Greenhouse",
+    sourceIdentifier: "jumptrading",
+    sourceUrl: "https://boards-api.greenhouse.io/v1/boards/jumptrading/jobs?content=true",
     pollingEnabled: true,
     priority: 10,
     requestConfigJson: { content: true, rateLimitMs: 1000 },
@@ -895,6 +1018,18 @@ export const companySourceSeeds: SeedCompanySource[] = [
     isActive: true
   },
   {
+    companySlug: "old-mission",
+    sourceType: SourceType.GREENHOUSE,
+    sourceName: "Official careers site via Greenhouse",
+    sourceIdentifier: "oldmissioncapital",
+    sourceUrl: "https://boards-api.greenhouse.io/v1/boards/oldmissioncapital/jobs?content=true",
+    pollingEnabled: true,
+    priority: 10,
+    requestConfigJson: { content: true, rateLimitMs: 1000 },
+    parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
     companySlug: "twilio",
     sourceType: SourceType.GREENHOUSE,
     sourceName: "Official careers site via Greenhouse",
@@ -948,6 +1083,29 @@ export const companySourceSeeds: SeedCompanySource[] = [
       searchText: "intern",
       rateLimitMs: 1500
     },
+    isActive: true
+  },
+  {
+    companySlug: "virtu-financial",
+    sourceType: SourceType.GREENHOUSE,
+    sourceName: "Official careers site via Greenhouse",
+    sourceIdentifier: "virtu",
+    sourceUrl: "https://boards-api.greenhouse.io/v1/boards/virtu/jobs?content=true",
+    pollingEnabled: true,
+    priority: 10,
+    requestConfigJson: { content: true, rateLimitMs: 1000 },
+    parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
+    companySlug: "wolverine-trading",
+    sourceType: SourceType.LEVER,
+    sourceName: "Official careers site via Lever",
+    sourceIdentifier: "wolve",
+    sourceUrl: "https://api.lever.co/v0/postings/wolve?mode=json",
+    pollingEnabled: true,
+    priority: 9,
+    requestConfigJson: { limit: 100, rateLimitMs: 1000 },
     isActive: true
   },
   {

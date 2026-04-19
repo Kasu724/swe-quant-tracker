@@ -46,4 +46,36 @@ describe("isInternshipPosting", () => {
       isInternshipPosting("Software Engineer", "This 12-week internship is for students graduating in 2027.")
     ).toBe(true);
   });
+
+  it("does not treat prior internship experience requirements as an internship signal", () => {
+    expect(
+      isInternshipPosting(
+        "Software Engineer",
+        "This full-time role prefers candidates with previous internship experience."
+      )
+    ).toBe(false);
+  });
+
+  it("allows structured employment type signals to qualify a generic internship title", () => {
+    expect(
+      isInternshipPosting("Software Engineer", undefined, {
+        employmentType: "Internship"
+      })
+    ).toBe(true);
+  });
+
+  it("does not treat generic campus metadata as an internship by itself", () => {
+    expect(
+      isInternshipPosting(
+        "Prediction Markets Trader",
+        "This role is targeted at strong campus hires and new graduates.",
+        {
+          employmentType: "Full-time",
+          metadata: {
+            careerCategories: ["Campus", "Trading"]
+          }
+        }
+      )
+    ).toBe(false);
+  });
 });

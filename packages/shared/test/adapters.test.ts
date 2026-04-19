@@ -245,6 +245,59 @@ describe("structured adapters", () => {
     expect(postings).toHaveLength(5);
   });
 
+  it("normalizes DRW listings payloads from official careers HTML", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "DRW", slug: "drw" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official DRW careers listings",
+        sourceIdentifier: "drw-listings",
+        sourceUrl: "https://www.drw.com/work-at-drw/listings",
+        parserConfigJson: { parserId: "drw-listings" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <html>
+            <body>
+              <script id="__NEXT_DATA__" type="application/json">
+                ${JSON.stringify({
+                  props: {
+                    pageProps: {
+                      jobData: {
+                        en: [
+                          {
+                            title: "Software Developer Intern",
+                            id: 6926715,
+                            internal_job_id: 6926715,
+                            slug: "software-developer-intern-6926715",
+                            locations: ["Chicago", "New York City"],
+                            career_countries: ["United States", "United States"],
+                            career_categories: ["Technology"],
+                            job_keywords: ["software", "developer", "intern"],
+                            keywords: ["software", "developer", "intern", "work at drw", "careers"],
+                            language: "en"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                })}
+              </script>
+            </body>
+          </html>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("6926715");
+    expect(postings[0]?.applicationUrl).toBe(
+      "https://www.drw.com/work-at-drw/listings/software-developer-intern-6926715"
+    );
+    expect(postings[0]?.locationRaw).toBe("Chicago");
+    expect(postings[0]?.additionalLocations).toEqual(["New York City"]);
+  });
+
   it("normalizes Netflix smart apply search HTML responses", async () => {
     const adapter = new CustomHtmlAdapter();
     const postings = await adapter.fetchPostings({

@@ -1,6 +1,7 @@
 import { runDailyDigestCycle } from "./jobs/digest";
 import { runIngestionCycle } from "./jobs/ingest";
 import { runPostingLinkCheck } from "./jobs/link-check";
+import { runInternshipReclassification } from "./jobs/reclassify";
 
 async function main() {
   const command = process.argv[2];
@@ -17,6 +18,11 @@ async function main() {
 
   if (command === "links") {
     await runPostingLinkCheck();
+    return;
+  }
+
+  if (command === "reclassify") {
+    await runInternshipReclassification();
     return;
   }
 

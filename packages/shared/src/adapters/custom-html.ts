@@ -4,6 +4,7 @@ import { fetchText, type SourceAdapter } from "./base";
 
 type CustomHtmlParserId =
   | "apple-search"
+  | "drw-listings"
   | "netflix-smartapply-search"
   | "google-careers-search";
 
@@ -26,6 +27,20 @@ type NetflixPosition = {
   locale?: string;
 };
 
+type DrwListing = {
+  title?: string;
+  id?: number | string;
+  internal_job_id?: number | string;
+  slug?: string;
+  job_title?: string;
+  locations?: string[];
+  career_countries?: string[];
+  career_categories?: string[];
+  job_keywords?: string[];
+  keywords?: string[];
+  language?: string;
+};
+
 const APPLE_CARD_PATTERN =
   /<div id="search-search-job-title-(?<jobKey>[^"]+)-\d+"[\s\S]*?<h3>\s*<a[^>]+href="(?<href>[^"]+)"[^>]*>(?<title>[\s\S]*?)<\/a>\s*<\/h3>[\s\S]*?<span[^>]+class="team-name[^"]*"[^>]*>(?<team>[\s\S]*?)<\/span>[\s\S]*?<span[^>]+class="job-posted-date"[^>]*>(?<postingDate>[\s\S]*?)<\/span>[\s\S]*?<div id="search-location-search-job-title-[^"]+"[\s\S]*?<span id="search-store-name-container-\d+">(?<location>[\s\S]*?)<\/span>/gi;
 const GOOGLE_INIT_DATA_PATTERN = /AF_initDataCallback\((\{key: 'ds:1'[\s\S]*?sideChannel:\s*\{\}\})\);/;
@@ -37,6 +52,7 @@ function getParserId(context: AdapterFetchContext): CustomHtmlParserId {
 
   if (
     parserId === "apple-search" ||
+    parserId === "drw-listings" ||
     parserId === "netflix-smartapply-search" ||
     parserId === "google-careers-search"
   ) {
@@ -70,6 +86,16 @@ function getPositiveNumericConfig(value: unknown, fallback: number): number {
 
 function toAbsoluteUrl(baseUrl: string, href: string): string {
   return new URL(href, baseUrl).toString();
+}
+
+function extractNextDataJson<T>(html: string): T {
+  const match = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/i);
+
+  if (!match?.[1]) {
+    throw new Error("Unable to find Next.js __NEXT_DATA__ payload");
+  }
+
+  return JSON.parse(match[1]) as T;
 }
 
 function asString(value: unknown): string | undefined {
@@ -336,6 +362,57 @@ async function fetchGooglePostings(context: AdapterFetchContext): Promise<Adapte
   return postings;
 }
 
+async function fetchDrwPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const html = await fetchText(context, context.source.sourceUrl);
+  const payload = extractNextDataJson<{
+    props?: {
+      pageProps?: {
+        jobData?: {
+          en?: DrwListing[];
+        };
+      };
+    };
+  }>(html);
+  const jobs = Array.isArray(payload.props?.pageProps?.jobData?.en)
+    ? payload.props?.pageProps?.jobData?.en
+    : [];
+
+  return jobs.flatMap((job) => {
+    const externalJobId = job.internal_job_id ?? job.id ?? job.slug;
+    const title = job.job_title ?? job.title;
+
+    if (!externalJobId || !title || !job.slug) {
+      return [];
+    }
+
+    const locations = uniqueStrings(
+      Array.isArray(job.locations)
+        ? job.locations.map((location) => normalizeWhitespace(location)).filter(Boolean)
+        : []
+    );
+    const detailUrl = toAbsoluteUrl(context.source.sourceUrl, `/work-at-drw/listings/${job.slug}`);
+
+    return [
+      {
+        externalJobId: String(externalJobId),
+        title,
+        applicationUrl: detailUrl,
+        sourceUrl: detailUrl,
+        locationRaw: locations[0],
+        additionalLocations: locations.slice(1),
+        metadata: {
+          careerCategories: job.career_categories,
+          careerCountries: job.career_countries,
+          jobKeywords: job.job_keywords,
+          keywords: job.keywords,
+          language: job.language
+        },
+        raw: job
+      }
+    ];
+  });
+}
+
 function extractEmbeddedCodeBlock(html: string, id: string): string {
   const match = html.match(
     new RegExp(`<code id="${id}"[^>]*>([\\s\\S]*?)<\\/code>`, "i")
@@ -430,6 +507,8 @@ export class CustomHtmlAdapter implements SourceAdapter {
     switch (getParserId(context)) {
       case "apple-search":
         return fetchApplePostings(context);
+      case "drw-listings":
+        return fetchDrwPostings(context);
       case "google-careers-search":
         return fetchGooglePostings(context);
       case "netflix-smartapply-search":

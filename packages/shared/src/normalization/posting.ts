@@ -62,7 +62,10 @@ export function normalizeFetchedPosting(input: {
     title: input.posting.title,
     normalizedTitle,
     roleCategory: categorizeRole(input.posting.title, descriptionText),
-    internshipFlag: isInternshipPosting(input.posting.title, descriptionText),
+    internshipFlag: isInternshipPosting(input.posting.title, descriptionText, {
+      employmentType: input.posting.employmentType,
+      metadata: input.posting.metadata ?? undefined
+    }),
     season,
     year,
     employmentType: input.posting.employmentType ?? undefined,

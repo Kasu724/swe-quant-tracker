@@ -15,7 +15,8 @@
     "db:studio": "pnpm --filter @faang-quant/db studio",
     "worker:ingest": "pnpm --filter @faang-quant/worker ingest",
     "worker:digest": "pnpm --filter @faang-quant/worker digest",
-    "worker:links": "pnpm --filter @faang-quant/worker links"
+    "worker:links": "pnpm --filter @faang-quant/worker links",
+    "worker:reclassify": "pnpm --filter @faang-quant/worker reclassify"
   },
   "devDependencies": {
     "turbo": "^2.5.0",
