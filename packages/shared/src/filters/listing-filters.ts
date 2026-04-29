@@ -7,6 +7,7 @@ import {
 } from "../constants/domain";
 import type { ListingSearchRecord } from "../types";
 import { canonicalizeText } from "../normalization/text";
+import { isUsOrUnknownPostingLocation } from "../normalization/location";
 
 export const listingFilterSchema = z.object({
   q: z.string().trim().optional(),
@@ -21,7 +22,7 @@ export const listingFilterSchema = z.object({
   minimumPay: z.coerce.number().nonnegative().optional(),
   activeOnly: z.boolean().default(true),
   recentlyPostedDays: z.coerce.number().int().positive().optional(),
-  usOnly: z.boolean().default(false),
+  usOnly: z.boolean().default(true),
   includeMissingLocation: z.boolean().default(true),
   includeMissingPay: z.boolean().default(true),
   sort: z.enum(LISTING_SORT_OPTIONS).default("postingDate")
@@ -102,14 +103,8 @@ export function matchesListingFilters(record: ListingSearchRecord, filters: List
 
   const locationCountries = record.locationCountries ?? [];
 
-  if (filters.usOnly) {
-    if (locationCountries.length === 0) {
-      return false;
-    }
-
-    if (locationCountries.some((code) => code !== "US")) {
-      return false;
-    }
+  if (!isUsOrUnknownPostingLocation(locationCountries, record.locationRaw)) {
+    return false;
   }
 
   if (!filters.includeMissingLocation && !record.locationRaw) {

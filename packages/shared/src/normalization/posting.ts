@@ -71,7 +71,7 @@ export function normalizeFetchedPosting(input: {
     employmentType: input.posting.employmentType ?? undefined,
     locationRaw: input.posting.locationRaw ?? undefined,
     locationsNormalized,
-    locationCountries: extractLocationCountries(locationsNormalized),
+    locationCountries: extractLocationCountries(locationsNormalized, input.posting.metadata),
     remoteType,
     compensationMin: parsedCompensation.min,
     compensationMax: parsedCompensation.max,

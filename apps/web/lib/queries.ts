@@ -2,6 +2,7 @@ import { subDays } from "date-fns";
 import { prisma, type Prisma } from "@faang-quant/db";
 import {
   getPreferredPostingUrl,
+  isUsOrUnknownPostingLocation,
   listingFilterSchema,
   matchesListingFilters,
   serializeRowsToCsv,
@@ -81,12 +82,19 @@ export function parseListingFilters(searchParams: SearchParams): ListingFilters 
     minimumPay: readNumberParam(searchParams.minimumPay),
     activeOnly: readBooleanParam(searchParams.activeOnly, true),
     recentlyPostedDays: readNumberParam(searchParams.recent),
-    usOnly: readBooleanParam(searchParams.usOnly, false),
+    usOnly: readBooleanParam(searchParams.usOnly, true),
     includeMissingLocation: readBooleanParam(searchParams.includeMissingLocation, true),
     includeMissingPay: readBooleanParam(searchParams.includeMissingPay, true),
     sort: normalizeSortParam(searchParams.sort) ?? "postingDate"
   });
 }
+
+const trackedLocationWhere: Prisma.InternshipPostingWhereInput = {
+  OR: [
+    { locationCountries: { isEmpty: true } },
+    { locationCountries: { equals: ["US"] } }
+  ]
+};
 
 function toListingRecord(
   posting: Prisma.InternshipPostingGetPayload<{
@@ -151,6 +159,20 @@ function sortListings(
 export async function getListings(filters: ListingFilters) {
   const broadWhere: Prisma.InternshipPostingWhereInput = {
     internshipFlag: true,
+    AND: [
+      trackedLocationWhere,
+      ...(filters.q
+        ? [
+            {
+              OR: [
+                { title: { contains: filters.q, mode: "insensitive" as const } },
+                { companyNameSnapshot: { contains: filters.q, mode: "insensitive" as const } },
+                { locationRaw: { contains: filters.q, mode: "insensitive" as const } }
+              ]
+            }
+          ]
+        : [])
+    ],
     ...(filters.companySlugs.length || filters.companyBuckets.length
       ? {
           company: {
@@ -164,15 +186,6 @@ export async function getListings(filters: ListingFilters) {
     ...(filters.years.length ? { year: { in: filters.years } } : {}),
     ...(filters.remoteTypes.length ? { remoteType: { in: filters.remoteTypes } } : {}),
     ...(filters.activeOnly ? { isActive: true } : {}),
-    ...(filters.q
-      ? {
-          OR: [
-            { title: { contains: filters.q, mode: "insensitive" } },
-            { companyNameSnapshot: { contains: filters.q, mode: "insensitive" } },
-            { locationRaw: { contains: filters.q, mode: "insensitive" } }
-          ]
-        }
-      : {}),
     ...(filters.recentlyPostedDays
       ? {
           postingDate: {
@@ -209,7 +222,8 @@ export async function getListingFilterMetadata() {
       isActive: true,
       postings: {
         some: {
-          internshipFlag: true
+          internshipFlag: true,
+          ...trackedLocationWhere
         }
       }
     },
@@ -219,7 +233,12 @@ export async function getListingFilterMetadata() {
     include: {
       _count: {
         select: {
-          postings: true
+          postings: {
+            where: {
+              internshipFlag: true,
+              ...trackedLocationWhere
+            }
+          }
         }
       }
     }
@@ -231,11 +250,12 @@ export async function getListingFilterMetadata() {
 export async function getHomeStats() {
   const [activeInternships, newInternships, companyCount, activeSourceCount] = await Promise.all([
     prisma.internshipPosting.count({
-      where: { internshipFlag: true, isActive: true }
+      where: { internshipFlag: true, isActive: true, ...trackedLocationWhere }
     }),
     prisma.internshipPosting.count({
       where: {
         internshipFlag: true,
+        ...trackedLocationWhere,
         discoveredAt: {
           gte: subDays(new Date(), 7)
         }
@@ -305,7 +325,8 @@ export async function getCompaniesOverview() {
         in: companies.map((company) => company.id)
       },
       internshipFlag: true,
-      isActive: true
+      isActive: true,
+      ...trackedLocationWhere
     },
     _count: {
       _all: true
@@ -336,7 +357,7 @@ export async function getInternshipBySlug(slug: string, userId?: string) {
     }
   });
 
-  if (!posting) {
+  if (!posting || !isUsOrUnknownPostingLocation(posting.locationCountries, posting.locationRaw)) {
     return null;
   }
 
@@ -425,6 +446,8 @@ export async function getAdminDashboardData() {
     }),
     prisma.internshipPosting.findMany({
       where: {
+        internshipFlag: true,
+        ...trackedLocationWhere,
         discoveredAt: {
           gte: subDays(new Date(), 7)
         }
@@ -456,6 +479,10 @@ export async function getAdminDashboardData() {
       where: { alertsEnabled: true }
     }),
     prisma.internshipPosting.findMany({
+      where: {
+        internshipFlag: true,
+        ...trackedLocationWhere
+      },
       take: 150,
       orderBy: { discoveredAt: "desc" }
     }),
@@ -474,6 +501,7 @@ export async function getAdminDashboardData() {
     prisma.internshipPosting.findMany({
       where: {
         internshipFlag: true,
+        ...trackedLocationWhere,
         discoveredAt: {
           gte: subDays(new Date(), 1)
         }

@@ -29,6 +29,7 @@ const BODY_STRONG_INCLUDE_PATTERNS = [
   /\bworking student position\b/i,
   /\bstudent worker position\b/i,
   /\bstudent technician position\b/i,
+  /\bstudent researcher position\b/i,
   /\bapprenticeship\b/i
 ] as const;
 
@@ -40,8 +41,35 @@ const BODY_FALSE_POSITIVE_PATTERNS = [
   /\bnew grad(uate)?\b/i,
   /\bearly career\b/i,
   /\breturnship\b/i,
-  /\bimmediate(?:ly)?\b/i
+  /\bimmediate(?:ly)?\b/i,
+  /\b(?:manage|run|support|build|coordinate|lead|own)\b.{0,60}\binternship program(?:s)?\b/i,
+  /\bcampus recruiting\b/i
 ] as const;
+
+const STRUCTURED_METADATA_INCLUDE_KEYS = new Set([
+  "careercategories",
+  "categories",
+  "category",
+  "commitment",
+  "department",
+  "discipline",
+  "employmenttype",
+  "jobcategory",
+  "jobfamily",
+  "jobkeywords",
+  "primarysearchlabel",
+  "profession",
+  "roletype",
+  "searchlabels",
+  "tags",
+  "team",
+  "timetype",
+  "workersubtype"
+]);
+
+function normalizeMetadataKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
 
 function hasTitleIncludeSignal(text: string): boolean {
   return INTERNSHIP_TITLE_INCLUDE_PATTERNS.some((pattern) => pattern.test(text));
@@ -71,7 +99,7 @@ function hasBodyFalsePositiveSignal(text: string): boolean {
   return BODY_FALSE_POSITIVE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-function collectStructuredStrings(value: unknown, output: string[]) {
+function collectAllStructuredStrings(value: unknown, output: string[]) {
   if (typeof value === "string") {
     output.push(value);
     return;
@@ -79,7 +107,7 @@ function collectStructuredStrings(value: unknown, output: string[]) {
 
   if (Array.isArray(value)) {
     for (const entry of value) {
-      collectStructuredStrings(entry, output);
+      collectAllStructuredStrings(entry, output);
     }
 
     return;
@@ -87,7 +115,41 @@ function collectStructuredStrings(value: unknown, output: string[]) {
 
   if (value && typeof value === "object") {
     for (const entry of Object.values(value as Record<string, unknown>)) {
-      collectStructuredStrings(entry, output);
+      collectAllStructuredStrings(entry, output);
+    }
+  }
+}
+
+function collectStructuredMetadataStrings(value: unknown, output: string[], key?: string) {
+  if (typeof value === "string") {
+    if (key && STRUCTURED_METADATA_INCLUDE_KEYS.has(normalizeMetadataKey(key))) {
+      output.push(value);
+    }
+
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      collectStructuredMetadataStrings(entry, output, key);
+    }
+
+    return;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+
+    if (
+      typeof record.name === "string" &&
+      STRUCTURED_METADATA_INCLUDE_KEYS.has(normalizeMetadataKey(record.name)) &&
+      "value" in record
+    ) {
+      collectAllStructuredStrings(record.value, output);
+    }
+
+    for (const [entryKey, entryValue] of Object.entries(record)) {
+      collectStructuredMetadataStrings(entryValue, output, entryKey);
     }
   }
 }
@@ -109,7 +171,7 @@ export function isInternshipPosting(
   }
 
   if (options?.metadata) {
-    collectStructuredStrings(options.metadata, structuredParts);
+    collectStructuredMetadataStrings(options.metadata, structuredParts);
   }
 
   const structuredText = canonicalizeText(structuredParts.join(" "));

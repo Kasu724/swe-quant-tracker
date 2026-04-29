@@ -17,8 +17,8 @@ const baseRecord: ListingSearchRecord = {
 };
 
 describe("listing filters", () => {
-  it("keeps only confirmed US postings when usOnly is enabled", () => {
-    const filters = listingFilterSchema.parse({ usOnly: true });
+  it("keeps US postings and excludes known non-US postings by default", () => {
+    const filters = listingFilterSchema.parse({});
 
     expect(matchesListingFilters(baseRecord, filters)).toBe(true);
     expect(
@@ -33,14 +33,44 @@ describe("listing filters", () => {
     ).toBe(false);
   });
 
-  it("excludes postings with unknown country data when usOnly is enabled", () => {
-    const filters = listingFilterSchema.parse({ usOnly: true });
+  it("keeps postings with unknown location data", () => {
+    const filters = listingFilterSchema.parse({});
 
     expect(
       matchesListingFilters(
         {
           ...baseRecord,
-          locationRaw: "Barcelona, Catalonia, Spain",
+          locationRaw: undefined,
+          locationCountries: []
+        },
+        filters
+      )
+    ).toBe(true);
+  });
+
+  it("excludes known non-US postings even when usOnly is disabled", () => {
+    const filters = listingFilterSchema.parse({ usOnly: false });
+
+    expect(
+      matchesListingFilters(
+        {
+          ...baseRecord,
+          locationRaw: "Toronto, Canada",
+          locationCountries: ["CA"]
+        },
+        filters
+      )
+    ).toBe(false);
+  });
+
+  it("uses raw location text to reject non-US postings with stale country data", () => {
+    const filters = listingFilterSchema.parse({});
+
+    expect(
+      matchesListingFilters(
+        {
+          ...baseRecord,
+          locationRaw: "Remote - Canada",
           locationCountries: []
         },
         filters

@@ -6,10 +6,116 @@ const US_STATE_CODE_BY_NAME = Object.fromEntries(
   Object.entries(US_STATE_NAME_BY_CODE).map(([code, name]) => [name.toLowerCase(), code])
 );
 
+const EMBEDDED_COUNTRY_ALIASES = new Set(["u s", "u s a", "us", "usa", "uk", "uae"]);
+
+const COUNTRY_METADATA_KEYS = new Set([
+  "careercountries",
+  "countries",
+  "country",
+  "countrycode",
+  "countrycodes",
+  "normalizedcountrycode",
+  "normalizedcountryname"
+]);
+
+const COUNTRY_CODE_BY_KNOWN_NON_US_CITY: Record<string, string> = {
+  "abu dhabi": "AE",
+  amsterdam: "NL",
+  ankara: "TR",
+  bangalore: "IN",
+  barcelona: "ES",
+  beijing: "CN",
+  bengaluru: "IN",
+  berlin: "DE",
+  bogota: "CO",
+  brisbane: "AU",
+  "cape town": "ZA",
+  chennai: "IN",
+  dublin: "IE",
+  dubai: "AE",
+  gurgaon: "IN",
+  gurugram: "IN",
+  hamburg: "DE",
+  "hong kong": "HK",
+  hyderabad: "IN",
+  istanbul: "TR",
+  johannesburg: "ZA",
+  "kuala lumpur": "MY",
+  lisbon: "PT",
+  london: "GB",
+  madrid: "ES",
+  manama: "BH",
+  melbourne: "AU",
+  "mexico city": "MX",
+  montreal: "CA",
+  mumbai: "IN",
+  munich: "DE",
+  noida: "IN",
+  osaka: "JP",
+  ottawa: "CA",
+  paris: "FR",
+  prague: "CZ",
+  pune: "IN",
+  "rio de janeiro": "BR",
+  santiago: "CL",
+  "sao paulo": "BR",
+  seoul: "KR",
+  shanghai: "CN",
+  shenzhen: "CN",
+  singapore: "SG",
+  stockholm: "SE",
+  sydney: "AU",
+  taipei: "TW",
+  "tel aviv": "IL",
+  tokyo: "JP",
+  toronto: "CA",
+  vancouver: "CA",
+  warsaw: "PL",
+  zurich: "CH"
+};
+
+function normalizeMetadataKey(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function inferCountryCode(value: string): string | undefined {
   const key = canonicalizeText(value);
 
   return COUNTRY_CODE_BY_NAME[key];
+}
+
+function inferCountryCodesFromText(value: string): string[] {
+  const key = canonicalizeText(value);
+  const exact = COUNTRY_CODE_BY_NAME[key];
+
+  if (exact) {
+    return [exact];
+  }
+
+  const countryMatches = uniqueStrings(
+    Object.entries(COUNTRY_CODE_BY_NAME)
+      .filter(([name]) => {
+        const looksLikeAlias = /^[a-z](?:\s?[a-z]){1,2}$/.test(name);
+
+        return EMBEDDED_COUNTRY_ALIASES.has(name) || !looksLikeAlias;
+      })
+      .filter(([name]) => new RegExp(`(?:^|\\s)${escapeRegex(name)}(?:\\s|$)`).test(key))
+      .map(([, code]) => code)
+  );
+
+  if (countryMatches.length > 0) {
+    return countryMatches;
+  }
+
+  return uniqueStrings(
+    Object.entries(COUNTRY_CODE_BY_KNOWN_NON_US_CITY)
+      .filter(([city]) => new RegExp(`(?:^|\\s)${escapeRegex(city)}(?:\\s|$)`).test(key))
+      .map(([, code]) => code)
+  );
 }
 
 function inferRegion(part: string): { region?: string; regionCode?: string; countryCode?: string } {
@@ -89,13 +195,13 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
   const [cityPart, regionPart, countryPart] = parts;
   const region = inferRegion(countryPart ? regionPart : regionPart ?? "");
   const countryCode = countryPart
-    ? inferCountryCode(countryPart) ?? region.countryCode
-    : region.countryCode ?? inferCountryCode(regionPart ?? "");
+    ? inferCountryCode(countryPart) ?? inferCountryCodesFromText(countryPart)[0] ?? region.countryCode
+    : region.countryCode ?? inferCountryCode(regionPart ?? "") ?? inferCountryCodesFromText(trimmed)[0];
   const country =
     countryPart ?? (countryCode === "US" ? "United States" : region.countryCode ? region.region : undefined);
 
   if (parts.length === 1) {
-    const singlePartCountryCode = countryCode ?? inferCountryCode(trimmed);
+    const singlePartCountryCode = countryCode ?? inferCountryCodesFromText(trimmed)[0];
 
     return {
       raw: trimmed,
@@ -145,6 +251,65 @@ export function normalizeLocations(values: Array<string | null | undefined>): No
   });
 }
 
-export function extractLocationCountries(locations: NormalizedLocation[]): string[] {
-  return uniqueStrings(locations.map((location) => location.countryCode));
+function collectMetadataCountryStrings(value: unknown, output: string[], key?: string) {
+  if (typeof value === "string") {
+    if (key && COUNTRY_METADATA_KEYS.has(normalizeMetadataKey(key))) {
+      output.push(value);
+    }
+
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      collectMetadataCountryStrings(entry, output, key);
+    }
+
+    return;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+
+    if (
+      typeof record.name === "string" &&
+      COUNTRY_METADATA_KEYS.has(normalizeMetadataKey(record.name)) &&
+      "value" in record
+    ) {
+      collectMetadataCountryStrings(record.value, output, record.name);
+    }
+
+    for (const [entryKey, entryValue] of Object.entries(record)) {
+      collectMetadataCountryStrings(entryValue, output, entryKey);
+    }
+  }
+}
+
+export function extractLocationCountries(
+  locations: NormalizedLocation[],
+  metadata?: Record<string, unknown> | null
+): string[] {
+  const metadataCountryValues: string[] = [];
+
+  if (metadata) {
+    collectMetadataCountryStrings(metadata, metadataCountryValues);
+  }
+
+  return uniqueStrings([
+    ...locations.map((location) => location.countryCode),
+    ...locations.flatMap((location) => inferCountryCodesFromText(location.raw)),
+    ...metadataCountryValues.flatMap((value) => inferCountryCodesFromText(value))
+  ]);
+}
+
+export function isUsOrUnknownPostingLocation(
+  countryCodes: string[],
+  ...rawLocations: Array<string | null | undefined>
+): boolean {
+  const knownCountryCodes = uniqueStrings([
+    ...countryCodes.filter(Boolean),
+    ...rawLocations.flatMap((location) => (location ? inferCountryCodesFromText(location) : []))
+  ]);
+
+  return knownCountryCodes.length === 0 || knownCountryCodes.every((code) => code === "US");
 }

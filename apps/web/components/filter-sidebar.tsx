@@ -122,10 +122,6 @@ function FilterSidebarForm({
           Active listings only
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-700">
-          <Checkbox name="usOnly" defaultChecked={filters.usOnly} />
-          US-only
-        </label>
-        <label className="flex items-center gap-2 text-sm text-slate-700">
           <Checkbox
             name="includeMissingLocation"
             defaultChecked={filters.includeMissingLocation}

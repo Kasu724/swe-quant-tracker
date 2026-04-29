@@ -64,6 +64,8 @@ export const INTERNSHIP_TITLE_INCLUDE_PATTERNS = [
   /\bworking student\b/i,
   /\bstudent worker\b/i,
   /\bstudent technician\b/i,
+  /\bstudent researcher\b/i,
+  /\bstudent opportunit(y|ies)\b/i,
   /\bapprentice(ship)?\b/i
 ] as const;
 
@@ -77,6 +79,8 @@ export const INTERNSHIP_BODY_INCLUDE_PATTERNS = [
   /\bworking student\b/i,
   /\bstudent worker\b/i,
   /\bstudent technician\b/i,
+  /\bstudent researcher\b/i,
+  /\bstudent opportunit(y|ies)\b/i,
   /\bapprentice(ship)?\b/i
 ] as const;
 
@@ -163,9 +167,11 @@ export const US_STATE_NAME_BY_CODE: Record<string, string> = {
 
 export const COUNTRY_CODE_BY_NAME: Record<string, string> = {
   us: "US",
+  "u s": "US",
   usa: "US",
   "u s a": "US",
   "united states": "US",
+  "united states of america": "US",
   ca: "CA",
   can: "CA",
   canada: "CA",

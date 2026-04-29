@@ -8,6 +8,7 @@ describe("isInternshipPosting", () => {
 
   it("detects student roles with explicit title signals", () => {
     expect(isInternshipPosting("Working Student, Software Engineering", "Part-time during the semester")).toBe(true);
+    expect(isInternshipPosting("Student Researcher, PhD, Summer 2026", "Student opportunity")).toBe(true);
   });
 
   it("keeps explicit internship titles even when the function name contains manager or coordinator", () => {
@@ -75,6 +76,25 @@ describe("isInternshipPosting", () => {
             careerCategories: ["Campus", "Trading"]
           }
         }
+      )
+    ).toBe(false);
+  });
+
+  it("does not treat source search metadata as an internship signal", () => {
+    expect(
+      isInternshipPosting("Software Engineer", "General engineering role.", {
+        metadata: {
+          searchQuery: "intern"
+        }
+      })
+    ).toBe(false);
+  });
+
+  it("does not treat internship-program support work as an internship", () => {
+    expect(
+      isInternshipPosting(
+        "Program Manager",
+        "This role will coordinate internship programs and campus recruiting events."
       )
     ).toBe(false);
   });

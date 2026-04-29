@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { detectRemoteType, extractLocationCountries, normalizeLocations } from "../src/normalization/location";
+import {
+  detectRemoteType,
+  extractLocationCountries,
+  isUsOrUnknownPostingLocation,
+  normalizeLocations
+} from "../src/normalization/location";
 
 describe("location normalization", () => {
   it("normalizes us city-state pairs", () => {
@@ -41,5 +46,33 @@ describe("location normalization", () => {
 
   it("detects remote hints", () => {
     expect(detectRemoteType("Remote - United States")).toBe("REMOTE");
+  });
+
+  it("extracts embedded country names from remote locations", () => {
+    expect(extractLocationCountries(normalizeLocations(["Remote - United States"]))).toEqual(["US"]);
+    expect(extractLocationCountries(normalizeLocations(["US Remote"]))).toEqual(["US"]);
+    expect(extractLocationCountries(normalizeLocations(["Remote - Canada"]))).toEqual(["CA"]);
+  });
+
+  it("uses structured country metadata when the display location is ambiguous", () => {
+    const countries = extractLocationCountries(normalizeLocations(["Madrid"]), {
+      countryCode: "ESP"
+    });
+
+    expect(countries).toEqual(["ES"]);
+  });
+
+  it("infers obvious non-US city-only locations", () => {
+    expect(extractLocationCountries(normalizeLocations(["Munich"]))).toEqual(["DE"]);
+    expect(extractLocationCountries(normalizeLocations(["London, United States"]))).toEqual(["US"]);
+  });
+
+  it("allows US and unknown locations but rejects known non-US locations", () => {
+    expect(isUsOrUnknownPostingLocation(["US"])).toBe(true);
+    expect(isUsOrUnknownPostingLocation([])).toBe(true);
+    expect(isUsOrUnknownPostingLocation([], "Remote - United States")).toBe(true);
+    expect(isUsOrUnknownPostingLocation([], "Remote - Canada")).toBe(false);
+    expect(isUsOrUnknownPostingLocation(["US", "CA"])).toBe(false);
+    expect(isUsOrUnknownPostingLocation(["GB"])).toBe(false);
   });
 });

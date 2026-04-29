@@ -9,6 +9,7 @@ import {
 import {
   getPreferredPostingUrl,
   getAdapter,
+  isUsOrUnknownPostingLocation,
   isPotentialDuplicate,
   normalizeFetchedPosting,
   type NormalizedLocation
@@ -352,7 +353,11 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
         posting
       });
 
-      if (!normalized.internshipFlag || !normalized.applicationUrl) {
+      if (
+        !normalized.internshipFlag ||
+        !isUsOrUnknownPostingLocation(normalized.locationCountries) ||
+        !normalized.applicationUrl
+      ) {
         stats.skipped += 1;
         continue;
       }
