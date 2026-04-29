@@ -164,14 +164,16 @@ export function FilterSidebar({
   companies: Array<{ slug: string; name: string; _count: { postings: number } }>;
   filters: ListingFilters;
   basePath: string;
-  variant?: "card" | "rail";
+  variant?: "card" | "rail" | "responsive";
 }) {
   const shellClassName =
     variant === "rail"
       ? "h-full rounded-none border-0 border-r border-slate-200 bg-white/88 shadow-none backdrop-blur-xl"
+      : variant === "responsive"
+        ? "border border-slate-200 bg-white shadow-panel xl:h-full xl:rounded-none xl:border-0 xl:border-r xl:bg-white/88 xl:shadow-none xl:backdrop-blur-xl"
       : "border border-slate-200 bg-white shadow-panel";
 
-  const contentClassName = variant === "rail" ? "space-y-5 p-5" : "space-y-5";
+  const contentClassName = variant === "rail" || variant === "responsive" ? "space-y-5 p-5" : "space-y-5";
 
   return (
     <Card className={cn(shellClassName)}>
@@ -189,7 +191,7 @@ export function FilterSidebar({
           companies={companies}
           filters={filters}
           basePath={basePath}
-          compact={variant === "rail"}
+          compact={variant === "rail" || variant === "responsive"}
         />
       </CardContent>
     </Card>

@@ -1,6 +1,7 @@
 import { Container, EmptyState, PageHeader, Button, Input, Select } from "@faang-quant/ui";
+import type { ApplicationState } from "@faang-quant/db";
 import { FilterSidebar } from "./filter-sidebar";
-import { ListingCard } from "./listing-card";
+import { InfiniteListings } from "./infinite-listings";
 import { saveSearchAction } from "../lib/actions";
 import { getCurrentSession } from "../lib/auth";
 import {
@@ -8,13 +9,21 @@ import {
   getFavoritePostingIds,
   getListingFilterMetadata,
   getListings,
-  parseListingFilters
+  parseListingFilters,
+  serializeFeedListing
 } from "../lib/queries";
+
+const LISTINGS_PER_PAGE = 25;
 
 export function buildSearchQuery(searchParams: Record<string, string | string[] | undefined>) {
   const params = new URLSearchParams();
+  const internalParams = new Set(["format", "limit", "offset", "page"]);
 
   for (const [key, value] of Object.entries(searchParams)) {
+    if (internalParams.has(key)) {
+      continue;
+    }
+
     if (Array.isArray(value)) {
       value.forEach((entry) => params.append(key, entry));
     } else if (typeof value === "string") {
@@ -39,7 +48,8 @@ export async function InternshipsFeedPage({
     getListings(filters),
     getListingFilterMetadata()
   ]);
-  const postingIds = listings.map((listing) => listing.id);
+  const initialListings = listings.slice(0, LISTINGS_PER_PAGE);
+  const postingIds = initialListings.map((listing) => listing.id);
   const [favoriteIds, applicationStateMap] = session?.user?.id
     ? await Promise.all([
         getFavoritePostingIds(session.user.id, postingIds),
@@ -49,20 +59,13 @@ export async function InternshipsFeedPage({
   const queryString = buildSearchQuery(resolvedSearchParams);
   const listHref = queryString ? `${basePath}?${queryString}` : basePath;
   const exportHref = `/api/internships${queryString ? `?${queryString}&` : "?"}format=csv`;
+  const applicationStates = Object.fromEntries(applicationStateMap.entries()) as Record<
+    string,
+    ApplicationState
+  >;
 
   return (
     <div className="relative">
-      <aside className="fixed bottom-0 left-0 top-20 z-20 hidden w-80 overflow-hidden xl:block">
-        <div className="h-full overflow-y-auto border-r border-white/60 bg-white/84 shadow-[12px_0_40px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-          <FilterSidebar
-            companies={companies}
-            filters={filters}
-            basePath={basePath}
-            variant="rail"
-          />
-        </div>
-      </aside>
-
       <Container className="space-y-8 py-12 xl:max-w-none xl:pl-[22rem]">
         <PageHeader
           eyebrow="Live Feed"
@@ -94,28 +97,33 @@ export async function InternshipsFeedPage({
         ) : null}
 
         <div className="space-y-8">
-          <div className="xl:hidden">
-            <FilterSidebar companies={companies} filters={filters} basePath={basePath} />
-          </div>
-          <div className="space-y-4">
-            <div className="text-sm text-slate-500">
-              {listings.length} internships matched your filters.
+          <aside className="xl:fixed xl:bottom-0 xl:left-0 xl:top-20 xl:z-20 xl:w-80 xl:overflow-hidden">
+            <div className="xl:h-full xl:overflow-y-auto xl:border-r xl:border-white/60 xl:bg-white/84 xl:shadow-[12px_0_40px_rgba(15,23,42,0.12)] xl:backdrop-blur-xl">
+              <FilterSidebar
+                companies={companies}
+                filters={filters}
+                basePath={basePath}
+                variant="responsive"
+              />
             </div>
+          </aside>
+          <div className="space-y-4">
             {listings.length === 0 ? (
               <EmptyState
                 title="No internships matched"
                 description="Adjust season, location, pay, or company filters to widen the search."
               />
             ) : (
-              listings.map((listing) => (
-                <ListingCard
-                  key={listing.id}
-                  posting={listing}
-                  isFavorite={favoriteIds.has(listing.id)}
-                  applicationState={applicationStateMap.get(listing.id) as never}
-                  redirectTo={listHref}
-                />
-              ))
+              <InfiniteListings
+                initialListings={initialListings.map(serializeFeedListing)}
+                total={listings.length}
+                batchSize={LISTINGS_PER_PAGE}
+                queryString={queryString}
+                listHref={listHref}
+                showPersonalActions={Boolean(session)}
+                favoriteIds={Array.from(favoriteIds)}
+                applicationStates={applicationStates}
+              />
             )}
           </div>
         </div>

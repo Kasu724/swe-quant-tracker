@@ -1,6 +1,6 @@
 import { decodeHtmlEntities, normalizeWhitespace, stripHtml, uniqueStrings } from "../normalization/text";
 import type { AdapterFetchContext, AdapterFetchedPosting } from "../types";
-import { fetchJson, fetchText, type SourceAdapter } from "./base";
+import { fetchJson, fetchJsonRequest, fetchText, type SourceAdapter } from "./base";
 
 type CustomApiParserId =
   | "amazon-search-json"
@@ -8,7 +8,12 @@ type CustomApiParserId =
   | "pcsx-search"
   | "github-jibe-jobs"
   | "jibe-jobs"
-  | "salesforce-rss";
+  | "salesforce-rss"
+  | "meta-careers-search"
+  | "oracle-hcm-search"
+  | "smartrecruiters-postings"
+  | "tiktok-search"
+  | "uber-search";
 
 type AmazonSearchResponse = {
   hits?: number;
@@ -156,6 +161,151 @@ type SalesforceRssJob = {
   lastactivitydate?: string;
 };
 
+type MetaCareersResponse = {
+  data?: {
+    job_search_with_featured_jobs?: {
+      all_jobs?: MetaCareersJob[];
+    };
+  };
+};
+
+type MetaCareersJob = {
+  id?: string | number;
+  title?: string;
+  locations?: unknown[];
+  teams?: unknown[];
+  sub_teams?: unknown[];
+  job_type?: string;
+  job_category?: string;
+};
+
+type OracleHcmResponse = {
+  items?: OracleHcmSearchItem[];
+};
+
+type OracleHcmSearchItem = {
+  TotalJobsCount?: number;
+  totalJobsCount?: number;
+  requisitionList?: OracleHcmJob[];
+};
+
+type OracleHcmJob = {
+  Id?: string | number;
+  Title?: string;
+  PostedDate?: string;
+  PrimaryLocation?: string;
+  PrimaryLocationCountry?: string;
+  ShortDescriptionStr?: string;
+  ExternalQualificationsStr?: string | null;
+  ExternalResponsibilitiesStr?: string | null;
+  WorkplaceType?: string | null;
+  JobFamily?: string | null;
+  JobFunction?: string | null;
+  JobType?: string | null;
+  WorkerType?: string | null;
+  secondaryLocations?: Array<{ Name?: string; name?: string; LocationName?: string }>;
+  otherWorkLocations?: Array<{ Name?: string; name?: string; LocationName?: string }>;
+};
+
+type SmartRecruitersSearchResponse = {
+  content?: SmartRecruitersJob[];
+  totalFound?: number;
+};
+
+type SmartRecruitersJob = {
+  id?: string;
+  uuid?: string;
+  name?: string;
+  refNumber?: string;
+  releasedDate?: string;
+  postingUrl?: string;
+  applyUrl?: string;
+  location?: {
+    city?: string;
+    region?: string;
+    country?: string;
+    remote?: boolean;
+  };
+  department?: { label?: string; id?: string };
+  typeOfEmployment?: { label?: string; id?: string };
+  industry?: { label?: string; id?: string };
+  jobAd?: {
+    sections?: Record<string, { title?: string; text?: string }>;
+  };
+};
+
+type TikTokSearchResponse = {
+  data?: {
+    job_post_list?: TikTokJob[];
+    count?: number;
+  };
+};
+
+type TikTokFiltersResponse = {
+  data?: {
+    city_list?: TikTokLocation[];
+  };
+};
+
+type TikTokLocation = {
+  code?: string;
+  en_name?: string | null;
+  i18n_name?: string | null;
+  parent?: TikTokLocation | null;
+  children?: TikTokLocation[];
+};
+
+type TikTokJob = {
+  id?: string | number;
+  code?: string;
+  title?: string;
+  description?: string;
+  requirement?: string;
+  recruit_type?: { id?: string | number; en_name?: string | null };
+  job_category?: { id?: string | number; en_name?: string | null };
+  job_subject?: { id?: string | number; en_name?: string | null };
+  city_info?: TikTokLocation | null;
+  department_info?: { id?: string | number; en_name?: string | null; name?: string | null };
+  job_post_info?: {
+    min_salary?: number | null;
+    max_salary?: number | null;
+    currency?: string | null;
+    required_degree?: string | null;
+    experience?: string | null;
+  } | null;
+};
+
+type UberSearchResponse = {
+  status?: string;
+  data?: {
+    results?: UberJob[];
+    totalResults?: { low?: number; high?: number } | number;
+  };
+};
+
+type UberLocation = {
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  countryName?: string | null;
+};
+
+type UberJob = {
+  id?: string | number;
+  title?: string;
+  description?: string;
+  department?: string;
+  team?: string;
+  type?: string;
+  timeType?: string;
+  creationDate?: string;
+  updatedDate?: string;
+  location?: UberLocation;
+  allLocations?: UberLocation[];
+  level?: string;
+  programAndPlatform?: string;
+};
+
 function getParserId(context: AdapterFetchContext): CustomApiParserId {
   const parserId = context.source.parserConfigJson?.parserId;
 
@@ -165,7 +315,12 @@ function getParserId(context: AdapterFetchContext): CustomApiParserId {
     parserId === "pcsx-search" ||
     parserId === "github-jibe-jobs" ||
     parserId === "jibe-jobs" ||
-    parserId === "salesforce-rss"
+    parserId === "salesforce-rss" ||
+    parserId === "meta-careers-search" ||
+    parserId === "oracle-hcm-search" ||
+    parserId === "smartrecruiters-postings" ||
+    parserId === "tiktok-search" ||
+    parserId === "uber-search"
   ) {
     return parserId;
   }
@@ -209,6 +364,64 @@ function getBooleanConfig(value: unknown, fallback: boolean): boolean {
 
 function getStringConfig(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
+}
+
+function getStringArrayConfig(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return uniqueStrings(
+    value
+      .map((entry) => (typeof entry === "string" ? normalizeWhitespace(entry) : undefined))
+      .filter((entry): entry is string => Boolean(entry))
+  );
+}
+
+function asNormalizedString(value: unknown): string | undefined {
+  if (typeof value === "string") {
+    return normalizeWhitespace(value) || undefined;
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return undefined;
+}
+
+function extractNamedValues(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return uniqueStrings(
+    value
+      .map((entry) => {
+        if (typeof entry === "string") {
+          return normalizeWhitespace(entry);
+        }
+
+        if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+          return undefined;
+        }
+
+        const record = entry as Record<string, unknown>;
+
+        return asNormalizedString(
+          record.name ?? record.title ?? record.label ?? record.displayName ?? record.localizedName
+        );
+      })
+      .filter((entry): entry is string => Boolean(entry))
+  );
+}
+
+function slugifyForUrl(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 function parseAmazonLocation(input: string | AmazonLocationRecord): AmazonLocationRecord | undefined {
@@ -794,6 +1007,704 @@ async function fetchSalesforceRssPostings(
     .filter((posting): posting is AdapterFetchedPosting => Boolean(posting));
 }
 
+function normalizeMetaCareersPosting(
+  job: MetaCareersJob,
+  query: string
+): AdapterFetchedPosting | undefined {
+  const externalJobId = asNormalizedString(job.id);
+  const title = normalizeWhitespace(job.title || "");
+
+  if (!externalJobId || !title) {
+    return undefined;
+  }
+
+  const locations = extractNamedValues(job.locations);
+  const sourceUrl = `https://www.metacareers.com/jobs/${encodeURIComponent(externalJobId)}/`;
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl: sourceUrl,
+    sourceUrl,
+    locationRaw: locations[0],
+    additionalLocations: locations.slice(1),
+    employmentType: job.job_type || job.job_category || undefined,
+    metadata: {
+      query,
+      jobCategory: job.job_category,
+      teams: extractNamedValues(job.teams),
+      subTeams: extractNamedValues(job.sub_teams)
+    },
+    raw: job
+  };
+}
+
+async function fetchMetaCareersPostings(
+  context: AdapterFetchContext
+): Promise<AdapterFetchedPosting[]> {
+  const docId = getStringConfig(context.source.requestConfigJson?.docId, "26228555073499023");
+  const configuredQueries = getStringArrayConfig(context.source.requestConfigJson?.queries);
+  const fallbackQuery = getStringConfig(context.source.requestConfigJson?.query, "intern");
+  const queries = configuredQueries.length > 0 ? configuredQueries : [fallbackQuery];
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+
+  for (const query of queries) {
+    const body = new URLSearchParams({
+      fb_api_caller_class: "RelayModern",
+      fb_api_req_friendly_name: "CareersJobSearchInputDropdownDataQuery",
+      variables: JSON.stringify({
+        search_input: {
+          q: query,
+          results_per_page: "FIVE"
+        }
+      }),
+      server_timestamps: "true",
+      doc_id: docId
+    });
+    const response = await fetchJsonRequest<MetaCareersResponse>(context, context.source.sourceUrl, {
+      method: "POST",
+      body,
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Origin: "https://www.metacareers.com",
+        Referer: `https://www.metacareers.com/jobs/?q=${encodeURIComponent(query)}`,
+        "x-fb-friendly-name": "CareersJobSearchInputDropdownDataQuery"
+      }
+    });
+    const jobs = response.data?.job_search_with_featured_jobs?.all_jobs ?? [];
+
+    for (const job of jobs) {
+      const posting = normalizeMetaCareersPosting(job, query);
+
+      if (!posting || seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+  }
+
+  return postings;
+}
+
+function buildOracleFinder(context: AdapterFetchContext, offset: number, limit: number): string {
+  const siteNumber = getStringConfig(context.source.requestConfigJson?.siteNumber, "CX_45001");
+  const facetsList = getStringConfig(
+    context.source.requestConfigJson?.facetsList,
+    "LOCATIONS;TITLES;CATEGORIES;POSTING_DATES"
+  );
+  const searchText = getStringConfig(context.source.requestConfigJson?.searchText, "intern");
+  const selectedLocationsFacet = getStringConfig(
+    context.source.requestConfigJson?.selectedLocationsFacet,
+    "300000000149325"
+  );
+  const parts = [
+    `siteNumber=${siteNumber}`,
+    `facetsList=${facetsList}`,
+    `limit=${limit}`,
+    `offset=${offset}`
+  ];
+
+  if (searchText) {
+    parts.push(`keyword="${searchText.replace(/"/g, '\\"')}"`);
+  }
+
+  if (selectedLocationsFacet) {
+    parts.push(`selectedLocationsFacet=${selectedLocationsFacet}`);
+  }
+
+  return `findReqs;${parts.join(",")}`;
+}
+
+function buildOracleSearchUrl(context: AdapterFetchContext, offset: number, limit: number): string {
+  const url = new URL(context.source.sourceUrl);
+
+  url.searchParams.set("onlyData", "true");
+  if (!url.searchParams.has("expand")) {
+    url.searchParams.set(
+      "expand",
+      "requisitionList.workLocation,requisitionList.otherWorkLocations,requisitionList.secondaryLocations,requisitionList.requisitionFlexFields"
+    );
+  }
+  url.searchParams.set("finder", buildOracleFinder(context, offset, limit));
+
+  return url.toString();
+}
+
+function buildOracleDescriptionHtml(job: OracleHcmJob): string | undefined {
+  const sections = [
+    job.ShortDescriptionStr ? `<p>${job.ShortDescriptionStr}</p>` : undefined,
+    job.ExternalResponsibilitiesStr
+      ? `<h2>Responsibilities</h2><div>${job.ExternalResponsibilitiesStr}</div>`
+      : undefined,
+    job.ExternalQualificationsStr
+      ? `<h2>Qualifications</h2><div>${job.ExternalQualificationsStr}</div>`
+      : undefined
+  ].filter((section): section is string => Boolean(section));
+
+  return sections.length > 0 ? sections.join("<br/><br/>") : undefined;
+}
+
+function extractOracleAdditionalLocations(job: OracleHcmJob, primary?: string): string[] {
+  const values = [...(job.secondaryLocations ?? []), ...(job.otherWorkLocations ?? [])]
+    .map((location) => location.Name ?? location.name ?? location.LocationName)
+    .map((location) => (location ? normalizeWhitespace(location) : undefined))
+    .filter((location): location is string => Boolean(location));
+
+  return uniqueStrings(values).filter((location) => location !== primary);
+}
+
+function normalizeOraclePosting(job: OracleHcmJob): AdapterFetchedPosting | undefined {
+  const externalJobId = asNormalizedString(job.Id);
+  const title = normalizeWhitespace(job.Title || "");
+
+  if (!externalJobId || !title) {
+    return undefined;
+  }
+
+  const sourceUrl = `https://careers.oracle.com/en/sites/jobsearch/job/${encodeURIComponent(externalJobId)}`;
+  const locationRaw =
+    normalizeWhitespace(job.PrimaryLocation || "") ||
+    (job.PrimaryLocationCountry ? normalizeWhitespace(job.PrimaryLocationCountry) : undefined);
+  const descriptionHtml = buildOracleDescriptionHtml(job);
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl: sourceUrl,
+    sourceUrl,
+    postingDate: job.PostedDate,
+    descriptionHtml,
+    descriptionText: descriptionHtml ? stripHtml(descriptionHtml) : undefined,
+    employmentType: job.JobType || job.WorkerType || undefined,
+    locationRaw,
+    additionalLocations: extractOracleAdditionalLocations(job, locationRaw),
+    remoteTypeHint: job.WorkplaceType || undefined,
+    metadata: {
+      jobFamily: job.JobFamily,
+      jobFunction: job.JobFunction,
+      primaryLocationCountry: job.PrimaryLocationCountry
+    },
+    raw: job
+  };
+}
+
+async function fetchOracleHcmPostings(
+  context: AdapterFetchContext
+): Promise<AdapterFetchedPosting[]> {
+  const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 24), 200);
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 10);
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+  let offset = 0;
+  let page = 0;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (page < maxPages && offset < total) {
+    const response = await fetchJson<OracleHcmResponse>(
+      context,
+      buildOracleSearchUrl(context, offset, pageSize)
+    );
+    const item = response.items?.[0];
+    const jobs = item?.requisitionList ?? [];
+
+    total =
+      typeof item?.TotalJobsCount === "number"
+        ? item.TotalJobsCount
+        : typeof item?.totalJobsCount === "number"
+          ? item.totalJobsCount
+          : total;
+
+    if (jobs.length === 0) {
+      break;
+    }
+
+    for (const job of jobs) {
+      const posting = normalizeOraclePosting(job);
+
+      if (!posting || seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+
+    if (jobs.length < pageSize) {
+      break;
+    }
+
+    offset += jobs.length;
+    page += 1;
+  }
+
+  return postings;
+}
+
+function buildSmartRecruitersSearchUrl(
+  context: AdapterFetchContext,
+  offset: number,
+  limit: number
+): string {
+  const url = new URL(context.source.sourceUrl);
+  const query = getStringConfig(context.source.requestConfigJson?.query, "intern");
+
+  url.searchParams.set("limit", String(limit));
+  url.searchParams.set("offset", String(offset));
+
+  if (query) {
+    url.searchParams.set("q", query);
+  }
+
+  return url.toString();
+}
+
+function buildSmartRecruitersDetailUrl(sourceUrl: string, jobId: string): string {
+  const url = new URL(sourceUrl);
+  const detailPath = `${url.pathname.replace(/\/$/, "")}/${encodeURIComponent(jobId)}`;
+
+  return new URL(detailPath, url.origin).toString();
+}
+
+function extractSmartRecruitersCompanyPath(context: AdapterFetchContext): string {
+  const match = new URL(context.source.sourceUrl).pathname.match(/\/companies\/([^/]+)/i);
+
+  return match?.[1] || context.company.name.replace(/\s+/g, "");
+}
+
+function buildSmartRecruitersDescriptionHtml(job: SmartRecruitersJob): string | undefined {
+  const sections = Object.values(job.jobAd?.sections ?? {})
+    .map((section) => {
+      if (!section.text) {
+        return undefined;
+      }
+
+      return section.title ? `<h2>${section.title}</h2><div>${section.text}</div>` : section.text;
+    })
+    .filter((section): section is string => Boolean(section));
+
+  return sections.length > 0 ? sections.join("<br/><br/>") : undefined;
+}
+
+function normalizeSmartRecruitersPosting(
+  context: AdapterFetchContext,
+  job: SmartRecruitersJob
+): AdapterFetchedPosting | undefined {
+  const title = normalizeWhitespace(job.name || "");
+  const externalJobId = normalizeWhitespace(job.refNumber || job.id || job.uuid || "");
+
+  if (!externalJobId || !title) {
+    return undefined;
+  }
+
+  const companyPath = extractSmartRecruitersCompanyPath(context);
+  const sourceUrl =
+    job.postingUrl ||
+    (job.id
+      ? `https://jobs.smartrecruiters.com/${companyPath}/${encodeURIComponent(job.id)}-${slugifyForUrl(title)}`
+      : "");
+  const applicationUrl = job.applyUrl || sourceUrl;
+  const locationRaw = normalizeWhitespace(
+    uniqueStrings([job.location?.city, job.location?.region, job.location?.country]).join(", ")
+  );
+  const descriptionHtml = buildSmartRecruitersDescriptionHtml(job);
+
+  if (!sourceUrl || !applicationUrl) {
+    return undefined;
+  }
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl,
+    sourceUrl,
+    postingDate: job.releasedDate,
+    descriptionHtml,
+    descriptionText: descriptionHtml ? stripHtml(descriptionHtml) : undefined,
+    employmentType: job.typeOfEmployment?.label || undefined,
+    locationRaw: locationRaw || undefined,
+    remoteTypeHint: job.location?.remote ? "Remote" : undefined,
+    metadata: {
+      department: job.department?.label,
+      industry: job.industry?.label,
+      typeOfEmploymentId: job.typeOfEmployment?.id
+    },
+    raw: job
+  };
+}
+
+async function fetchSmartRecruitersPostings(
+  context: AdapterFetchContext
+): Promise<AdapterFetchedPosting[]> {
+  const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 100), 100);
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 3);
+  const fetchDetails = getBooleanConfig(context.source.requestConfigJson?.fetchDetails, true);
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+  let offset = 0;
+  let page = 0;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (page < maxPages && offset < total) {
+    const response = await fetchJson<SmartRecruitersSearchResponse>(
+      context,
+      buildSmartRecruitersSearchUrl(context, offset, pageSize)
+    );
+    const jobs = response.content ?? [];
+
+    total = typeof response.totalFound === "number" ? response.totalFound : total;
+
+    if (jobs.length === 0) {
+      break;
+    }
+
+    for (const job of jobs) {
+      const detail =
+        fetchDetails && job.id
+          ? await fetchJson<SmartRecruitersJob>(
+              context,
+              buildSmartRecruitersDetailUrl(context.source.sourceUrl, job.id)
+            )
+          : job;
+      const posting = normalizeSmartRecruitersPosting(context, { ...job, ...detail });
+
+      if (!posting || seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+
+    if (jobs.length < pageSize) {
+      break;
+    }
+
+    offset += jobs.length;
+    page += 1;
+  }
+
+  return postings;
+}
+
+function getTikTokHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Origin: "https://lifeattiktok.com",
+    Referer: "https://lifeattiktok.com/search?keyword=intern",
+    "accept-language": "en-US",
+    "website-path": "tiktok"
+  };
+}
+
+function getTikTokLocationNames(location: TikTokLocation | null | undefined): string[] {
+  const names: string[] = [];
+  let current: TikTokLocation | null | undefined = location;
+
+  while (current) {
+    const name = current.en_name || current.i18n_name;
+
+    if (name) {
+      names.push(normalizeWhitespace(name));
+    }
+
+    current = current.parent;
+  }
+
+  return uniqueStrings(names);
+}
+
+function isTikTokLocationInCountry(location: TikTokLocation, countryName: string): boolean {
+  return getTikTokLocationNames(location).some(
+    (name) => name.toLowerCase() === countryName.toLowerCase()
+  );
+}
+
+function collectTikTokLocationCodes(locations: TikTokLocation[], countryName: string): string[] {
+  const codes: string[] = [];
+
+  for (const location of locations) {
+    if (Array.isArray(location.children) && location.children.length > 0) {
+      codes.push(...collectTikTokLocationCodes(location.children, countryName));
+    }
+
+    if (location.code && isTikTokLocationInCountry(location, countryName)) {
+      codes.push(location.code);
+    }
+  }
+
+  return uniqueStrings(codes);
+}
+
+function chunkStrings(values: string[], size: number): string[][] {
+  const chunks: string[][] = [];
+
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+async function getTikTokLocationCodeGroups(context: AdapterFetchContext): Promise<string[][]> {
+  const configuredLocations = getStringArrayConfig(context.source.requestConfigJson?.locationCodes);
+
+  if (configuredLocations.length > 0) {
+    return chunkStrings(configuredLocations, 20);
+  }
+
+  const filtersUrl = getStringConfig(
+    context.source.requestConfigJson?.filtersUrl,
+    "https://api.lifeattiktok.com/api/v1/public/supplier/config/job/filters"
+  );
+  const countryName = getStringConfig(
+    context.source.requestConfigJson?.countryName,
+    "United States of America"
+  );
+  const response = await fetchJsonRequest<TikTokFiltersResponse>(context, filtersUrl, {
+    method: "POST",
+    body: "{}",
+    headers: getTikTokHeaders()
+  });
+  const locationCodes = collectTikTokLocationCodes(response.data?.city_list ?? [], countryName);
+  const batchSize = Math.max(1, getNumericConfig(context.source.requestConfigJson?.locationBatchSize, 20));
+
+  return locationCodes.length > 0 ? chunkStrings(locationCodes, batchSize) : [[]];
+}
+
+function buildTikTokSearchBody(
+  context: AdapterFetchContext,
+  offset: number,
+  limit: number,
+  locationCodes: string[]
+): string {
+  return JSON.stringify({
+    keyword: getStringConfig(context.source.requestConfigJson?.query, "intern"),
+    limit,
+    offset,
+    job_category_id_list: getStringArrayConfig(context.source.requestConfigJson?.jobCategoryIds),
+    location_code_list: locationCodes,
+    subject_id_list: getStringArrayConfig(context.source.requestConfigJson?.subjectIds),
+    recruitment_id_list: getStringArrayConfig(context.source.requestConfigJson?.recruitmentIds)
+  });
+}
+
+function normalizeTikTokPosting(job: TikTokJob): AdapterFetchedPosting | undefined {
+  const externalJobId = asNormalizedString(job.code ?? job.id);
+  const title = normalizeWhitespace(job.title || "");
+
+  if (!externalJobId || !title) {
+    return undefined;
+  }
+
+  const sourceUrl = job.code
+    ? `https://lifeattiktok.com/search?job_code=${encodeURIComponent(job.code)}`
+    : `https://lifeattiktok.com/search?job_id=${encodeURIComponent(String(job.id))}`;
+  const descriptionText = normalizeWhitespace(
+    [job.description, job.requirement].filter(Boolean).join("\n\n")
+  );
+  const min = job.job_post_info?.min_salary ?? undefined;
+  const max = job.job_post_info?.max_salary ?? undefined;
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl: sourceUrl,
+    sourceUrl,
+    descriptionText: descriptionText || undefined,
+    employmentType: job.recruit_type?.en_name || undefined,
+    locationRaw: getTikTokLocationNames(job.city_info).join(", ") || undefined,
+    compensation:
+      min !== undefined || max !== undefined
+        ? {
+            min,
+            max,
+            currency: job.job_post_info?.currency ?? undefined,
+            known: true
+          }
+        : undefined,
+    metadata: {
+      category: job.job_category?.en_name,
+      department: job.department_info?.en_name ?? job.department_info?.name,
+      requiredDegree: job.job_post_info?.required_degree,
+      subject: job.job_subject?.en_name,
+      tiktokJobId: job.id
+    },
+    raw: job
+  };
+}
+
+async function fetchTikTokPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 50), 100);
+  const maxPagesPerLocation = getNumericConfig(
+    context.source.requestConfigJson?.maxPagesPerLocation,
+    3
+  );
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+  const locationCodeGroups = await getTikTokLocationCodeGroups(context);
+
+  for (const locationCodes of locationCodeGroups) {
+    let offset = 0;
+    let page = 0;
+    let total = Number.POSITIVE_INFINITY;
+
+    while (page < maxPagesPerLocation && offset < total) {
+      const response = await fetchJsonRequest<TikTokSearchResponse>(context, context.source.sourceUrl, {
+        method: "POST",
+        body: buildTikTokSearchBody(context, offset, pageSize, locationCodes),
+        headers: getTikTokHeaders()
+      });
+      const jobs = response.data?.job_post_list ?? [];
+
+      total = typeof response.data?.count === "number" ? response.data.count : total;
+
+      if (jobs.length === 0) {
+        break;
+      }
+
+      for (const job of jobs) {
+        const posting = normalizeTikTokPosting(job);
+
+        if (!posting || seen.has(posting.externalJobId)) {
+          continue;
+        }
+
+        seen.add(posting.externalJobId);
+        postings.push(posting);
+      }
+
+      if (jobs.length < pageSize) {
+        break;
+      }
+
+      offset += jobs.length;
+      page += 1;
+    }
+  }
+
+  return postings;
+}
+
+function formatUberLocation(location: UberLocation | undefined): string | undefined {
+  if (!location) {
+    return undefined;
+  }
+
+  return (
+    normalizeWhitespace(
+      uniqueStrings([location.city ?? undefined, location.region ?? undefined, location.countryName ?? undefined]).join(", ")
+    ) || undefined
+  );
+}
+
+function normalizeUberPosting(job: UberJob): AdapterFetchedPosting | undefined {
+  const externalJobId = asNormalizedString(job.id);
+  const title = normalizeWhitespace(job.title || "");
+
+  if (!externalJobId || !title) {
+    return undefined;
+  }
+
+  const locations = uniqueStrings(
+    (job.allLocations && job.allLocations.length > 0 ? job.allLocations : [job.location])
+      .map((location) => formatUberLocation(location))
+      .filter((location): location is string => Boolean(location))
+  );
+  const sourceUrl = `https://www.uber.com/us/en/careers/list/${encodeURIComponent(externalJobId)}/`;
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl: sourceUrl,
+    sourceUrl,
+    postingDate: job.creationDate ?? job.updatedDate,
+    descriptionText: job.description ? stripHtml(job.description) : undefined,
+    employmentType: job.timeType || job.type || undefined,
+    locationRaw: locations[0],
+    additionalLocations: locations.slice(1),
+    metadata: {
+      department: job.department,
+      level: job.level,
+      programAndPlatform: job.programAndPlatform,
+      team: job.team,
+      updatedDate: job.updatedDate
+    },
+    raw: job
+  };
+}
+
+function getUberTotal(value: UberSearchResponse["data"]): number {
+  if (!value || typeof value !== "object") {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  const totalResults = (value as { totalResults?: { low?: number } | number }).totalResults;
+
+  if (typeof totalResults === "number") {
+    return totalResults;
+  }
+
+  return typeof totalResults?.low === "number" ? totalResults.low : Number.POSITIVE_INFINITY;
+}
+
+async function fetchUberPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 25), 100);
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 4);
+  const query = getStringConfig(context.source.requestConfigJson?.query, "intern");
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+  let page = 0;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (page < maxPages && postings.length < total) {
+    const response = await fetchJsonRequest<UberSearchResponse>(context, context.source.sourceUrl, {
+      method: "POST",
+      body: JSON.stringify({
+        limit: pageSize,
+        page,
+        params: {
+          query
+        }
+      }),
+      headers: {
+        "Content-Type": "application/json",
+        Origin: "https://www.uber.com",
+        Referer: `https://www.uber.com/us/en/careers/list/?query=${encodeURIComponent(query)}`,
+        "x-csrf-token": "x"
+      }
+    });
+    const jobs = response.data?.results ?? [];
+
+    total = getUberTotal(response.data);
+
+    if (jobs.length === 0) {
+      break;
+    }
+
+    for (const job of jobs) {
+      const posting = normalizeUberPosting(job);
+
+      if (!posting || seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+
+    if (jobs.length < pageSize) {
+      break;
+    }
+
+    page += 1;
+  }
+
+  return postings;
+}
+
 export class CustomApiAdapter implements SourceAdapter {
   readonly type = "CUSTOM_API" as const;
 
@@ -804,11 +1715,21 @@ export class CustomApiAdapter implements SourceAdapter {
       case "github-jibe-jobs":
       case "jibe-jobs":
         return fetchJibePostings(context);
+      case "meta-careers-search":
+        return fetchMetaCareersPostings(context);
       case "microsoft-pcsx-search":
       case "pcsx-search":
         return fetchMicrosoftPostings(context);
+      case "oracle-hcm-search":
+        return fetchOracleHcmPostings(context);
       case "salesforce-rss":
         return fetchSalesforceRssPostings(context);
+      case "smartrecruiters-postings":
+        return fetchSmartRecruitersPostings(context);
+      case "tiktok-search":
+        return fetchTikTokPostings(context);
+      case "uber-search":
+        return fetchUberPostings(context);
       default:
         return [];
     }

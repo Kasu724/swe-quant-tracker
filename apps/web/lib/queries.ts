@@ -1,5 +1,5 @@
 import { subDays } from "date-fns";
-import { prisma, type Prisma } from "@faang-quant/db";
+import { prisma, type ApplicationState, type Prisma } from "@faang-quant/db";
 import {
   getPreferredPostingUrl,
   isUsOrUnknownPostingLocation,
@@ -11,11 +11,64 @@ import {
 } from "@faang-quant/shared";
 
 type SearchParams = Record<string, string | string[] | undefined>;
+
+const listingSelect = {
+  id: true,
+  slug: true,
+  companyNameSnapshot: true,
+  title: true,
+  roleCategory: true,
+  season: true,
+  year: true,
+  locationRaw: true,
+  locationCountries: true,
+  remoteType: true,
+  compensationMin: true,
+  compensationMax: true,
+  compensationCurrency: true,
+  compensationInterval: true,
+  postingDate: true,
+  discoveredAt: true,
+  applicationUrl: true,
+  sourceUrl: true,
+  sourceName: true,
+  isActive: true,
+  company: {
+    select: {
+      slug: true,
+      companyBucket: true
+    }
+  }
+} satisfies Prisma.InternshipPostingSelect;
+
 type ListingRow = Prisma.InternshipPostingGetPayload<{
-  include: {
-    company: true;
-  };
+  select: typeof listingSelect;
 }>;
+
+export type FeedListing = {
+  id: string;
+  slug: string;
+  companyNameSnapshot: string;
+  title: string;
+  roleCategory: ListingRow["roleCategory"];
+  season: string | null;
+  year: number | null;
+  locationRaw: string | null;
+  remoteType: ListingRow["remoteType"];
+  compensationMin: string | null;
+  compensationMax: string | null;
+  compensationCurrency: string | null;
+  compensationInterval: ListingRow["compensationInterval"];
+  postingDate: string | null;
+  discoveredAt: string;
+  applicationUrl: string;
+  sourceUrl: string | null;
+  sourceName: string;
+  company: {
+    slug: string;
+    companyBucket: ListingRow["company"]["companyBucket"];
+  };
+};
 
 function readArrayParam(value: string | string[] | undefined): string[] {
   if (!value) {
@@ -97,9 +150,7 @@ const trackedLocationWhere: Prisma.InternshipPostingWhereInput = {
 };
 
 function toListingRecord(
-  posting: Prisma.InternshipPostingGetPayload<{
-    include: { company: true };
-  }>
+  posting: ListingRow
 ): ListingSearchRecord {
   return {
     companySlug: posting.company.slug,
@@ -156,6 +207,33 @@ function sortListings(
   return sorted;
 }
 
+export function serializeFeedListing(listing: ListingRow): FeedListing {
+  return {
+    id: listing.id,
+    slug: listing.slug,
+    companyNameSnapshot: listing.companyNameSnapshot,
+    title: listing.title,
+    roleCategory: listing.roleCategory,
+    season: listing.season,
+    year: listing.year,
+    locationRaw: listing.locationRaw,
+    remoteType: listing.remoteType,
+    compensationMin: listing.compensationMin?.toString() ?? null,
+    compensationMax: listing.compensationMax?.toString() ?? null,
+    compensationCurrency: listing.compensationCurrency,
+    compensationInterval: listing.compensationInterval,
+    postingDate: listing.postingDate?.toISOString() ?? null,
+    discoveredAt: listing.discoveredAt.toISOString(),
+    applicationUrl: listing.applicationUrl,
+    sourceUrl: listing.sourceUrl,
+    sourceName: listing.sourceName,
+    company: {
+      slug: listing.company.slug,
+      companyBucket: listing.company.companyBucket
+    }
+  };
+}
+
 export async function getListings(filters: ListingFilters) {
   const broadWhere: Prisma.InternshipPostingWhereInput = {
     internshipFlag: true,
@@ -197,9 +275,7 @@ export async function getListings(filters: ListingFilters) {
 
   const listings = await prisma.internshipPosting.findMany({
     where: broadWhere,
-    include: {
-      company: true
-    },
+    select: listingSelect,
     orderBy:
       filters.sort === "postingDate" || filters.sort === "newest"
         ? [{ postingDate: "desc" }, { discoveredAt: "desc" }]
@@ -230,7 +306,9 @@ export async function getListingFilterMetadata() {
     orderBy: {
       name: "asc"
     },
-    include: {
+    select: {
+      slug: true,
+      name: true,
       _count: {
         select: {
           postings: {
@@ -428,7 +506,9 @@ export async function getApplicationStateMap(userId: string, postingIds: string[
     }
   });
 
-  return new Map(states.map((state) => [state.internshipPostingId, state.state]));
+  return new Map<string, ApplicationState>(
+    states.map((state) => [state.internshipPostingId, state.state])
+  );
 }
 
 export async function getAdminDashboardData() {

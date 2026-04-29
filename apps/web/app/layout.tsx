@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { IBM_Plex_Sans, Space_Grotesk } from "next/font/google";
-import Script from "next/script";
 import { getCurrentSession } from "../lib/auth";
 import { SiteHeader } from "../components/site-header";
 import "./globals.css";
@@ -50,10 +49,10 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script id="theme-init" dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body className={`${sans.variable} ${display.variable} font-sans antialiased`}>
-        <Script id="theme-init" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
         <SiteHeader session={session} />
         <main>{children}</main>
       </body>

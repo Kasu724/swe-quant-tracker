@@ -6,7 +6,9 @@ type CustomHtmlParserId =
   | "apple-search"
   | "drw-listings"
   | "netflix-smartapply-search"
-  | "google-careers-search";
+  | "google-careers-search"
+  | "shopify-careers"
+  | "bloomberg-avature-search";
 
 type NetflixPosition = {
   id?: number | string;
@@ -46,6 +48,14 @@ const APPLE_CARD_PATTERN =
 const GOOGLE_INIT_DATA_PATTERN = /AF_initDataCallback\((\{key: 'ds:1'[\s\S]*?sideChannel:\s*\{\}\})\);/;
 const GOOGLE_RESULT_HREF_PATTERN =
   /href="(?<href>jobs\/results\/(?<jobId>\d+)-[^"]+)"/g;
+const SHOPIFY_JOB_CARD_PATTERN =
+  /<a\b(?=[^>]*href="(?<href>\/careers\/[^"#?]*_[^"]+)")[^>]*>[\s\S]*?<h4\b[^>]*>(?<title>[\s\S]*?)<\/h4>[\s\S]*?<span\b[^>]*>(?<location>[\s\S]*?)<\/span>[\s\S]*?<\/a>/gi;
+const BLOOMBERG_ARTICLE_PATTERN =
+  /<article\b[^>]*class="[^"]*article--result[^"]*"[^>]*>(?<body>[\s\S]*?)<\/article>/gi;
+const BLOOMBERG_LINK_PATTERN =
+  /<a\b[^>]*href="(?<href>[^"]+)"[^>]*>(?<title>[\s\S]*?)<\/a>/i;
+const BLOOMBERG_LOCATION_PATTERN =
+  /<span\b[^>]*class="[^"]*list-item-location[^"]*"[^>]*>(?<location>[\s\S]*?)<\/span>/i;
 
 function getParserId(context: AdapterFetchContext): CustomHtmlParserId {
   const parserId = context.source.parserConfigJson?.parserId;
@@ -54,7 +64,9 @@ function getParserId(context: AdapterFetchContext): CustomHtmlParserId {
     parserId === "apple-search" ||
     parserId === "drw-listings" ||
     parserId === "netflix-smartapply-search" ||
-    parserId === "google-careers-search"
+    parserId === "google-careers-search" ||
+    parserId === "shopify-careers" ||
+    parserId === "bloomberg-avature-search"
   ) {
     return parserId;
   }
@@ -500,6 +512,146 @@ async function fetchNetflixPostings(context: AdapterFetchContext): Promise<Adapt
     });
 }
 
+function cleanHtmlText(value?: string): string | undefined {
+  return value ? normalizeWhitespace(decodeHtmlEntities(value.replace(/<[^>]+>/g, " "))) : undefined;
+}
+
+function externalJobIdFromUrl(value: string): string {
+  const url = new URL(value);
+  const segments = url.pathname.split("/").filter(Boolean);
+
+  return segments[segments.length - 1] ?? value;
+}
+
+function parseShopifyPostings(html: string, baseUrl: string): AdapterFetchedPosting[] {
+  const postings: AdapterFetchedPosting[] = [];
+
+  for (const match of html.matchAll(SHOPIFY_JOB_CARD_PATTERN)) {
+    const groups = match.groups;
+
+    if (!groups?.href || !groups.title) {
+      continue;
+    }
+
+    const sourceUrl = toAbsoluteUrl(baseUrl, decodeHtmlEntities(groups.href));
+    const title = cleanHtmlText(groups.title);
+
+    if (!title) {
+      continue;
+    }
+
+    postings.push({
+      externalJobId: externalJobIdFromUrl(sourceUrl),
+      title,
+      applicationUrl: sourceUrl,
+      sourceUrl,
+      locationRaw: cleanHtmlText(groups.location),
+      raw: {
+        href: groups.href,
+        title,
+        location: cleanHtmlText(groups.location)
+      }
+    });
+  }
+
+  return postings;
+}
+
+async function fetchShopifyPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const html = await fetchText(context, context.source.sourceUrl);
+
+  return parseShopifyPostings(html, context.source.sourceUrl);
+}
+
+function parseBloombergPostings(html: string, baseUrl: string): AdapterFetchedPosting[] {
+  const postings: AdapterFetchedPosting[] = [];
+
+  for (const articleMatch of html.matchAll(BLOOMBERG_ARTICLE_PATTERN)) {
+    const articleBody = articleMatch.groups?.body;
+
+    if (!articleBody) {
+      continue;
+    }
+
+    const linkMatch = articleBody.match(BLOOMBERG_LINK_PATTERN);
+    const linkGroups = linkMatch?.groups;
+
+    if (!linkGroups?.href || !linkGroups.title) {
+      continue;
+    }
+
+    const sourceUrl = toAbsoluteUrl(baseUrl, decodeHtmlEntities(linkGroups.href));
+    const title = cleanHtmlText(linkGroups.title);
+
+    if (!title) {
+      continue;
+    }
+
+    const location = cleanHtmlText(articleBody.match(BLOOMBERG_LOCATION_PATTERN)?.groups?.location);
+
+    postings.push({
+      externalJobId: externalJobIdFromUrl(sourceUrl),
+      title,
+      applicationUrl: sourceUrl,
+      sourceUrl,
+      locationRaw: location,
+      raw: {
+        href: linkGroups.href,
+        title,
+        location
+      }
+    });
+  }
+
+  return postings;
+}
+
+function buildBloombergSearchUrl(sourceUrl: string, offset: number, pageSize: number): string {
+  const url = new URL(sourceUrl);
+
+  url.searchParams.set("jobOffset", String(offset));
+  url.searchParams.set("jobRecordsPerPage", String(pageSize));
+
+  if (!url.searchParams.has("keywords")) {
+    url.searchParams.set("keywords", "intern");
+  }
+
+  return url.toString();
+}
+
+async function fetchBloombergPostings(
+  context: AdapterFetchContext
+): Promise<AdapterFetchedPosting[]> {
+  const pageSize = getPositiveNumericConfig(context.source.requestConfigJson?.pageSize, 50);
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 12);
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+
+  for (let page = 0; page < maxPages; page += 1) {
+    const searchUrl = buildBloombergSearchUrl(context.source.sourceUrl, page * pageSize, pageSize);
+    const pagePostings = parseBloombergPostings(await fetchText(context, searchUrl), searchUrl);
+
+    if (pagePostings.length === 0) {
+      break;
+    }
+
+    for (const posting of pagePostings) {
+      if (seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+
+    if (pagePostings.length < pageSize) {
+      break;
+    }
+  }
+
+  return postings;
+}
+
 export class CustomHtmlAdapter implements SourceAdapter {
   readonly type = "CUSTOM_HTML" as const;
 
@@ -507,12 +659,16 @@ export class CustomHtmlAdapter implements SourceAdapter {
     switch (getParserId(context)) {
       case "apple-search":
         return fetchApplePostings(context);
+      case "bloomberg-avature-search":
+        return fetchBloombergPostings(context);
       case "drw-listings":
         return fetchDrwPostings(context);
       case "google-careers-search":
         return fetchGooglePostings(context);
       case "netflix-smartapply-search":
         return fetchNetflixPostings(context);
+      case "shopify-careers":
+        return fetchShopifyPostings(context);
       default:
         return [];
     }

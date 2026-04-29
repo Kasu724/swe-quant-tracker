@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
-import { exportListingsCsv, getListings, parseListingFilters } from "../../../lib/queries";
+import { getCurrentSession } from "../../../lib/auth";
+import {
+  exportListingsCsv,
+  getApplicationStateMap,
+  getFavoritePostingIds,
+  getListings,
+  parseListingFilters,
+  serializeFeedListing
+} from "../../../lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +29,12 @@ function searchParamsToObject(searchParams: URLSearchParams) {
   return entries;
 }
 
+function readPositiveInteger(value: string | null, fallback: number) {
+  const parsed = value ? Number(value) : fallback;
+
+  return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const filters = parseListingFilters(searchParamsToObject(url.searchParams));
@@ -38,5 +52,25 @@ export async function GET(request: Request) {
   }
 
   const listings = await getListings(filters);
-  return NextResponse.json({ listings });
+  const offset = readPositiveInteger(url.searchParams.get("offset"), 0);
+  const limit = Math.min(readPositiveInteger(url.searchParams.get("limit"), 25), 100);
+  const batch = listings.slice(offset, offset + limit);
+  const nextOffset = offset + batch.length;
+  const session = await getCurrentSession();
+  const postingIds = batch.map((listing) => listing.id);
+  const [favoriteIds, applicationStateMap] = session?.user?.id
+    ? await Promise.all([
+        getFavoritePostingIds(session.user.id, postingIds),
+        getApplicationStateMap(session.user.id, postingIds)
+      ])
+    : [new Set<string>(), new Map<string, string>()];
+
+  return NextResponse.json({
+    listings: batch.map(serializeFeedListing),
+    total: listings.length,
+    nextOffset,
+    hasMore: nextOffset < listings.length,
+    favoriteIds: Array.from(favoriteIds),
+    applicationStates: Object.fromEntries(applicationStateMap.entries())
+  });
 }

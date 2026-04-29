@@ -60,7 +60,7 @@ This is the intended big-tech plus quant/trading/hedge fund target universe for 
 | Apple | FAANG | Tracked |
 | Amazon | FAANG | Tracked |
 | Google | FAANG | Tracked |
-| Meta | FAANG | Not yet tracked |
+| Meta | FAANG | Tracked |
 | Microsoft | FAANG | Tracked |
 | Netflix | FAANG | Tracked |
 | Nvidia | FAANG | Tracked |
@@ -71,12 +71,12 @@ This is the intended big-tech plus quant/trading/hedge fund target universe for 
 | Asana | BIG_TECH | Tracked |
 | Atlassian | BIG_TECH | Tracked |
 | Block | BIG_TECH | Tracked |
-| Bloomberg | BIG_TECH | Not yet tracked |
+| Bloomberg | BIG_TECH | Tracked |
 | Cloudflare | BIG_TECH | Tracked |
 | Coinbase | BIG_TECH | Tracked |
 | Databricks | BIG_TECH | Tracked |
 | Datadog | BIG_TECH | Tracked |
-| DoorDash | BIG_TECH | Not yet tracked |
+| DoorDash | BIG_TECH | Tracked |
 | Dropbox | BIG_TECH | Tracked |
 | Figma | BIG_TECH | Tracked |
 | GitHub | BIG_TECH | Tracked |
@@ -86,22 +86,22 @@ This is the intended big-tech plus quant/trading/hedge fund target universe for 
 | Lyft | BIG_TECH | Tracked |
 | MongoDB | BIG_TECH | Tracked |
 | Notion | BIG_TECH | Tracked |
-| Oracle | BIG_TECH | Not yet tracked |
+| Oracle | BIG_TECH | Tracked |
 | Palantir | BIG_TECH | Tracked |
 | Pinterest | BIG_TECH | Tracked |
 | Qualcomm | BIG_TECH | Tracked |
 | Reddit | BIG_TECH | Tracked |
 | Robinhood | BIG_TECH | Tracked |
 | Salesforce | BIG_TECH | Tracked |
-| ServiceNow | BIG_TECH | Not yet tracked |
-| Shopify | BIG_TECH | Not yet tracked |
+| ServiceNow | BIG_TECH | Tracked |
+| Shopify | BIG_TECH | Tracked |
 | Snap | BIG_TECH | Tracked |
 | Snowflake | BIG_TECH | Tracked |
 | Spotify | BIG_TECH | Tracked |
 | Stripe | BIG_TECH | Tracked |
-| TikTok | BIG_TECH | Not yet tracked |
+| TikTok | BIG_TECH | Tracked |
 | Twilio | BIG_TECH | Tracked |
-| Uber | BIG_TECH | Not yet tracked |
+| Uber | BIG_TECH | Tracked |
 | Vercel | BIG_TECH | Tracked |
 | Waymo | BIG_TECH | Tracked |
 | Workday | BIG_TECH | Tracked |
@@ -149,6 +149,7 @@ The seeded tracked set is still intentionally curated, but it now includes both 
 | Apple | FAANG | `https://jobs.apple.com/en-us/search?team=internships-STDNT-INTRN` | Official careers HTML search |
 | Amazon | FAANG | `https://www.amazon.jobs/en/search?base_query=&loc_query=` | Official careers JSON search |
 | Google | FAANG | `https://www.google.com/about/careers/applications/jobs/results?q=intern` | Official careers structured HTML payload |
+| Meta | FAANG | `https://www.metacareers.com/jobs/?q=intern` | Official careers GraphQL search |
 | Microsoft | FAANG | `https://apply.careers.microsoft.com/careers` | Official careers JSON API |
 | Netflix | FAANG | `https://explore.jobs.netflix.net/careers/search?query=intern` | Official careers search payload |
 | Nvidia | FAANG | `https://www.nvidia.com/en-us/about-nvidia/careers/` | Workday |
@@ -159,10 +160,12 @@ The seeded tracked set is still intentionally curated, but it now includes both 
 | Atlassian | BIG_TECH | `https://www.atlassian.com/company/careers/all-jobs` | Lever |
 | Belvedere Trading | TRADING / QUANT | `https://www.belvederetrading.com/our-positions` | Lever (`belvederetrading`) |
 | Block | BIG_TECH | `https://block.xyz/careers` | Greenhouse |
+| Bloomberg | BIG_TECH | `https://bloomberg.avature.net/careers/SearchJobs/?keywords=intern` | Official Avature careers search |
 | Coinbase | BIG_TECH | `https://www.coinbase.com/careers/positions` | Greenhouse |
 | CTC | TRADING / QUANT | `https://www.ctccapital.com/careers` | Greenhouse (`chicagotrading`) |
 | Databricks | BIG_TECH | `https://www.databricks.com/company/careers/open-positions` | Greenhouse |
 | Datadog | BIG_TECH | `https://careers.datadoghq.com` | Greenhouse |
+| DoorDash | BIG_TECH | `https://careers.doordash.com` | Greenhouse (`doordashusa`) |
 | DRW | TRADING / QUANT | `https://www.drw.com/work-at-drw/listings` | Official careers structured Next.js payload |
 | Dropbox | BIG_TECH | `https://jobs.dropbox.com/all-jobs` | Greenhouse |
 | Figma | BIG_TECH | `https://www.figma.com/careers` | Greenhouse |
@@ -178,6 +181,7 @@ The seeded tracked set is still intentionally curated, but it now includes both 
 | Lyft | BIG_TECH | `https://www.lyft.com/careers` | Greenhouse |
 | MongoDB | BIG_TECH | `https://www.mongodb.com/careers` | Greenhouse |
 | Notion | BIG_TECH | `https://www.notion.so/careers` | Ashby |
+| Oracle | BIG_TECH | `https://careers.oracle.com` | Official Oracle HCM careers API |
 | Old Mission | TRADING / QUANT | `https://www.oldmissioncapital.com/careers/` | Greenhouse (`oldmissioncapital`) |
 | Optiver | TRADING / QUANT | `https://optiver.com/working-at-optiver/early-careers/` | Greenhouse (`optiverus`) |
 | Palantir | BIG_TECH | `https://www.palantir.com/careers/` | Lever |
@@ -186,13 +190,17 @@ The seeded tracked set is still intentionally curated, but it now includes both 
 | Reddit | BIG_TECH | `https://redditinc.com/careers` | Greenhouse |
 | Robinhood | BIG_TECH | `https://careers.robinhood.com/` | Greenhouse |
 | Salesforce | BIG_TECH | `https://careers.salesforce.com/en/jobs/` | Official jobs RSS feed |
+| ServiceNow | BIG_TECH | `https://careers.servicenow.com` | Official SmartRecruiters careers API |
+| Shopify | BIG_TECH | `https://www.shopify.com/jobs/` | Official careers HTML page |
 | Snap | BIG_TECH | `https://careers.snap.com/jobs` | Workday |
 | Snowflake | BIG_TECH | `https://careers.snowflake.com/us/en/search-results` | Ashby |
 | Spotify | BIG_TECH | `https://www.lifeatspotify.com/jobs` | Lever |
 | Stripe | BIG_TECH | `https://stripe.com/jobs/search` | Greenhouse |
 | Cloudflare | BIG_TECH | `https://www.cloudflare.com/careers/jobs/` | Greenhouse |
 | Asana | BIG_TECH | `https://asana.com/jobs` | Greenhouse |
+| TikTok | BIG_TECH | `https://lifeattiktok.com/search?keyword=intern` | Official Life at TikTok careers API |
 | Twilio | BIG_TECH | `https://www.twilio.com/company/jobs` | Greenhouse |
+| Uber | BIG_TECH | `https://www.uber.com/us/en/careers/list/?query=intern` | Official careers search API |
 | Vercel | BIG_TECH | `https://vercel.com/careers` | Greenhouse |
 | Virtu Financial | TRADING / QUANT | `https://www.virtu.com/careers/` | Greenhouse (`virtu`) |
 | Waymo | BIG_TECH | `https://careers.withwaymo.com/` | Greenhouse |
@@ -213,10 +221,12 @@ Current live tracked companies:
 - Belvedere Trading
 - Atlassian
 - Block
+- Bloomberg
 - Coinbase
 - CTC
 - Databricks
 - Datadog
+- DoorDash
 - DRW
 - Dropbox
 - Figma
@@ -231,11 +241,13 @@ Current live tracked companies:
 - Jump Trading
 - LinkedIn
 - Lyft
+- Meta
 - Microsoft
 - MongoDB
 - Netflix
 - Nvidia
 - Notion
+- Oracle
 - Old Mission
 - Optiver
 - Palantir
@@ -244,13 +256,17 @@ Current live tracked companies:
 - Reddit
 - Robinhood
 - Salesforce
+- ServiceNow
+- Shopify
 - Snap
 - Snowflake
 - Spotify
 - Stripe
+- TikTok
 - Cloudflare
 - Asana
 - Twilio
+- Uber
 - Vercel
 - Virtu Financial
 - Waymo
@@ -260,9 +276,9 @@ Current live tracked companies:
 - Hudson River Trading
 - Five Rings
 
-Apple, Google, Netflix, and DRW are pulled directly from official public careers pages or structured page payloads. Amazon is pulled from Amazon Jobs' official public `search.json` endpoint, AMD and GitHub use official Jibe careers APIs, Microsoft and Qualcomm use official public `pcsx` careers APIs, Salesforce uses its official jobs RSS feed, Adobe, Intel, Nvidia, Snap, Workday, and Zoom use official public Workday surfaces, Notion and Snowflake use Ashby's public job-board API, Atlassian, Belvedere Trading, Palantir, Spotify, and Wolverine Trading use Lever, and the remaining tracked companies currently use official Greenhouse boards.
+Apple, Google, Netflix, Shopify, Bloomberg, and DRW are pulled directly from official public careers pages or structured page payloads. Amazon is pulled from Amazon Jobs' official public `search.json` endpoint, AMD and GitHub use official Jibe careers APIs, Meta, Oracle, ServiceNow, TikTok, Uber, Microsoft, and Qualcomm use official public careers APIs, Salesforce uses its official jobs RSS feed, Adobe, Intel, Nvidia, Snap, Workday, and Zoom use official public Workday surfaces, Notion and Snowflake use Ashby's public job-board API, Atlassian, Belvedere Trading, Palantir, Spotify, and Wolverine Trading use Lever, and the remaining tracked companies currently use official Greenhouse boards.
 
-The remaining untracked big-tech names are still the ones whose current public careers surfaces are either bot-gated or require more brittle reverse engineering than the MVP should depend on right now: Meta, Tesla, Bloomberg, DoorDash, Oracle, ServiceNow, Shopify, TikTok, and Uber.
+Tesla remains untracked because the current official careers surfaces return bot-gated 403 responses to normal worker-style requests.
 
 ## Local Setup
 

@@ -1,27 +1,34 @@
+"use client";
+
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { Badge, Button, Card, CardContent } from "@faang-quant/ui";
-import type { InternshipPosting, ApplicationState } from "@faang-quant/db";
+import type { ApplicationState } from "@faang-quant/db";
 import { getPreferredPostingUrl } from "@faang-quant/shared";
+import type { FeedListing } from "../lib/queries";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../lib/actions";
 
 export function ListingCard({
   posting,
   isFavorite,
   applicationState,
+  showPersonalActions,
   redirectTo
 }: {
-  posting: InternshipPosting & { company: { name: string; slug: string; companyBucket: string } };
+  posting: FeedListing;
   isFavorite: boolean;
   applicationState?: ApplicationState | null;
+  showPersonalActions: boolean;
   redirectTo: string;
 }) {
+  const discoveredAt = new Date(posting.discoveredAt);
+  const postingDate = posting.postingDate ? new Date(posting.postingDate) : null;
   const compensation =
     posting.compensationMin || posting.compensationMax
       ? `${posting.compensationCurrency ?? "$"}${posting.compensationMin ?? "?"} - ${posting.compensationMax ?? posting.compensationMin ?? "?"}${posting.compensationInterval && posting.compensationInterval !== "UNKNOWN" ? ` / ${posting.compensationInterval.toLowerCase()}` : ""}`
       : "Pay unknown";
 
-  const isNew = Date.now() - posting.discoveredAt.getTime() < 1000 * 60 * 60 * 24 * 7;
+  const isNew = Date.now() - discoveredAt.getTime() < 1000 * 60 * 60 * 24 * 7;
   const outboundUrl = getPreferredPostingUrl(posting);
 
   return (
@@ -50,7 +57,7 @@ export function ListingCard({
             </div>
           </div>
           <div className="text-sm text-slate-500">
-            Seen {formatDistanceToNow(posting.discoveredAt, { addSuffix: true })}
+            Seen {formatDistanceToNow(discoveredAt, { addSuffix: true })}
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
@@ -60,7 +67,7 @@ export function ListingCard({
           </div>
           <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
             <div className="font-semibold text-slate-900">Posting Date</div>
-            <div>{posting.postingDate ? posting.postingDate.toLocaleDateString() : "Unknown"}</div>
+            <div>{postingDate ? postingDate.toLocaleDateString() : "Unknown"}</div>
           </div>
           <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
             <div className="font-semibold text-slate-900">Source</div>
@@ -75,37 +82,41 @@ export function ListingCard({
               </a>
             </Button>
           ) : null}
-          <form action={toggleFavoriteAction}>
-            <input type="hidden" name="postingId" value={posting.id} />
-            <input type="hidden" name="redirectTo" value={redirectTo} />
-            <Button variant="secondary" type="submit">
-              {isFavorite ? "Remove favorite" : "Favorite"}
-            </Button>
-          </form>
-          <form action={updateApplicationStateAction}>
-            <input type="hidden" name="postingId" value={posting.id} />
-            <input type="hidden" name="redirectTo" value={redirectTo} />
-            <input
-              type="hidden"
-              name="state"
-              value={applicationState === "APPLIED" ? "NONE" : "APPLIED"}
-            />
-            <Button variant="secondary" type="submit">
-              {applicationState === "APPLIED" ? "Mark unapplied" : "Mark applied"}
-            </Button>
-          </form>
-          <form action={updateApplicationStateAction}>
-            <input type="hidden" name="postingId" value={posting.id} />
-            <input type="hidden" name="redirectTo" value={redirectTo} />
-            <input
-              type="hidden"
-              name="state"
-              value={applicationState === "HIDDEN" ? "NONE" : "HIDDEN"}
-            />
-            <Button variant="ghost" type="submit">
-              {applicationState === "HIDDEN" ? "Unhide" : "Hide"}
-            </Button>
-          </form>
+          {showPersonalActions ? (
+            <>
+              <form action={toggleFavoriteAction}>
+                <input type="hidden" name="postingId" value={posting.id} />
+                <input type="hidden" name="redirectTo" value={redirectTo} />
+                <Button variant="secondary" type="submit">
+                  {isFavorite ? "Remove favorite" : "Favorite"}
+                </Button>
+              </form>
+              <form action={updateApplicationStateAction}>
+                <input type="hidden" name="postingId" value={posting.id} />
+                <input type="hidden" name="redirectTo" value={redirectTo} />
+                <input
+                  type="hidden"
+                  name="state"
+                  value={applicationState === "APPLIED" ? "NONE" : "APPLIED"}
+                />
+                <Button variant="secondary" type="submit">
+                  {applicationState === "APPLIED" ? "Mark unapplied" : "Mark applied"}
+                </Button>
+              </form>
+              <form action={updateApplicationStateAction}>
+                <input type="hidden" name="postingId" value={posting.id} />
+                <input type="hidden" name="redirectTo" value={redirectTo} />
+                <input
+                  type="hidden"
+                  name="state"
+                  value={applicationState === "HIDDEN" ? "NONE" : "HIDDEN"}
+                />
+                <Button variant="ghost" type="submit">
+                  {applicationState === "HIDDEN" ? "Unhide" : "Hide"}
+                </Button>
+              </form>
+            </>
+          ) : null}
         </div>
       </CardContent>
     </Card>

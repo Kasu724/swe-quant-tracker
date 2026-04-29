@@ -1,9 +1,13 @@
 import { hash } from "bcryptjs";
-import { PrismaClient, UserRole } from "@prisma/client";
+import { Prisma, PrismaClient, UserRole } from "@prisma/client";
 import { readSeedEnv } from "@faang-quant/config";
 import { companySeeds, companySourceSeeds } from "../src/seed-data";
 
 const prisma = new PrismaClient();
+
+function toPrismaJson(value: Record<string, unknown> | undefined): Prisma.InputJsonValue | undefined {
+  return value as Prisma.InputJsonValue | undefined;
+}
 
 async function seedCompanies() {
   const companyIdBySlug = new Map<string, string>();
@@ -56,8 +60,8 @@ async function seedCompanies() {
         sourceUrl: source.sourceUrl,
         pollingEnabled: source.pollingEnabled,
         priority: source.priority,
-        requestConfigJson: source.requestConfigJson,
-        parserConfigJson: source.parserConfigJson,
+        requestConfigJson: toPrismaJson(source.requestConfigJson),
+        parserConfigJson: toPrismaJson(source.parserConfigJson),
         isActive: source.isActive
       },
       create: {
@@ -68,8 +72,8 @@ async function seedCompanies() {
         sourceUrl: source.sourceUrl,
         pollingEnabled: source.pollingEnabled,
         priority: source.priority,
-        requestConfigJson: source.requestConfigJson,
-        parserConfigJson: source.parserConfigJson,
+        requestConfigJson: toPrismaJson(source.requestConfigJson),
+        parserConfigJson: toPrismaJson(source.parserConfigJson),
         isActive: source.isActive
       }
     });

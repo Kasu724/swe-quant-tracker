@@ -226,6 +226,14 @@ const urlOverrides: Record<string, Pick<SeedCompany, "websiteUrl" | "careersUrl"
     websiteUrl: "https://block.xyz",
     careersUrl: "https://block.xyz/careers"
   },
+  bloomberg: {
+    websiteUrl: "https://www.bloomberg.com",
+    careersUrl: "https://www.bloomberg.com/company/careers"
+  },
+  doordash: {
+    websiteUrl: "https://www.doordash.com",
+    careersUrl: "https://careers.doordash.com"
+  },
   google: {
     websiteUrl: "https://about.google",
     careersUrl: "https://www.google.com/about/careers/applications"
@@ -358,6 +366,10 @@ const urlOverrides: Record<string, Pick<SeedCompany, "websiteUrl" | "careersUrl"
     websiteUrl: "https://www.notion.so",
     careersUrl: "https://www.notion.so/careers"
   },
+  oracle: {
+    websiteUrl: "https://www.oracle.com",
+    careersUrl: "https://careers.oracle.com"
+  },
   palantir: {
     websiteUrl: "https://www.palantir.com",
     careersUrl: "https://www.palantir.com/careers/"
@@ -382,6 +394,10 @@ const urlOverrides: Record<string, Pick<SeedCompany, "websiteUrl" | "careersUrl"
     websiteUrl: "https://www.salesforce.com",
     careersUrl: "https://careers.salesforce.com/en/jobs/"
   },
+  servicenow: {
+    websiteUrl: "https://www.servicenow.com",
+    careersUrl: "https://careers.servicenow.com"
+  },
   snap: {
     websiteUrl: "https://www.snap.com",
     careersUrl: "https://careers.snap.com/jobs"
@@ -402,9 +418,17 @@ const urlOverrides: Record<string, Pick<SeedCompany, "websiteUrl" | "careersUrl"
     websiteUrl: "https://www.spotify.com",
     careersUrl: "https://www.lifeatspotify.com/jobs"
   },
+  tiktok: {
+    websiteUrl: "https://www.tiktok.com",
+    careersUrl: "https://lifeattiktok.com"
+  },
   twilio: {
     websiteUrl: "https://www.twilio.com",
     careersUrl: "https://www.twilio.com/company/jobs"
+  },
+  uber: {
+    websiteUrl: "https://www.uber.com",
+    careersUrl: "https://www.uber.com/us/en/careers"
   },
   waymo: {
     websiteUrl: "https://waymo.com",
@@ -468,6 +492,22 @@ export const companySourceSeeds: SeedCompanySource[] = [
     priority: 6,
     requestConfigJson: { maxPages: 3, rateLimitMs: 1500 },
     parserConfigJson: { parserId: "google-careers-search" },
+    isActive: true
+  },
+  {
+    companySlug: "meta",
+    sourceType: SourceType.CUSTOM_API,
+    sourceName: "Official Meta careers search",
+    sourceIdentifier: "meta-careers-intern",
+    sourceUrl: "https://www.facebook.com/api/graphql/",
+    pollingEnabled: true,
+    priority: 7,
+    requestConfigJson: {
+      query: "intern",
+      docId: "26228555073499023",
+      rateLimitMs: 1500
+    },
+    parserConfigJson: { parserId: "meta-careers-search" },
     isActive: true
   },
   {
@@ -582,6 +622,19 @@ export const companySourceSeeds: SeedCompanySource[] = [
     isActive: true
   },
   {
+    companySlug: "bloomberg",
+    sourceType: SourceType.CUSTOM_HTML,
+    sourceName: "Official Bloomberg careers search",
+    sourceIdentifier: "bloomberg-avature",
+    sourceUrl:
+      "https://bloomberg.avature.net/careers/SearchJobs/?jobOffset=0&jobRecordsPerPage=50&keywords=intern",
+    pollingEnabled: true,
+    priority: 7,
+    requestConfigJson: { pageSize: 50, maxPages: 12, rateLimitMs: 1500 },
+    parserConfigJson: { parserId: "bloomberg-avature-search" },
+    isActive: true
+  },
+  {
     companySlug: "cloudflare",
     sourceType: SourceType.GREENHOUSE,
     sourceName: "Official careers site via Greenhouse",
@@ -659,6 +712,18 @@ export const companySourceSeeds: SeedCompanySource[] = [
     sourceName: "Official careers site via Greenhouse",
     sourceIdentifier: "datadog",
     sourceUrl: "https://boards-api.greenhouse.io/v1/boards/datadog/jobs?content=true",
+    pollingEnabled: true,
+    priority: 10,
+    requestConfigJson: { content: true, rateLimitMs: 1000 },
+    parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
+    companySlug: "doordash",
+    sourceType: SourceType.GREENHOUSE,
+    sourceName: "Official careers site via Greenhouse",
+    sourceIdentifier: "doordashusa",
+    sourceUrl: "https://boards-api.greenhouse.io/v1/boards/doordashusa/jobs?content=true",
     pollingEnabled: true,
     priority: 10,
     requestConfigJson: { content: true, rateLimitMs: 1000 },
@@ -789,6 +854,26 @@ export const companySourceSeeds: SeedCompanySource[] = [
     isActive: true
   },
   {
+    companySlug: "oracle",
+    sourceType: SourceType.CUSTOM_API,
+    sourceName: "Official Oracle careers search",
+    sourceIdentifier: "oracle-hcm-jobsearch",
+    sourceUrl:
+      "https://eeho.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions",
+    pollingEnabled: true,
+    priority: 7,
+    requestConfigJson: {
+      siteNumber: "CX_45001",
+      searchText: "intern",
+      selectedLocationsFacet: "300000000149325",
+      pageSize: 24,
+      maxPages: 10,
+      rateLimitMs: 1500
+    },
+    parserConfigJson: { parserId: "oracle-hcm-search" },
+    isActive: true
+  },
+  {
     companySlug: "palantir",
     sourceType: SourceType.LEVER,
     sourceName: "Official careers site via Lever",
@@ -846,6 +931,24 @@ export const companySourceSeeds: SeedCompanySource[] = [
     priority: 6,
     requestConfigJson: { rateLimitMs: 1500 },
     parserConfigJson: { parserId: "salesforce-rss" },
+    isActive: true
+  },
+  {
+    companySlug: "servicenow",
+    sourceType: SourceType.CUSTOM_API,
+    sourceName: "Official ServiceNow careers API",
+    sourceIdentifier: "servicenow-smartrecruiters",
+    sourceUrl: "https://api.smartrecruiters.com/v1/companies/ServiceNow/postings",
+    pollingEnabled: true,
+    priority: 7,
+    requestConfigJson: {
+      query: "intern",
+      pageSize: 100,
+      maxPages: 3,
+      fetchDetails: true,
+      rateLimitMs: 1500
+    },
+    parserConfigJson: { parserId: "smartrecruiters-postings" },
     isActive: true
   },
   {
@@ -996,6 +1099,18 @@ export const companySourceSeeds: SeedCompanySource[] = [
     isActive: true
   },
   {
+    companySlug: "shopify",
+    sourceType: SourceType.CUSTOM_HTML,
+    sourceName: "Official Shopify careers page",
+    sourceIdentifier: "shopify-careers",
+    sourceUrl: "https://www.shopify.com/jobs/",
+    pollingEnabled: true,
+    priority: 7,
+    requestConfigJson: { rateLimitMs: 1500 },
+    parserConfigJson: { parserId: "shopify-careers" },
+    isActive: true
+  },
+  {
     companySlug: "snowflake",
     sourceType: SourceType.ASHBY,
     sourceName: "Official careers site via Ashby",
@@ -1015,6 +1130,27 @@ export const companySourceSeeds: SeedCompanySource[] = [
     pollingEnabled: true,
     priority: 9,
     requestConfigJson: { limit: 100, rateLimitMs: 1000 },
+    isActive: true
+  },
+  {
+    companySlug: "tiktok",
+    sourceType: SourceType.CUSTOM_API,
+    sourceName: "Official Life at TikTok careers API",
+    sourceIdentifier: "tiktok-life-at-tiktok",
+    sourceUrl: "https://api.lifeattiktok.com/api/v1/public/supplier/search/job/posts",
+    pollingEnabled: true,
+    priority: 7,
+    requestConfigJson: {
+      query: "intern",
+      recruitmentIds: ["202"],
+      countryName: "United States of America",
+      filtersUrl: "https://api.lifeattiktok.com/api/v1/public/supplier/config/job/filters",
+      pageSize: 50,
+      maxPagesPerLocation: 3,
+      locationBatchSize: 20,
+      rateLimitMs: 1500
+    },
+    parserConfigJson: { parserId: "tiktok-search" },
     isActive: true
   },
   {
@@ -1039,6 +1175,18 @@ export const companySourceSeeds: SeedCompanySource[] = [
     priority: 10,
     requestConfigJson: { content: true, rateLimitMs: 1000 },
     parserConfigJson: { includeDepartments: true },
+    isActive: true
+  },
+  {
+    companySlug: "uber",
+    sourceType: SourceType.CUSTOM_API,
+    sourceName: "Official Uber careers search",
+    sourceIdentifier: "uber-careers-search",
+    sourceUrl: "https://www.uber.com/api/loadSearchJobsResults?localeCode=en",
+    pollingEnabled: true,
+    priority: 7,
+    requestConfigJson: { query: "intern", pageSize: 25, maxPages: 4, rateLimitMs: 1500 },
+    parserConfigJson: { parserId: "uber-search" },
     isActive: true
   },
   {

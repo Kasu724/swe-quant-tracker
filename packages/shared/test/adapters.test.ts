@@ -775,6 +775,363 @@ describe("structured adapters", () => {
     expect(postings[0]?.remoteTypeHint).toBe("Hybrid");
   });
 
+  it("normalizes Meta careers GraphQL search responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Meta", slug: "meta" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Meta careers search",
+        sourceIdentifier: "meta-careers-intern",
+        sourceUrl: "https://www.facebook.com/api/graphql/",
+        requestConfigJson: { query: "intern", docId: "26228555073499023" },
+        parserConfigJson: { parserId: "meta-careers-search" }
+      },
+      fetchImpl: async (_url, init) => {
+        expect(init?.method).toBe("POST");
+        expect(String(init?.body)).toContain("CareersJobSearchInputDropdownDataQuery");
+
+        return new Response(
+          JSON.stringify({
+            data: {
+              job_search_with_featured_jobs: {
+                all_jobs: [
+                  {
+                    id: "1711265486214382",
+                    title: "Software Engineer Intern, Product",
+                    locations: [{ name: "Menlo Park, CA" }, { name: "New York, NY" }],
+                    teams: [{ name: "Engineering" }],
+                    job_type: "Internship"
+                  }
+                ]
+              }
+            }
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("1711265486214382");
+    expect(postings[0]?.applicationUrl).toBe(
+      "https://www.metacareers.com/jobs/1711265486214382/"
+    );
+    expect(postings[0]?.locationRaw).toBe("Menlo Park, CA");
+    expect(postings[0]?.additionalLocations).toEqual(["New York, NY"]);
+  });
+
+  it("normalizes Oracle HCM careers search responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Oracle", slug: "oracle" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Oracle careers search",
+        sourceIdentifier: "oracle-hcm-jobsearch",
+        sourceUrl:
+          "https://eeho.fa.us2.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions",
+        requestConfigJson: {
+          siteNumber: "CX_45001",
+          searchText: "intern",
+          selectedLocationsFacet: "300000000149325",
+          pageSize: 24,
+          maxPages: 1
+        },
+        parserConfigJson: { parserId: "oracle-hcm-search" }
+      },
+      fetchImpl: async (url) => {
+        const requestUrl = new URL(typeof url === "string" ? url : url.toString());
+
+        expect(requestUrl.searchParams.get("finder")).toContain("selectedLocationsFacet=300000000149325");
+
+        return new Response(
+          JSON.stringify({
+            items: [
+              {
+                TotalJobsCount: 1,
+                requisitionList: [
+                  {
+                    Id: "332121",
+                    Title: "OCI Sustainability Intern",
+                    PostedDate: "2026-04-24",
+                    PrimaryLocation: "Seattle, WA, United States",
+                    PrimaryLocationCountry: "US",
+                    ShortDescriptionStr: "Internship role intended for current students.",
+                    WorkplaceType: "Onsite",
+                    JobFunction: "Product Development",
+                    secondaryLocations: [{ Name: "Nashville, TN, United States" }]
+                  }
+                ]
+              }
+            ]
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("332121");
+    expect(postings[0]?.applicationUrl).toBe("https://careers.oracle.com/en/sites/jobsearch/job/332121");
+    expect(postings[0]?.locationRaw).toBe("Seattle, WA, United States");
+    expect(postings[0]?.additionalLocations).toEqual(["Nashville, TN, United States"]);
+  });
+
+  it("normalizes SmartRecruiters postings with detail fetches", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "ServiceNow", slug: "servicenow" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official ServiceNow careers API",
+        sourceIdentifier: "servicenow-smartrecruiters",
+        sourceUrl: "https://api.smartrecruiters.com/v1/companies/ServiceNow/postings",
+        requestConfigJson: { query: "intern", pageSize: 100, maxPages: 1, fetchDetails: true },
+        parserConfigJson: { parserId: "smartrecruiters-postings" }
+      },
+      fetchImpl: async (url) => {
+        const requestUrl = typeof url === "string" ? url : url.toString();
+
+        if (requestUrl.endsWith("/postings/srv-1")) {
+          return new Response(
+            JSON.stringify({
+              id: "srv-1",
+              name: "Software Engineer Intern",
+              refNumber: "JR123456",
+              releasedDate: "2026-04-20T00:00:00.000Z",
+              postingUrl: "https://jobs.smartrecruiters.com/ServiceNow/srv-1-software-engineer-intern",
+              applyUrl: "https://careers.servicenow.com/apply/srv-1",
+              location: { city: "San Diego", region: "CA", country: "United States" },
+              typeOfEmployment: { label: "Intern" },
+              department: { label: "Engineering" },
+              jobAd: {
+                sections: {
+                  jobDescription: { title: "Job Description", text: "<p>Internship role.</p>" }
+                }
+              }
+            })
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            totalFound: 1,
+            content: [{ id: "srv-1", name: "Software Engineer Intern", refNumber: "JR123456" }]
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("JR123456");
+    expect(postings[0]?.applicationUrl).toBe("https://careers.servicenow.com/apply/srv-1");
+    expect(postings[0]?.locationRaw).toBe("San Diego, CA, United States");
+    expect(postings[0]?.employmentType).toBe("Intern");
+  });
+
+  it("normalizes TikTok careers API responses using US location filters", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "TikTok", slug: "tiktok" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Life at TikTok careers API",
+        sourceIdentifier: "tiktok-life-at-tiktok",
+        sourceUrl: "https://api.lifeattiktok.com/api/v1/public/supplier/search/job/posts",
+        requestConfigJson: {
+          query: "intern",
+          recruitmentIds: ["202"],
+          filtersUrl: "https://api.lifeattiktok.com/api/v1/public/supplier/config/job/filters",
+          countryName: "United States of America",
+          pageSize: 50,
+          maxPagesPerLocation: 1
+        },
+        parserConfigJson: { parserId: "tiktok-search" }
+      },
+      fetchImpl: async (url, init) => {
+        const requestUrl = typeof url === "string" ? url : url.toString();
+
+        if (requestUrl.includes("/filters")) {
+          return new Response(
+            JSON.stringify({
+              data: {
+                city_list: [
+                  {
+                    code: "CT_94",
+                    en_name: "Los Angeles",
+                    parent: {
+                      code: "ST_31",
+                      en_name: "California",
+                      parent: { code: "CN_6", en_name: "United States of America" }
+                    }
+                  }
+                ]
+              }
+            })
+          );
+        }
+
+        expect(JSON.parse(String(init?.body)).location_code_list).toEqual(["CT_94"]);
+
+        return new Response(
+          JSON.stringify({
+            data: {
+              count: 1,
+              job_post_list: [
+                {
+                  id: "7626859840586418437",
+                  code: "A73175",
+                  title: "Product Operations Project Intern - 2026 Start",
+                  description: "Internships at TikTok aim to provide students with hands-on experience.",
+                  requirement: "Currently enrolled in a Bachelor's Degree program or above.",
+                  recruit_type: { id: "202", en_name: "Intern" },
+                  job_category: { en_name: "Product" },
+                  job_subject: { en_name: "Project Intern" },
+                  city_info: {
+                    code: "CT_94",
+                    en_name: "Los Angeles",
+                    parent: {
+                      code: "ST_31",
+                      en_name: "California",
+                      parent: { code: "CN_6", en_name: "United States of America" }
+                    }
+                  }
+                }
+              ]
+            }
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("A73175");
+    expect(postings[0]?.applicationUrl).toBe("https://lifeattiktok.com/search?job_code=A73175");
+    expect(postings[0]?.locationRaw).toBe("Los Angeles, California, United States of America");
+    expect(postings[0]?.employmentType).toBe("Intern");
+  });
+
+  it("normalizes Uber careers search responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Uber", slug: "uber" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Uber careers search",
+        sourceIdentifier: "uber-careers-search",
+        sourceUrl: "https://www.uber.com/api/loadSearchJobsResults?localeCode=en",
+        requestConfigJson: { query: "intern", pageSize: 25, maxPages: 1 },
+        parserConfigJson: { parserId: "uber-search" }
+      },
+      fetchImpl: async (_url, init) => {
+        expect(JSON.parse(String(init?.body)).params.query).toBe("intern");
+
+        return new Response(
+          JSON.stringify({
+            status: "success",
+            data: {
+              totalResults: { low: 1 },
+              results: [
+                {
+                  id: 12345,
+                  title: "2026 Software Engineering Intern",
+                  description: "About the Internship",
+                  department: "University",
+                  team: "Engineering",
+                  timeType: "Intern",
+                  creationDate: "2026-04-10T00:00:00.000Z",
+                  location: {
+                    city: "San Francisco",
+                    region: "CA",
+                    country: "USA",
+                    countryName: "United States"
+                  },
+                  allLocations: [
+                    {
+                      city: "San Francisco",
+                      region: "CA",
+                      country: "USA",
+                      countryName: "United States"
+                    },
+                    {
+                      city: "New York",
+                      region: "NY",
+                      country: "USA",
+                      countryName: "United States"
+                    }
+                  ]
+                }
+              ]
+            }
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("12345");
+    expect(postings[0]?.sourceUrl).toBe("https://www.uber.com/us/en/careers/list/12345/");
+    expect(postings[0]?.locationRaw).toBe("San Francisco, CA, United States");
+    expect(postings[0]?.additionalLocations).toEqual(["New York, NY, United States"]);
+  });
+
+  it("normalizes Shopify careers HTML postings", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Shopify", slug: "shopify" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official Shopify careers page",
+        sourceIdentifier: "shopify-careers",
+        sourceUrl: "https://www.shopify.com/jobs/",
+        parserConfigJson: { parserId: "shopify-careers" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <a href="/careers/data-and-engineering-internships-fall-2026_123">
+            <h4>Data And Engineering Internships Fall 2026</h4>
+            <span>Remote - Americas</span>
+          </a>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("data-and-engineering-internships-fall-2026_123");
+    expect(postings[0]?.sourceUrl).toBe(
+      "https://www.shopify.com/careers/data-and-engineering-internships-fall-2026_123"
+    );
+    expect(postings[0]?.locationRaw).toBe("Remote - Americas");
+  });
+
+  it("normalizes Bloomberg Avature careers HTML postings", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Bloomberg", slug: "bloomberg" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official Bloomberg careers search",
+        sourceIdentifier: "bloomberg-avature",
+        sourceUrl:
+          "https://bloomberg.avature.net/careers/SearchJobs/?jobOffset=0&jobRecordsPerPage=20&keywords=intern",
+        requestConfigJson: { pageSize: 20, maxPages: 1 },
+        parserConfigJson: { parserId: "bloomberg-avature-search" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <article class="article article--result">
+            <a class="link" href="https://bloomberg.avature.net/careers/JobDetail/2026-Software-Engineer-Intern/18773">
+              2026 Software Engineer Intern
+            </a>
+            <span class="list-item-location">New York, New York, United States of America</span>
+          </article>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("18773");
+    expect(postings[0]?.title).toBe("2026 Software Engineer Intern");
+    expect(postings[0]?.locationRaw).toBe("New York, New York, United States of America");
+  });
+
   it("normalizes Workday internship responses", async () => {
     const adapter = new WorkdayAdapter();
     const postings = await adapter.fetchPostings({
