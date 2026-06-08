@@ -60,6 +60,7 @@ export type AdapterFetchContext = {
   company: AdapterCompany;
   source: AdapterSource;
   fetchImpl?: typeof fetch;
+  requestTimeoutMs?: number;
   signal?: AbortSignal;
 };
 

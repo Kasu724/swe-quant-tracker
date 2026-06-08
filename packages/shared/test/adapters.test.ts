@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AshbyAdapter } from "../src/adapters/ashby";
+import { FetchTimeoutError, fetchJson } from "../src/adapters/base";
 import { CustomApiAdapter } from "../src/adapters/custom-api";
 import { CustomHtmlAdapter } from "../src/adapters/custom-html";
 import { GreenhouseAdapter } from "../src/adapters/greenhouse";
@@ -7,6 +8,37 @@ import { LeverAdapter } from "../src/adapters/lever";
 import { WorkdayAdapter } from "../src/adapters/workday";
 
 describe("structured adapters", () => {
+  it("aborts adapter requests after the configured timeout", async () => {
+    let receivedSignal: AbortSignal | undefined;
+
+    await expect(
+      fetchJson(
+        {
+          company: { name: "Example", slug: "example" },
+          source: {
+            sourceType: "CUSTOM_API",
+            sourceName: "Example API",
+            sourceIdentifier: "example",
+            sourceUrl: "https://example.com/jobs"
+          },
+          requestTimeoutMs: 5,
+          fetchImpl: async (_url, init) =>
+            new Promise<Response>((_resolve, reject) => {
+              receivedSignal = init?.signal as AbortSignal | undefined;
+              receivedSignal?.addEventListener(
+                "abort",
+                () => reject(receivedSignal?.reason ?? new Error("aborted")),
+                { once: true }
+              );
+            })
+        },
+        "https://example.com/jobs"
+      )
+    ).rejects.toBeInstanceOf(FetchTimeoutError);
+
+    expect(receivedSignal?.aborted).toBe(true);
+  });
+
   it("normalizes greenhouse responses", async () => {
     const adapter = new GreenhouseAdapter();
     const postings = await adapter.fetchPostings({
@@ -78,6 +110,44 @@ describe("structured adapters", () => {
     expect(postings[0]?.compensation?.min).toBe(70200);
     expect(postings[0]?.compensation?.max).toBe(70200);
     expect(postings[0]?.compensation?.currency).toBe("USD");
+  });
+
+  it("filters greenhouse responses by configured metadata fields", async () => {
+    const adapter = new GreenhouseAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Square", slug: "square" },
+      source: {
+        sourceType: "GREENHOUSE",
+        sourceName: "Official Square careers via Block Greenhouse",
+        sourceIdentifier: "block-square",
+        sourceUrl: "https://boards-api.greenhouse.io/v1/boards/block/jobs?content=true",
+        requestConfigJson: {
+          metadataFieldFilters: { "Business Unit": ["Square"] }
+        }
+      },
+      fetchImpl: async () =>
+        new Response(
+          JSON.stringify({
+            jobs: [
+              {
+                id: 111,
+                title: "Square Software Engineer Intern",
+                absolute_url: "https://block.xyz/careers/jobs/111",
+                metadata: [{ name: "Business Unit", value: "Square" }]
+              },
+              {
+                id: 222,
+                title: "Cash App Software Engineer Intern",
+                absolute_url: "https://block.xyz/careers/jobs/222",
+                metadata: [{ name: "Business Unit", value: "Cash App" }]
+              }
+            ]
+          })
+        )
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("111");
   });
 
   it("normalizes lever responses", async () => {
@@ -180,7 +250,7 @@ describe("structured adapters", () => {
                 <span class="job-posted-date">Apr 01, 2026</span>
               </div>
               <div id="search-location-search-job-title-200655115-1731-1">
-                <span id="search-store-name-container-1">Munich</span>
+                <span class="table--advanced-search__location-sub" id="search-store-name-1">Munich</span>
               </div>
             </div>
           </li>
@@ -1074,6 +1144,245 @@ describe("structured adapters", () => {
     expect(postings[0]?.additionalLocations).toEqual(["New York, NY, United States"]);
   });
 
+  it("normalizes Eightfold careers API responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Millennium", slug: "millennium" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Millennium careers API via Eightfold",
+        sourceIdentifier: "millennium-eightfold",
+        sourceUrl:
+          "https://mlp.eightfold.ai/api/apply/v2/jobs?domain=mlp.com&pid=0&sort_by=relevance",
+        requestConfigJson: { query: "intern", pageSize: 10, maxPages: 1 },
+        parserConfigJson: { parserId: "eightfold-jobs" }
+      },
+      fetchImpl: async (url) => {
+        expect(url.toString()).toContain("query=intern");
+        expect(url.toString()).toContain("start=0");
+
+        return new Response(
+          JSON.stringify({
+            count: 1,
+            positions: [
+              {
+                id: 755938378815,
+                posting_name: "Quantitative Research Intern",
+                location: "New York, United States",
+                locations: ["New York, United States"],
+                t_create: 1780272000,
+                display_job_id: "REQ-12345",
+                type: "ATS",
+                job_description: "<p>Internship</p>",
+                work_location_option: "onsite",
+                canonicalPositionUrl: "https://mlp.eightfold.ai/careers/job/755938378815"
+              }
+            ]
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("REQ-12345");
+    expect(postings[0]?.sourceUrl).toBe("https://mlp.eightfold.ai/careers/job/755938378815");
+  });
+
+  it("normalizes Phenom refineSearch API responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Yelp", slug: "yelp" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official Yelp careers API via Phenom",
+        sourceIdentifier: "yelp-phenom",
+        sourceUrl: "https://www.yelp.careers/widgets",
+        requestConfigJson: {
+          query: "intern",
+          refNum: "YELPUS",
+          lang: "en_us",
+          locale: "en_us",
+          country: "us",
+          pageId: "page18",
+          detailBaseUrl: "https://www.yelp.careers/us/en/job",
+          pageSize: 10,
+          maxPages: 1
+        },
+        parserConfigJson: { parserId: "phenom-refine-search" }
+      },
+      fetchImpl: async (_url, init) => {
+        expect(JSON.parse(String(init?.body)).keywords).toBe("intern");
+
+        return new Response(
+          JSON.stringify({
+            refineSearch: {
+              status: 200,
+              data: {
+                jobs: [
+                  {
+                    jobId: "13930",
+                    reqId: "13930",
+                    jobSeqNo: "YELPUS13930EXTERNALENUS",
+                    title: "Community Intern, Austin",
+                    type: "Intern (Part-Time)",
+                    applyUrl: "https://uscareers-yelp.icims.com/jobs/13930/job",
+                    postedDate: "2026-06-01T00:00:00.000+0000",
+                    location: "Austin, Texas, United States",
+                    category: "Community",
+                    ml_job_parser: {
+                      descriptionTeaser_ats: "Yelp community internship."
+                    }
+                  }
+                ]
+              }
+            }
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("YELPUS13930EXTERNALENUS");
+    expect(postings[0]?.sourceUrl).toBe(
+      "https://www.yelp.careers/us/en/job/YELPUS13930EXTERNALENUS/community-intern-austin"
+    );
+    expect(postings[0]?.locationRaw).toBe("Austin, Texas, United States");
+  });
+
+  it("normalizes generic RSS item responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "SAP", slug: "sap" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official SAP jobs RSS",
+        sourceIdentifier: "sap-rss-internship",
+        sourceUrl: "https://jobs.sap.com/services/rss/job/?locale=en_US&keywords=(internship)",
+        parserConfigJson: { parserId: "generic-rss-items" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <rss version="2.0">
+            <channel>
+              <item>
+                <title><![CDATA[SAP iXp Intern - Digital Solution Advisory (Alpharetta, GA, US, 30009)]]></title>
+                <link>https://jobs.sap.com/job/Alpharetta-SAP-iXp-Intern/1398744433/</link>
+                <guid>https://jobs.sap.com/job/Alpharetta-SAP-iXp-Intern/1398744433/</guid>
+                <pubDate>Fri, 05 Jun 2026 12:00:00 GMT</pubDate>
+                <description><![CDATA[<p>Internship role.</p>]]></description>
+              </item>
+            </channel>
+          </rss>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.title).toBe("SAP iXp Intern - Digital Solution Advisory");
+    expect(postings[0]?.locationRaw).toBe("Alpharetta, GA, US, 30009");
+    expect(postings[0]?.sourceUrl).toBe(
+      "https://jobs.sap.com/job/Alpharetta-SAP-iXp-Intern/1398744433/"
+    );
+  });
+
+  it("normalizes IBM careers search responses", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "IBM", slug: "ibm" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Official IBM careers search",
+        sourceIdentifier: "ibm-careers-search",
+        sourceUrl: "https://www-api.ibm.com/search/api/v1/ibmcom/appid/careers/responseFormat/json",
+        requestConfigJson: {
+          query: "intern",
+          appId: "careers",
+          scope: "careers2",
+          detailBaseUrl: "https://careers.ibm.com/en_US/careers/JobDetail",
+          pageSize: 10,
+          maxPages: 1
+        },
+        parserConfigJson: { parserId: "ibm-careers-search" }
+      },
+      fetchImpl: async (url) => {
+        const requestUrl = new URL(typeof url === "string" ? url : url.toString());
+
+        expect(requestUrl.searchParams.get("scope")).toBe("careers2");
+        expect(requestUrl.searchParams.get("appid")).toBe("careers");
+        expect(requestUrl.searchParams.get("query")).toBe("intern");
+
+        return new Response(
+          JSON.stringify({
+            resultset: {
+              searchresults: {
+                totalresults: 1,
+                searchresultlist: [
+                  {
+                    id: "hash-1",
+                    title: "Returning Intern: Software Developer",
+                    description: "Short IBM internship description.",
+                    language: "en",
+                    url: "https://careers.ibm.com/careers/JobDetail?jobId=115594",
+                    docattributes: [
+                      { dcdate: "2026-06-05" },
+                      { field_keyword_05: "United States" },
+                      { field_keyword_08: "Software Engineering" },
+                      { field_keyword_17: "Hybrid" },
+                      { field_keyword_18: "Internship" },
+                      { field_keyword_19: "Multiple Cities" },
+                      { field_text_01: "115594" },
+                      { raw_body: "<p>Full IBM internship description.</p>" }
+                    ]
+                  }
+                ]
+              }
+            }
+          })
+        );
+      }
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("115594");
+    expect(postings[0]?.sourceUrl).toBe(
+      "https://careers.ibm.com/en_US/careers/JobDetail?jobId=115594&source=WEB_Search_NA"
+    );
+    expect(postings[0]?.locationRaw).toBe("Multiple Cities, United States");
+    expect(postings[0]?.remoteTypeHint).toBe("Hybrid");
+    expect(postings[0]?.metadata?.team).toBe("Software Engineering");
+  });
+
+  it("normalizes TalentBrew search cards", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Arm", slug: "arm" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official Arm careers search",
+        sourceIdentifier: "arm-talentbrew-intern",
+        sourceUrl: "https://careers.arm.com/search-jobs/intern",
+        requestConfigJson: { maxPages: 1 },
+        parserConfigJson: { parserId: "talentbrew-search" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <li class="job-card fs-start">
+            <a class="job-card__title fs-11" href="/job/austin/software-engineering-intern/33099/12345" data-job-id="12345">Software Engineering Intern</a>
+            <span class="job-card__intro">Work on CPU tools.</span>
+            <span class="location">Austin, Texas</span>
+            <span class="category">Software Engineering</span>
+          </li>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("12345");
+    expect(postings[0]?.sourceUrl).toBe(
+      "https://careers.arm.com/job/austin/software-engineering-intern/33099/12345"
+    );
+    expect(postings[0]?.descriptionText).toBe("Work on CPU tools.");
+    expect(postings[0]?.locationRaw).toBe("Austin, Texas");
+  });
+
   it("normalizes Shopify careers HTML postings", async () => {
     const adapter = new CustomHtmlAdapter();
     const postings = await adapter.fetchPostings({
@@ -1130,6 +1439,116 @@ describe("structured adapters", () => {
     expect(postings[0]?.externalJobId).toBe("18773");
     expect(postings[0]?.title).toBe("2026 Software Engineer Intern");
     expect(postings[0]?.locationRaw).toBe("New York, New York, United States of America");
+  });
+
+  it("normalizes D. E. Shaw embedded careers postings", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "DE Shaw", slug: "de-shaw" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official D. E. Shaw careers page",
+        sourceIdentifier: "deshaw-careers",
+        sourceUrl: "https://www.deshaw.com/careers",
+        parserConfigJson: { parserId: "deshaw-careers" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <script id="__NEXT_DATA__" type="application/json">
+            {"props":{"pageProps":{"regularJobs":[{"data":{"id":5911,"displayName":"Quantitative Analyst Intern","validFromDate":"2026-05-04","jobUrl":"/careers/quantitative-analyst-intern-5911","jobDescription":{"onCampusDescription":"<p>Internship</p>"},"jobMetadata":{"jobLocations":[{"name":"New York"}],"jobSeekerCategories":[{"name":"Students"}]},"jobCategory":[{"name":"Quantitative Research"}],"department":{"name":"Research"},"hireType":{"name":"Intern"}}}]}}}
+          </script>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("5911");
+    expect(postings[0]?.sourceUrl).toBe(
+      "https://www.deshaw.com/careers/quantitative-analyst-intern-5911"
+    );
+    expect(postings[0]?.locationRaw).toBe("New York");
+  });
+
+  it("normalizes G-Research vacancy cards", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "G-Research", slug: "g-research" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official G-Research vacancies page",
+        sourceIdentifier: "gresearch-vacancies",
+        sourceUrl: "https://www.gresearch.com/vacancies/",
+        requestConfigJson: { maxPages: 1 },
+        parserConfigJson: { parserId: "gresearch-vacancies" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <a href="https://www.gresearch.com/vacancies/software-engineering-internship/" class="c-vacancy-result">
+            <span class="c-vacancy-result__title">Software Engineering Internship</span>
+            <span class="c-vacancy-result__location">London</span>
+          </a>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("software-engineering-internship");
+    expect(postings[0]?.locationRaw).toBe("London");
+  });
+
+  it("normalizes Two Sigma Avature cards", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Two Sigma", slug: "two-sigma" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official Two Sigma careers page",
+        sourceIdentifier: "two-sigma-avature",
+        sourceUrl: "https://careers.twosigma.com/",
+        parserConfigJson: { parserId: "two-sigma-avature-cards" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <article class="article article--card">
+            <a class="link" href="https://careers.twosigma.com/careers/JobDetail/New-York-Software-Engineer/13940">
+              Software Engineer
+            </a>
+            <p><strong>Location</strong><span class="paragraph_inner-span">United States - NY New York</span></p>
+            <p><strong>Function</strong><span class="paragraph_inner-span">Engineering</span></p>
+            <p><strong>Experience Level</strong><span class="paragraph_inner-span">Experienced</span></p>
+          </article>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("13940");
+    expect(postings[0]?.locationRaw).toBe("United States - NY New York");
+  });
+
+  it("normalizes Paylocity pageData postings", async () => {
+    const adapter = new CustomHtmlAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "XR Trading", slug: "xr-trading" },
+      source: {
+        sourceType: "CUSTOM_HTML",
+        sourceName: "Official XR Trading careers page via Paylocity",
+        sourceIdentifier: "xr-trading-paylocity",
+        sourceUrl:
+          "https://recruiting.paylocity.com/recruiting/jobs/All/5c109104-7c4d-415c-9ee4-54e3af55f9e7/XR-Trading-LLC",
+        parserConfigJson: { parserId: "paylocity-page-data" }
+      },
+      fetchImpl: async () =>
+        new Response(`
+          <script>
+            window.pageData = {"Jobs":[{"JobId":2303630,"JobTitle":"IT YEAR-ROUND INTERN","LocationName":"Chicago On-Site","PublishedDate":"2026-05-19T17:05:34-05:00","Description":"<p>Internship</p>","IsRemote":false,"HiringDepartment":null}]};
+          </script>
+        `)
+    });
+
+    expect(postings).toHaveLength(1);
+    expect(postings[0]?.externalJobId).toBe("2303630");
+    expect(postings[0]?.applicationUrl).toBe(
+      "https://recruiting.paylocity.com/Recruiting/Jobs/Apply/2303630"
+    );
+    expect(postings[0]?.locationRaw).toBe("Chicago On-Site");
   });
 
   it("normalizes Workday internship responses", async () => {

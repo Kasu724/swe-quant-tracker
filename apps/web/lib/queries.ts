@@ -70,6 +70,14 @@ export type FeedListing = {
   };
 };
 
+export type PostingListItem = {
+  id: string;
+  createdAt: string;
+  completedAt: string | null;
+  isCompleted: boolean;
+  posting: FeedListing;
+};
+
 function readArrayParam(value: string | string[] | undefined): string[] {
   if (!value) {
     return [];
@@ -496,6 +504,44 @@ export async function getFavoritePostingIds(userId: string, postingIds: string[]
   });
 
   return new Set(favorites.map((favorite) => favorite.internshipPostingId));
+}
+
+export async function getPostingListIds(userId: string, postingIds: string[]) {
+  const listItems = await prisma.userPostingListItem.findMany({
+    where: {
+      userId,
+      internshipPostingId: { in: postingIds }
+    },
+    select: {
+      internshipPostingId: true
+    }
+  });
+
+  return new Set(listItems.map((item) => item.internshipPostingId));
+}
+
+export async function getUserPostingList(userId: string): Promise<PostingListItem[]> {
+  const items = await prisma.userPostingListItem.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      createdAt: true,
+      completedAt: true,
+      isCompleted: true,
+      internshipPosting: {
+        select: listingSelect
+      }
+    }
+  });
+
+  return items.map((item) => ({
+    id: item.id,
+    createdAt: item.createdAt.toISOString(),
+    completedAt: item.completedAt?.toISOString() ?? null,
+    isCompleted: item.isCompleted,
+    posting: serializeFeedListing(item.internshipPosting)
+  }));
 }
 
 export async function getApplicationStateMap(userId: string, postingIds: string[]) {

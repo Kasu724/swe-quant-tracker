@@ -4,6 +4,7 @@ import {
   exportListingsCsv,
   getApplicationStateMap,
   getFavoritePostingIds,
+  getPostingListIds,
   getListings,
   parseListingFilters,
   serializeFeedListing
@@ -58,12 +59,13 @@ export async function GET(request: Request) {
   const nextOffset = offset + batch.length;
   const session = await getCurrentSession();
   const postingIds = batch.map((listing) => listing.id);
-  const [favoriteIds, applicationStateMap] = session?.user?.id
+  const [favoriteIds, listIds, applicationStateMap] = session?.user?.id
     ? await Promise.all([
         getFavoritePostingIds(session.user.id, postingIds),
+        getPostingListIds(session.user.id, postingIds),
         getApplicationStateMap(session.user.id, postingIds)
       ])
-    : [new Set<string>(), new Map<string, string>()];
+    : [new Set<string>(), new Set<string>(), new Map<string, string>()];
 
   return NextResponse.json({
     listings: batch.map(serializeFeedListing),
@@ -71,6 +73,7 @@ export async function GET(request: Request) {
     nextOffset,
     hasMore: nextOffset < listings.length,
     favoriteIds: Array.from(favoriteIds),
+    listIds: Array.from(listIds),
     applicationStates: Object.fromEntries(applicationStateMap.entries())
   });
 }

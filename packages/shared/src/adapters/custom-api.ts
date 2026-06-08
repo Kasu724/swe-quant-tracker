@@ -4,10 +4,14 @@ import { fetchJson, fetchJsonRequest, fetchText, type SourceAdapter } from "./ba
 
 type CustomApiParserId =
   | "amazon-search-json"
+  | "eightfold-jobs"
   | "microsoft-pcsx-search"
   | "pcsx-search"
   | "github-jibe-jobs"
   | "jibe-jobs"
+  | "generic-rss-items"
+  | "ibm-careers-search"
+  | "phenom-refine-search"
   | "salesforce-rss"
   | "meta-careers-search"
   | "oracle-hcm-search"
@@ -161,6 +165,32 @@ type SalesforceRssJob = {
   lastactivitydate?: string;
 };
 
+type GenericRssItem = {
+  title?: string;
+  link?: string;
+  guid?: string;
+  pubDate?: string;
+  description?: string;
+};
+
+type IbmCareersSearchResponse = {
+  resultset?: {
+    searchresults?: {
+      totalresults?: number | string;
+      searchresultlist?: IbmCareersSearchResult[];
+    };
+  };
+};
+
+type IbmCareersSearchResult = {
+  id?: string;
+  title?: string;
+  description?: string;
+  url?: string;
+  language?: string;
+  docattributes?: Array<Record<string, unknown>>;
+};
+
 type MetaCareersResponse = {
   data?: {
     job_search_with_featured_jobs?: {
@@ -306,15 +336,84 @@ type UberJob = {
   programAndPlatform?: string;
 };
 
+type EightfoldJobsResponse = {
+  positions?: EightfoldJob[];
+  count?: number;
+};
+
+type EightfoldJob = {
+  id?: string | number;
+  name?: string;
+  posting_name?: string;
+  location?: string;
+  locations?: string[];
+  department?: string;
+  business_unit?: string;
+  t_update?: number;
+  t_create?: number;
+  ats_job_id?: string;
+  display_job_id?: string;
+  type?: string;
+  job_description?: string;
+  location_flexibility?: string | null;
+  work_location_option?: string | null;
+  canonicalPositionUrl?: string;
+  isPrivate?: boolean;
+};
+
+type PhenomRefineSearchResponse = {
+  refineSearch?: {
+    status?: number;
+    data?: {
+      jobs?: PhenomJob[];
+      totalHits?: number;
+    };
+  };
+};
+
+type PhenomJob = {
+  jobId?: string | number;
+  jobSeqNo?: string;
+  reqId?: string | number;
+  title?: string;
+  type?: string;
+  applyUrl?: string;
+  postedDate?: string;
+  dateCreated?: string;
+  descriptionTeaser?: string;
+  category?: string;
+  category_raw?: string;
+  department?: string;
+  location?: string;
+  cityStateCountry?: string;
+  cityState?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  RemoteType?: string;
+  multi_location?: string[];
+  multi_location_array?: Array<{ location?: string }>;
+  ml_job_parser?: {
+    descriptionTeaser?: string;
+    descriptionTeaser_ats?: string;
+    descriptionTeaser_keyword?: string;
+    descriptionTeaser_first200?: string;
+  };
+};
+
 function getParserId(context: AdapterFetchContext): CustomApiParserId {
   const parserId = context.source.parserConfigJson?.parserId;
 
   if (
     parserId === "amazon-search-json" ||
+    parserId === "eightfold-jobs" ||
     parserId === "microsoft-pcsx-search" ||
     parserId === "pcsx-search" ||
     parserId === "github-jibe-jobs" ||
     parserId === "jibe-jobs" ||
+    parserId === "generic-rss-items" ||
+    parserId === "ibm-careers-search" ||
+    parserId === "phenom-refine-search" ||
     parserId === "salesforce-rss" ||
     parserId === "meta-careers-search" ||
     parserId === "oracle-hcm-search" ||
@@ -813,11 +912,28 @@ function extractJibePayRaw(descriptionHtml?: string, descriptionText?: string): 
   );
 }
 
-function normalizeJibePosting(job: JibeJobData): AdapterFetchedPosting | undefined {
+function buildJibeDetailUrl(context: AdapterFetchContext, job: JibeJobData): string {
+  const canonicalUrl = getStringConfig(job.meta_data?.canonical_url);
+
+  if (canonicalUrl) {
+    return canonicalUrl;
+  }
+
+  const detailUrlBase = getStringConfig(context.source.requestConfigJson?.detailUrlBase);
+
+  if (detailUrlBase && job.slug) {
+    return new URL(encodeURIComponent(job.slug), detailUrlBase.endsWith("/") ? detailUrlBase : `${detailUrlBase}/`).toString();
+  }
+
+  return job.slug ? `https://www.github.careers/job/${job.slug}` : "";
+}
+
+function normalizeJibePosting(
+  context: AdapterFetchContext,
+  job: JibeJobData
+): AdapterFetchedPosting | undefined {
   const title = normalizeWhitespace(job.title || "");
-  const sourceUrl =
-    getStringConfig(job.meta_data?.canonical_url) ||
-    (job.slug ? `https://www.github.careers/job/${job.slug}` : "");
+  const sourceUrl = buildJibeDetailUrl(context, job);
   const applicationUrl = normalizeWhitespace(job.apply_url || sourceUrl);
   const externalJobId = normalizeWhitespace(job.req_id || job.slug || "");
   const locationRaw = normalizeWhitespace(
@@ -893,7 +1009,7 @@ async function fetchJibePostings(context: AdapterFetchContext): Promise<AdapterF
         continue;
       }
 
-      const posting = normalizeJibePosting(envelope.data);
+      const posting = normalizeJibePosting(context, envelope.data);
 
       if (!posting || seen.has(posting.externalJobId)) {
         continue;
@@ -997,6 +1113,61 @@ function normalizeSalesforceRssPosting(job: SalesforceRssJob): AdapterFetchedPos
   };
 }
 
+function parseGenericRssItems(xml: string): GenericRssItem[] {
+  const items: GenericRssItem[] = [];
+
+  for (const match of xml.matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) {
+    const block = match[1];
+
+    items.push({
+      title: extractRssField(block, "title"),
+      link: extractRssField(block, "link"),
+      guid: extractRssField(block, "guid"),
+      pubDate: extractRssField(block, "pubDate"),
+      description: extractRssField(block, "description")
+    });
+  }
+
+  return items;
+}
+
+function splitGenericRssTitle(rawTitle: string): { title: string; locationRaw?: string } {
+  const match = rawTitle.match(/^(?<title>[\s\S]*?)\s+\((?<location>[^()]*)\)\s*$/);
+
+  if (!match?.groups?.title) {
+    return { title: normalizeWhitespace(rawTitle) };
+  }
+
+  return {
+    title: normalizeWhitespace(match.groups.title),
+    locationRaw: normalizeWhitespace(match.groups.location || "") || undefined
+  };
+}
+
+function normalizeGenericRssPosting(item: GenericRssItem): AdapterFetchedPosting | undefined {
+  const rawTitle = normalizeWhitespace(item.title || "");
+  const sourceUrl = normalizeWhitespace(item.link || "");
+  const externalJobId = normalizeWhitespace(item.guid || sourceUrl);
+
+  if (!rawTitle || !sourceUrl || !externalJobId) {
+    return undefined;
+  }
+
+  const { title, locationRaw } = splitGenericRssTitle(rawTitle);
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl: sourceUrl,
+    sourceUrl,
+    postingDate: item.pubDate,
+    descriptionHtml: item.description || undefined,
+    descriptionText: item.description ? stripHtml(item.description) : undefined,
+    locationRaw,
+    raw: item
+  };
+}
+
 async function fetchSalesforceRssPostings(
   context: AdapterFetchContext
 ): Promise<AdapterFetchedPosting[]> {
@@ -1005,6 +1176,186 @@ async function fetchSalesforceRssPostings(
   return parseSalesforceRss(xml)
     .map((job) => normalizeSalesforceRssPosting(job))
     .filter((posting): posting is AdapterFetchedPosting => Boolean(posting));
+}
+
+async function fetchGenericRssPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const xml = await fetchText(context, context.source.sourceUrl);
+
+  return parseGenericRssItems(xml)
+    .map((item) => normalizeGenericRssPosting(item))
+    .filter((posting): posting is AdapterFetchedPosting => Boolean(posting));
+}
+
+function buildIbmCareersSearchUrl(
+  context: AdapterFetchContext,
+  offset: number,
+  pageSize: number,
+  page: number
+): string {
+  const url = new URL(context.source.sourceUrl);
+  const appId = getStringConfig(context.source.requestConfigJson?.appId, "careers");
+  const query = getStringConfig(context.source.requestConfigJson?.query, "intern");
+  const scope = getStringConfig(context.source.requestConfigJson?.scope, "careers2");
+  const sortBy = getStringConfig(context.source.requestConfigJson?.sortBy, "-dcdate");
+
+  url.searchParams.set("scope", scope);
+  url.searchParams.set("rmdt", "ALL");
+  url.searchParams.set("appid", appId);
+  url.searchParams.set("sortby", sortBy);
+  url.searchParams.set("fr", String(offset));
+  url.searchParams.set("nr", String(pageSize));
+  url.searchParams.set("page", String(page));
+  url.searchParams.set("query", query);
+
+  return url.toString();
+}
+
+function flattenIbmDocAttributes(attributes: IbmCareersSearchResult["docattributes"]): Record<string, unknown> {
+  return (attributes ?? []).reduce<Record<string, unknown>>((accumulator, attribute) => {
+    for (const [key, value] of Object.entries(attribute)) {
+      accumulator[key.toLowerCase()] = value;
+    }
+
+    return accumulator;
+  }, {});
+}
+
+function getIbmAttribute(attributes: Record<string, unknown>, key: string): string | undefined {
+  return asNormalizedString(attributes[key.toLowerCase()]);
+}
+
+function getIbmJobId(job: IbmCareersSearchResult, attributes: Record<string, unknown>): string | undefined {
+  const attributeId = getIbmAttribute(attributes, "field_text_01") ?? getIbmAttribute(attributes, "external_id");
+
+  if (attributeId) {
+    return attributeId;
+  }
+
+  const sourceUrl = normalizeWhitespace(job.url || getIbmAttribute(attributes, "url") || "");
+
+  if (!sourceUrl) {
+    return asNormalizedString(job.id);
+  }
+
+  const parsedUrl = new URL(sourceUrl);
+
+  return parsedUrl.searchParams.get("jobId") ?? parsedUrl.searchParams.get("jobid") ?? asNormalizedString(job.id);
+}
+
+function buildIbmDetailUrl(
+  context: AdapterFetchContext,
+  job: IbmCareersSearchResult,
+  attributes: Record<string, unknown>,
+  externalJobId: string
+): string {
+  const detailBaseUrl = getStringConfig(
+    context.source.requestConfigJson?.detailBaseUrl,
+    "https://careers.ibm.com/en_US/careers/JobDetail"
+  );
+  const source = getStringConfig(context.source.requestConfigJson?.source, "WEB_Search_NA");
+  const sourceUrl = normalizeWhitespace(job.url || getIbmAttribute(attributes, "url") || "");
+  const url = new URL(detailBaseUrl || sourceUrl);
+
+  url.searchParams.set("jobId", externalJobId);
+
+  if (source && !url.searchParams.has("source")) {
+    url.searchParams.set("source", source);
+  }
+
+  return url.toString();
+}
+
+function normalizeIbmCareersPosting(
+  context: AdapterFetchContext,
+  job: IbmCareersSearchResult
+): AdapterFetchedPosting | undefined {
+  const attributes = flattenIbmDocAttributes(job.docattributes);
+  const title = normalizeWhitespace(job.title || getIbmAttribute(attributes, "title") || "");
+  const externalJobId = getIbmJobId(job, attributes);
+
+  if (!externalJobId || !title) {
+    return undefined;
+  }
+
+  const sourceUrl = buildIbmDetailUrl(context, job, attributes, externalJobId);
+  const locationRaw = normalizeWhitespace(
+    uniqueStrings([
+      getIbmAttribute(attributes, "field_keyword_19"),
+      getIbmAttribute(attributes, "field_keyword_05")
+    ]).join(", ")
+  );
+  const descriptionHtml = getIbmAttribute(attributes, "raw_body");
+  const descriptionText = getIbmAttribute(attributes, "description") ?? job.description;
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl: sourceUrl,
+    sourceUrl,
+    postingDate:
+      getIbmAttribute(attributes, "dcdate") ?? getIbmAttribute(attributes, "effectivedate") ?? undefined,
+    descriptionHtml,
+    descriptionText,
+    employmentType: getIbmAttribute(attributes, "field_keyword_18"),
+    locationRaw: locationRaw || undefined,
+    remoteTypeHint: getIbmAttribute(attributes, "field_keyword_17"),
+    metadata: {
+      country: getIbmAttribute(attributes, "country"),
+      countryName: getIbmAttribute(attributes, "field_keyword_05"),
+      experienceLevel: getIbmAttribute(attributes, "field_keyword_18"),
+      language: job.language ?? getIbmAttribute(attributes, "language"),
+      md5: getIbmAttribute(attributes, "md5"),
+      processedTime: getIbmAttribute(attributes, "processedtime"),
+      team: getIbmAttribute(attributes, "field_keyword_08")
+    },
+    raw: job
+  };
+}
+
+async function fetchIbmCareersPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 50), 100);
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 8);
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+  let offset = 0;
+  let page = 1;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (page <= maxPages && offset < total) {
+    const response = await fetchJson<IbmCareersSearchResponse>(
+      context,
+      buildIbmCareersSearchUrl(context, offset, pageSize, page)
+    );
+    const searchResults = response.resultset?.searchresults;
+    const jobs = searchResults?.searchresultlist ?? [];
+    const parsedTotal = Number(searchResults?.totalresults);
+
+    total = Number.isFinite(parsedTotal) ? parsedTotal : total;
+
+    if (jobs.length === 0) {
+      break;
+    }
+
+    for (const job of jobs) {
+      const posting = normalizeIbmCareersPosting(context, job);
+
+      if (!posting || seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+
+    if (jobs.length < pageSize) {
+      break;
+    }
+
+    offset += jobs.length;
+    page += 1;
+  }
+
+  return postings;
 }
 
 function normalizeMetaCareersPosting(
@@ -1156,7 +1507,19 @@ function extractOracleAdditionalLocations(job: OracleHcmJob, primary?: string): 
   return uniqueStrings(values).filter((location) => location !== primary);
 }
 
-function normalizeOraclePosting(job: OracleHcmJob): AdapterFetchedPosting | undefined {
+function buildOracleDetailUrl(context: AdapterFetchContext, externalJobId: string): string {
+  const detailBaseUrl = getStringConfig(
+    context.source.requestConfigJson?.detailBaseUrl,
+    "https://careers.oracle.com/en/sites/jobsearch/job"
+  );
+
+  return new URL(encodeURIComponent(externalJobId), detailBaseUrl.endsWith("/") ? detailBaseUrl : `${detailBaseUrl}/`).toString();
+}
+
+function normalizeOraclePosting(
+  context: AdapterFetchContext,
+  job: OracleHcmJob
+): AdapterFetchedPosting | undefined {
   const externalJobId = asNormalizedString(job.Id);
   const title = normalizeWhitespace(job.Title || "");
 
@@ -1164,7 +1527,7 @@ function normalizeOraclePosting(job: OracleHcmJob): AdapterFetchedPosting | unde
     return undefined;
   }
 
-  const sourceUrl = `https://careers.oracle.com/en/sites/jobsearch/job/${encodeURIComponent(externalJobId)}`;
+  const sourceUrl = buildOracleDetailUrl(context, externalJobId);
   const locationRaw =
     normalizeWhitespace(job.PrimaryLocation || "") ||
     (job.PrimaryLocationCountry ? normalizeWhitespace(job.PrimaryLocationCountry) : undefined);
@@ -1222,7 +1585,7 @@ async function fetchOracleHcmPostings(
     }
 
     for (const job of jobs) {
-      const posting = normalizeOraclePosting(job);
+      const posting = normalizeOraclePosting(context, job);
 
       if (!posting || seen.has(posting.externalJobId)) {
         continue;
@@ -1383,6 +1746,258 @@ async function fetchSmartRecruitersPostings(
     }
 
     offset += jobs.length;
+    page += 1;
+  }
+
+  return postings;
+}
+
+function buildEightfoldJobsUrl(context: AdapterFetchContext, start: number): string {
+  const url = new URL(context.source.sourceUrl);
+  const query = getStringConfig(context.source.requestConfigJson?.query);
+
+  url.searchParams.set("start", String(start));
+
+  if (query) {
+    url.searchParams.set("query", query);
+  }
+
+  return url.toString();
+}
+
+function normalizeEightfoldPosting(job: EightfoldJob): AdapterFetchedPosting | undefined {
+  const externalJobId = asNormalizedString(job.display_job_id ?? job.ats_job_id ?? job.id);
+  const title = normalizeWhitespace(job.posting_name || job.name || "");
+  const sourceUrl = job.canonicalPositionUrl || "";
+
+  if (!externalJobId || !title || !sourceUrl) {
+    return undefined;
+  }
+
+  const locations = uniqueStrings(
+    [job.location, ...(job.locations ?? [])]
+      .map((location) => (location ? normalizeWhitespace(location) : ""))
+      .filter(Boolean)
+  );
+  const postingDate =
+    typeof job.t_create === "number"
+      ? new Date(job.t_create * 1_000)
+      : typeof job.t_update === "number"
+        ? new Date(job.t_update * 1_000)
+        : undefined;
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl: sourceUrl,
+    sourceUrl,
+    postingDate,
+    descriptionHtml: job.job_description || undefined,
+    descriptionText: job.job_description ? stripHtml(job.job_description) : undefined,
+    employmentType: job.type || undefined,
+    locationRaw: locations[0],
+    additionalLocations: locations.slice(1),
+    remoteTypeHint: job.work_location_option ?? job.location_flexibility ?? undefined,
+    metadata: {
+      businessUnit: job.business_unit,
+      department: job.department,
+      isPrivate: job.isPrivate
+    },
+    raw: job
+  };
+}
+
+async function fetchEightfoldPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const pageSize = getNumericConfig(context.source.requestConfigJson?.pageSize, 10);
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 10);
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+  let page = 0;
+  let start = 0;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (page < maxPages && start < total) {
+    const response = await fetchJson<EightfoldJobsResponse>(
+      context,
+      buildEightfoldJobsUrl(context, start)
+    );
+    const jobs = response.positions ?? [];
+
+    total = typeof response.count === "number" ? response.count : total;
+
+    if (jobs.length === 0) {
+      break;
+    }
+
+    for (const job of jobs) {
+      const posting = normalizeEightfoldPosting(job);
+
+      if (!posting || seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+
+    if (jobs.length < pageSize) {
+      break;
+    }
+
+    start += jobs.length;
+    page += 1;
+  }
+
+  return postings;
+}
+
+function buildPhenomSearchBody(context: AdapterFetchContext, from: number, size: number): string {
+  return JSON.stringify({
+    size,
+    from,
+    jobs: true,
+    counts: true,
+    all_fields: getStringArrayConfig(context.source.requestConfigJson?.allFields),
+    clearAll: false,
+    jdsource: "facets",
+    isSliderEnable: false,
+    selected_fields:
+      context.source.requestConfigJson?.selectedFields &&
+      typeof context.source.requestConfigJson.selectedFields === "object" &&
+      !Array.isArray(context.source.requestConfigJson.selectedFields)
+        ? context.source.requestConfigJson.selectedFields
+        : {},
+    sort: { order: "desc", field: "postedDate" },
+    pageName: getStringConfig(context.source.requestConfigJson?.pageName, "search-results"),
+    siteType: getStringConfig(context.source.requestConfigJson?.siteType, "external"),
+    deviceType: getStringConfig(context.source.requestConfigJson?.deviceType, "desktop"),
+    global: getBooleanConfig(context.source.requestConfigJson?.global, true),
+    ddoKey: "refineSearch",
+    refNum: getStringConfig(context.source.requestConfigJson?.refNum),
+    lang: getStringConfig(context.source.requestConfigJson?.lang, "en_us"),
+    locale: getStringConfig(context.source.requestConfigJson?.locale, "en_us"),
+    country: getStringConfig(context.source.requestConfigJson?.country, "us"),
+    pageId: getStringConfig(context.source.requestConfigJson?.pageId),
+    keywords: getStringConfig(context.source.requestConfigJson?.query, "intern")
+  });
+}
+
+function buildPhenomDetailUrl(context: AdapterFetchContext, job: PhenomJob): string | undefined {
+  const detailBaseUrl = getStringConfig(context.source.requestConfigJson?.detailBaseUrl);
+  const sequenceNumber = asNormalizedString(job.jobSeqNo);
+
+  if (!detailBaseUrl || !sequenceNumber || !job.title) {
+    return undefined;
+  }
+
+  return `${detailBaseUrl.replace(/\/$/, "")}/${encodeURIComponent(sequenceNumber)}/${slugifyForUrl(job.title)}`;
+}
+
+function extractPhenomLocations(job: PhenomJob): string[] {
+  return uniqueStrings(
+    [
+      job.location,
+      job.cityStateCountry,
+      job.cityState,
+      [job.city, job.state, job.country].filter(Boolean).join(", "),
+      ...(job.multi_location ?? []),
+      ...(job.multi_location_array ?? []).map((entry) => entry.location)
+    ]
+      .map((location) => (location ? normalizeWhitespace(location) : ""))
+      .filter(Boolean)
+  );
+}
+
+function normalizePhenomPosting(
+  context: AdapterFetchContext,
+  job: PhenomJob
+): AdapterFetchedPosting | undefined {
+  const externalJobId = asNormalizedString(job.jobSeqNo ?? job.reqId ?? job.jobId);
+  const title = normalizeWhitespace(job.title || "");
+  const applicationUrl = normalizeWhitespace(job.applyUrl || "");
+
+  if (!externalJobId || !title || !applicationUrl) {
+    return undefined;
+  }
+
+  const sourceUrl = buildPhenomDetailUrl(context, job) ?? applicationUrl;
+  const locations = extractPhenomLocations(job);
+  const descriptionText = normalizeWhitespace(
+    job.ml_job_parser?.descriptionTeaser_ats ||
+      job.ml_job_parser?.descriptionTeaser_keyword ||
+      job.ml_job_parser?.descriptionTeaser ||
+      job.descriptionTeaser ||
+      ""
+  );
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl,
+    sourceUrl,
+    postingDate: job.postedDate ?? job.dateCreated,
+    descriptionText: descriptionText || undefined,
+    employmentType: job.type || undefined,
+    locationRaw: locations[0],
+    additionalLocations: locations.slice(1),
+    remoteTypeHint: job.RemoteType,
+    metadata: {
+      category: job.category,
+      categoryRaw: job.category_raw,
+      department: job.department,
+      jobId: job.jobId,
+      reqId: job.reqId
+    },
+    raw: job
+  };
+}
+
+async function fetchPhenomPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 10), 50);
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 5);
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+  let from = 0;
+  let page = 0;
+  let total = Number.POSITIVE_INFINITY;
+
+  while (page < maxPages && from < total) {
+    const response = await fetchJsonRequest<PhenomRefineSearchResponse>(
+      context,
+      context.source.sourceUrl,
+      {
+        method: "POST",
+        body: buildPhenomSearchBody(context, from, pageSize),
+        headers: {
+          "Content-Type": "application/json"
+        }
+      }
+    );
+    const data = response.refineSearch?.data;
+    const jobs = data?.jobs ?? [];
+
+    total = typeof data?.totalHits === "number" ? data.totalHits : total;
+
+    if (jobs.length === 0) {
+      break;
+    }
+
+    for (const job of jobs) {
+      const posting = normalizePhenomPosting(context, job);
+
+      if (!posting || seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+
+    if (jobs.length < pageSize) {
+      break;
+    }
+
+    from += jobs.length;
     page += 1;
   }
 
@@ -1712,9 +2327,15 @@ export class CustomApiAdapter implements SourceAdapter {
     switch (getParserId(context)) {
       case "amazon-search-json":
         return fetchAmazonPostings(context);
+      case "eightfold-jobs":
+        return fetchEightfoldPostings(context);
       case "github-jibe-jobs":
       case "jibe-jobs":
         return fetchJibePostings(context);
+      case "generic-rss-items":
+        return fetchGenericRssPostings(context);
+      case "ibm-careers-search":
+        return fetchIbmCareersPostings(context);
       case "meta-careers-search":
         return fetchMetaCareersPostings(context);
       case "microsoft-pcsx-search":
@@ -1722,6 +2343,8 @@ export class CustomApiAdapter implements SourceAdapter {
         return fetchMicrosoftPostings(context);
       case "oracle-hcm-search":
         return fetchOracleHcmPostings(context);
+      case "phenom-refine-search":
+        return fetchPhenomPostings(context);
       case "salesforce-rss":
         return fetchSalesforceRssPostings(context);
       case "smartrecruiters-postings":

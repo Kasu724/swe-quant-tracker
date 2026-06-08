@@ -106,7 +106,9 @@ const webEnvSchema = baseEnvSchema.extend({
 const workerEnvSchema = baseEnvSchema.extend({
   POLL_CRON: z.string().default("*/30 * * * *"),
   DAILY_DIGEST_CRON: z.string().default("0 8 * * *"),
-  INGESTION_CONCURRENCY: numericString.default(2)
+  INGESTION_CONCURRENCY: numericString.default(2),
+  INGESTION_REQUEST_TIMEOUT_MS: numericString.default(20_000),
+  INGESTION_SOURCE_TIMEOUT_MS: numericString.default(120_000)
 });
 
 const seedEnvSchema = baseEnvSchema.extend({

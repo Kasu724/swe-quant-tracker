@@ -7,6 +7,7 @@ import { getCurrentSession } from "../lib/auth";
 import {
   getApplicationStateMap,
   getFavoritePostingIds,
+  getPostingListIds,
   getListingFilterMetadata,
   getListings,
   parseListingFilters,
@@ -50,12 +51,13 @@ export async function InternshipsFeedPage({
   ]);
   const initialListings = listings.slice(0, LISTINGS_PER_PAGE);
   const postingIds = initialListings.map((listing) => listing.id);
-  const [favoriteIds, applicationStateMap] = session?.user?.id
+  const [favoriteIds, listIds, applicationStateMap] = session?.user?.id
     ? await Promise.all([
         getFavoritePostingIds(session.user.id, postingIds),
+        getPostingListIds(session.user.id, postingIds),
         getApplicationStateMap(session.user.id, postingIds)
       ])
-    : [new Set<string>(), new Map<string, string>()];
+    : [new Set<string>(), new Set<string>(), new Map<string, string>()];
   const queryString = buildSearchQuery(resolvedSearchParams);
   const listHref = queryString ? `${basePath}?${queryString}` : basePath;
   const exportHref = `/api/internships${queryString ? `?${queryString}&` : "?"}format=csv`;
@@ -122,6 +124,7 @@ export async function InternshipsFeedPage({
                 listHref={listHref}
                 showPersonalActions={Boolean(session)}
                 favoriteIds={Array.from(favoriteIds)}
+                listIds={Array.from(listIds)}
                 applicationStates={applicationStates}
               />
             )}

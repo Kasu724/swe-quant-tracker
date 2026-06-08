@@ -109,6 +109,7 @@ model User {
   updatedAt          DateTime               @updatedAt
   savedSearches      SavedSearch[]
   favorites          UserFavorite[]
+  postingListItems   UserPostingListItem[]
   applicationStates  UserApplicationState[]
   alertDeliveries    AlertDelivery[]
   verificationTokens VerificationToken[]
@@ -215,6 +216,7 @@ model InternshipPosting {
   updatedAt            DateTime             @updatedAt
   sourceRecords        PostingSourceRecord[]
   favorites            UserFavorite[]
+  postingListItems     UserPostingListItem[]
   applicationStates    UserApplicationState[]
   alertDeliveries      AlertDelivery[]
 
@@ -272,6 +274,22 @@ model UserFavorite {
   createdAt           DateTime          @default(now())
 
   @@unique([userId, internshipPostingId], map: "user_favorite_unique_posting")
+}
+
+model UserPostingListItem {
+  id                  String            @id @default(cuid())
+  userId              String
+  user                User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  internshipPostingId String
+  internshipPosting   InternshipPosting @relation(fields: [internshipPostingId], references: [id], onDelete: Cascade)
+  isCompleted         Boolean           @default(false)
+  completedAt         DateTime?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([userId, internshipPostingId], map: "user_posting_list_unique_posting")
+  @@index([userId, createdAt])
+  @@index([userId, isCompleted])
 }
 
 model UserApplicationState {

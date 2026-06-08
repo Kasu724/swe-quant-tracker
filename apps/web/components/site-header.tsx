@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ListChecks } from "lucide-react";
 import { Badge, Button, Container } from "@faang-quant/ui";
 import type { Session } from "next-auth";
 import { LogoutButton } from "./logout-button";
@@ -6,6 +7,7 @@ import { ThemeToggle } from "./theme-toggle";
 
 const navLinks = [
   { href: "/", label: "Internships" },
+  { href: "/list", label: "List" },
   { href: "/companies", label: "Companies" },
   { href: "/saved-searches", label: "Saved Searches" },
   { href: "/settings", label: "Settings" }
@@ -39,6 +41,16 @@ export function SiteHeader({ session }: { session: Session | null }) {
           </nav>
         </div>
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            asChild
+            className="h-10 w-10 p-0 md:hidden"
+            title="Open list"
+          >
+            <Link href="/list" aria-label="Open list">
+              <ListChecks className="h-5 w-5" aria-hidden="true" />
+            </Link>
+          </Button>
           <ThemeToggle />
           <Badge tone="brand">Student Roles Only</Badge>
           {session ? (

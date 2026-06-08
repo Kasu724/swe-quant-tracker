@@ -11,6 +11,7 @@ type ListingsBatchResponse = {
   nextOffset: number;
   hasMore: boolean;
   favoriteIds?: string[];
+  listIds?: string[];
   applicationStates?: Record<string, ApplicationState>;
 };
 
@@ -22,6 +23,7 @@ export function InfiniteListings({
   listHref,
   showPersonalActions,
   favoriteIds: initialFavoriteIds,
+  listIds: initialListIds,
   applicationStates: initialApplicationStates
 }: {
   initialListings: FeedListing[];
@@ -31,10 +33,12 @@ export function InfiniteListings({
   listHref: string;
   showPersonalActions: boolean;
   favoriteIds: string[];
+  listIds: string[];
   applicationStates: Record<string, ApplicationState>;
 }) {
   const [listings, setListings] = useState(initialListings);
   const [favoriteIds, setFavoriteIds] = useState(() => new Set(initialFavoriteIds));
+  const [listIds, setListIds] = useState(() => new Set(initialListIds));
   const [applicationStates, setApplicationStates] = useState(initialApplicationStates);
   const [nextOffset, setNextOffset] = useState(initialListings.length);
   const [hasMore, setHasMore] = useState(initialListings.length < total);
@@ -49,12 +53,13 @@ export function InfiniteListings({
   useEffect(() => {
     setListings(initialListings);
     setFavoriteIds(new Set(initialFavoriteIds));
+    setListIds(new Set(initialListIds));
     setApplicationStates(initialApplicationStates);
     setNextOffset(initialListings.length);
     setHasMore(initialListings.length < total);
     setIsLoading(false);
     setErrorText(null);
-  }, [initialApplicationStates, initialFavoriteIds, initialListings, queryKey, total]);
+  }, [initialApplicationStates, initialFavoriteIds, initialListIds, initialListings, queryKey, total]);
 
   const loadNextBatch = useCallback(async () => {
     if (!hasMore || isLoading) {
@@ -88,6 +93,10 @@ export function InfiniteListings({
 
       if (batch.favoriteIds) {
         setFavoriteIds((current) => new Set([...current, ...batch.favoriteIds!]));
+      }
+
+      if (batch.listIds) {
+        setListIds((current) => new Set([...current, ...batch.listIds!]));
       }
 
       if (batch.applicationStates) {
@@ -137,6 +146,7 @@ export function InfiniteListings({
             key={listing.id}
             posting={listing}
             isFavorite={favoriteIds.has(listing.id)}
+            isListed={listIds.has(listing.id)}
             applicationState={applicationStates[listing.id] as ApplicationState | undefined}
             showPersonalActions={showPersonalActions}
             redirectTo={listHref}

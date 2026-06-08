@@ -14,7 +14,7 @@ type GreenhouseStructuredCurrencyRange = {
 
 type GreenhouseMetadataField = {
   name?: string;
-  value?: string | GreenhouseStructuredCurrencyRange | null;
+  value?: string | boolean | GreenhouseStructuredCurrencyRange | null;
 };
 
 type GreenhouseJob = {
@@ -32,6 +32,8 @@ type GreenhouseJob = {
 type GreenhouseResponse = {
   jobs: GreenhouseJob[];
 };
+
+type GreenhouseMetadataFieldFilters = Record<string, string | string[]>;
 
 function buildGreenhouseUrl(context: AdapterFetchContext): string {
   return (
@@ -130,13 +132,82 @@ function extractCompensation(job: GreenhouseJob, payRaw?: string) {
   return payRaw ? parseCompensation(payRaw) : undefined;
 }
 
+function getMetadataFieldFilters(value: unknown): GreenhouseMetadataFieldFilters | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const filters = Object.entries(value).reduce<GreenhouseMetadataFieldFilters>(
+    (accumulator, [fieldName, raw]) => {
+      if (typeof raw === "string" && raw.trim()) {
+        accumulator[fieldName] = raw;
+      }
+
+      if (Array.isArray(raw)) {
+        const values = raw.filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0);
+
+        if (values.length > 0) {
+          accumulator[fieldName] = values;
+        }
+      }
+
+      return accumulator;
+    },
+    {}
+  );
+
+  return Object.keys(filters).length > 0 ? filters : undefined;
+}
+
+function metadataValueToStrings(value: GreenhouseMetadataField["value"]): string[] {
+  if (typeof value === "string") {
+    return [value];
+  }
+
+  if (value && typeof value === "object") {
+    return [value.unit, value.min_value, value.max_value]
+      .map((entry) => (entry === undefined || entry === null ? "" : String(entry)))
+      .filter(Boolean);
+  }
+
+  if (typeof value === "boolean") {
+    return [String(value)];
+  }
+
+  return [];
+}
+
+function matchesMetadataFilters(job: GreenhouseJob, filters?: GreenhouseMetadataFieldFilters): boolean {
+  if (!filters) {
+    return true;
+  }
+
+  return Object.entries(filters).every(([fieldName, expectedRaw]) => {
+    const expectedValues = (Array.isArray(expectedRaw) ? expectedRaw : [expectedRaw]).map((value) =>
+      value.toLowerCase()
+    );
+    const matchingFields = job.metadata?.filter(
+      (field) => field.name?.toLowerCase() === fieldName.toLowerCase()
+    ) ?? [];
+
+    return matchingFields.some((field) =>
+      metadataValueToStrings(field.value).some((value) =>
+        expectedValues.includes(value.toLowerCase())
+      )
+    );
+  });
+}
+
 export class GreenhouseAdapter implements SourceAdapter {
   readonly type = "GREENHOUSE" as const;
 
   async fetchPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
     const response = await fetchJson<GreenhouseResponse>(context, buildGreenhouseUrl(context));
+    const metadataFieldFilters = getMetadataFieldFilters(
+      context.source.requestConfigJson?.metadataFieldFilters
+    );
 
-    return response.jobs.map((job) => {
+    return response.jobs.filter((job) => matchesMetadataFilters(job, metadataFieldFilters)).map((job) => {
       const payRaw = extractPayRaw(job);
 
       return {

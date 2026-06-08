@@ -32,6 +32,11 @@ type PostingWithCanonicalSource = Prisma.InternshipPostingGetPayload<{
   };
 }>;
 
+type IngestionTimingOptions = {
+  requestTimeoutMs: number;
+  sourceTimeoutMs: number;
+};
+
 function toObject(value: Prisma.JsonValue | null): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
@@ -56,6 +61,45 @@ function readBooleanConfig(value: unknown, fallback = false): boolean {
   }
 
   return fallback;
+}
+
+function readPositiveNumberConfig(value: unknown, fallback: number): number {
+  if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+}
+
+function abortReasonToError(reason: unknown, fallbackMessage: string): Error {
+  if (reason instanceof Error) {
+    return reason;
+  }
+
+  if (typeof reason === "string" && reason.trim()) {
+    return new Error(reason);
+  }
+
+  return new Error(fallbackMessage);
+}
+
+function throwIfSourceAborted(signal: AbortSignal, source: SourceWithCompany) {
+  if (!signal.aborted) {
+    return;
+  }
+
+  throw abortReasonToError(
+    signal.reason,
+    `Source ingestion aborted: ${source.company.name} (${source.sourceName})`
+  );
 }
 
 function extractLocationKeys(value: Prisma.JsonValue | null): string[] {
@@ -294,7 +338,28 @@ async function persistPosting(input: {
   });
 }
 
-async function processSource(source: SourceWithCompany): Promise<string[]> {
+async function processSource(
+  source: SourceWithCompany,
+  options: IngestionTimingOptions
+): Promise<string[]> {
+  const requestConfig = toObject(source.requestConfigJson);
+  const requestTimeoutMs = readPositiveNumberConfig(
+    requestConfig?.requestTimeoutMs,
+    options.requestTimeoutMs
+  );
+  const sourceTimeoutMs = readPositiveNumberConfig(
+    requestConfig?.sourceTimeoutMs,
+    options.sourceTimeoutMs
+  );
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(
+      new Error(
+        `Source ingestion timed out after ${sourceTimeoutMs}ms: ${source.company.name} (${source.sourceName})`
+      )
+    );
+  }, sourceTimeoutMs);
+
   const run = await prisma.ingestionRun.create({
     data: {
       sourceType: source.sourceType,
@@ -314,7 +379,17 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
   };
 
   try {
-    const requestConfig = toObject(source.requestConfigJson);
+    logger.info(
+      {
+        sourceId: source.id,
+        company: source.company.name,
+        sourceName: source.sourceName,
+        requestTimeoutMs,
+        sourceTimeoutMs
+      },
+      "Starting source ingestion"
+    );
+
     const postings = await adapter.fetchPostings({
       company: {
         id: source.company.id,
@@ -329,12 +404,17 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
         sourceUrl: source.sourceUrl,
         requestConfigJson: requestConfig,
         parserConfigJson: toObject(source.parserConfigJson)
-      }
+      },
+      requestTimeoutMs,
+      signal: controller.signal
     });
 
+    throwIfSourceAborted(controller.signal, source);
     stats.fetched = postings.length;
 
     for (const posting of postings) {
+      throwIfSourceAborted(controller.signal, source);
+
       const normalized = normalizeFetchedPosting({
         company: {
           id: source.company.id,
@@ -363,10 +443,18 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
       }
 
       if (readBooleanConfig(requestConfig?.validatePostingUrls, false)) {
-        const liveUrl = await resolveLivePostingUrl({
-          sourceUrl: normalized.sourceUrl,
-          applicationUrl: normalized.applicationUrl
-        });
+        const liveUrl = await resolveLivePostingUrl(
+          {
+            sourceUrl: normalized.sourceUrl,
+            applicationUrl: normalized.applicationUrl
+          },
+          {
+            signal: controller.signal,
+            timeoutMs: requestTimeoutMs
+          }
+        );
+
+        throwIfSourceAborted(controller.signal, source);
 
         if (!liveUrl) {
           stats.skipped += 1;
@@ -407,9 +495,27 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
       }
     });
 
+    logger.info(
+      {
+        sourceId: source.id,
+        company: source.company.name,
+        sourceName: source.sourceName,
+        stats
+      },
+      "Source ingestion completed"
+    );
+
     return discoveredPostingIds;
   } catch (error) {
-    logger.error({ error, sourceId: source.id }, "Source ingestion failed");
+    logger.error(
+      {
+        error,
+        sourceId: source.id,
+        company: source.company.name,
+        sourceName: source.sourceName
+      },
+      "Source ingestion failed"
+    );
 
     await prisma.ingestionRun.update({
       where: { id: run.id },
@@ -422,6 +528,8 @@ async function processSource(source: SourceWithCompany): Promise<string[]> {
     });
 
     return [];
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -443,8 +551,31 @@ async function deactivateStalePostings() {
   return result.count;
 }
 
+async function markAbandonedIngestionRuns(sourceTimeoutMs: number) {
+  const abandonedBefore = new Date(Date.now() - Math.max(sourceTimeoutMs * 2, 5 * 60_000));
+  const result = await prisma.ingestionRun.updateMany({
+    where: {
+      status: IngestionRunStatus.RUNNING,
+      startedAt: {
+        lt: abandonedBefore
+      }
+    },
+    data: {
+      status: IngestionRunStatus.FAILED,
+      finishedAt: new Date(),
+      errorText: "Marked failed because the worker process exited before completing this source"
+    }
+  });
+
+  if (result.count > 0) {
+    logger.warn({ count: result.count }, "Marked abandoned ingestion runs as failed");
+  }
+}
+
 export async function runIngestionCycle(options?: { sourceId?: string }) {
   const env = readWorkerEnv();
+  await markAbandonedIngestionRuns(env.INGESTION_SOURCE_TIMEOUT_MS);
+
   const sources = await prisma.companySource.findMany({
     where: {
       isActive: true,
@@ -474,7 +605,10 @@ export async function runIngestionCycle(options?: { sourceId?: string }) {
     sources,
     options?.sourceId ? 1 : env.INGESTION_CONCURRENCY,
     async (source) => {
-      const discovered = await processSource(source);
+      const discovered = await processSource(source, {
+        requestTimeoutMs: env.INGESTION_REQUEST_TIMEOUT_MS,
+        sourceTimeoutMs: env.INGESTION_SOURCE_TIMEOUT_MS
+      });
       discoveredPostingIds.push(...discovered);
     }
   );

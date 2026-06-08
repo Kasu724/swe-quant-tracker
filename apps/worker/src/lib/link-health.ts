@@ -19,9 +19,57 @@ type UrlInspection = {
   reason?: string;
 };
 
-export async function inspectPostingUrl(url: string): Promise<UrlInspection> {
+type UrlInspectionOptions = {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+};
+
+function abortReasonToError(reason: unknown, fallbackMessage: string): Error {
+  if (reason instanceof Error) {
+    return reason;
+  }
+
+  if (typeof reason === "string" && reason.trim()) {
+    return new Error(reason);
+  }
+
+  return new Error(fallbackMessage);
+}
+
+function throwIfAborted(signal?: AbortSignal) {
+  if (!signal?.aborted) {
+    return;
+  }
+
+  throw abortReasonToError(signal.reason, "URL inspection aborted");
+}
+
+export async function inspectPostingUrl(
+  url: string,
+  options: UrlInspectionOptions = {}
+): Promise<UrlInspection> {
+  throwIfAborted(options.signal);
+
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15_000);
+  let removeAbortListener: (() => void) | undefined;
+
+  if (options.signal) {
+    const onAbort = () => controller.abort(options.signal?.reason);
+    options.signal.addEventListener("abort", onAbort, { once: true });
+    removeAbortListener = () => options.signal?.removeEventListener("abort", onAbort);
+    if (options.signal.aborted) {
+      controller.abort(options.signal.reason);
+    }
+  }
+
+  const timeoutMs =
+    typeof options.timeoutMs === "number" && Number.isFinite(options.timeoutMs) && options.timeoutMs > 0
+      ? options.timeoutMs
+      : 15_000;
+  const timeout = setTimeout(
+    () => controller.abort(new Error(`URL inspection timed out after ${timeoutMs}ms: ${url}`)),
+    timeoutMs
+  );
 
   try {
     const response = await fetch(url, {
@@ -108,20 +156,27 @@ export async function inspectPostingUrl(url: string): Promise<UrlInspection> {
     };
   } finally {
     clearTimeout(timeout);
+    removeAbortListener?.();
   }
 }
 
-export async function resolveLivePostingUrl(input: {
-  sourceUrl?: string | null;
-  applicationUrl?: string | null;
-}): Promise<string | undefined> {
+export async function resolveLivePostingUrl(
+  input: {
+    sourceUrl?: string | null;
+    applicationUrl?: string | null;
+  },
+  options: UrlInspectionOptions = {}
+): Promise<string | undefined> {
   const preferredUrl = getPreferredPostingUrl(input);
   const candidates = preferredUrl
     ? [preferredUrl, ...getPostingUrlCandidates(input).filter((url) => url !== preferredUrl)]
     : getPostingUrlCandidates(input);
 
   for (const candidate of candidates) {
-    const inspection = await inspectPostingUrl(candidate);
+    throwIfAborted(options.signal);
+
+    const inspection = await inspectPostingUrl(candidate, options);
+    throwIfAborted(options.signal);
 
     if (inspection.ok) {
       return inspection.finalUrl ?? candidate;

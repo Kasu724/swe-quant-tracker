@@ -4,11 +4,16 @@ import { fetchText, type SourceAdapter } from "./base";
 
 type CustomHtmlParserId =
   | "apple-search"
+  | "deshaw-careers"
   | "drw-listings"
+  | "gresearch-vacancies"
   | "netflix-smartapply-search"
   | "google-careers-search"
+  | "paylocity-page-data"
   | "shopify-careers"
-  | "bloomberg-avature-search";
+  | "talentbrew-search"
+  | "bloomberg-avature-search"
+  | "two-sigma-avature-cards";
 
 type NetflixPosition = {
   id?: number | string;
@@ -43,8 +48,57 @@ type DrwListing = {
   language?: string;
 };
 
-const APPLE_CARD_PATTERN =
-  /<div id="search-search-job-title-(?<jobKey>[^"]+)-\d+"[\s\S]*?<h3>\s*<a[^>]+href="(?<href>[^"]+)"[^>]*>(?<title>[\s\S]*?)<\/a>\s*<\/h3>[\s\S]*?<span[^>]+class="team-name[^"]*"[^>]*>(?<team>[\s\S]*?)<\/span>[\s\S]*?<span[^>]+class="job-posted-date"[^>]*>(?<postingDate>[\s\S]*?)<\/span>[\s\S]*?<div id="search-location-search-job-title-[^"]+"[\s\S]*?<span id="search-store-name-container-\d+">(?<location>[\s\S]*?)<\/span>/gi;
+type DeshawJobEnvelope = {
+  data?: {
+    id?: number | string;
+    displayName?: string;
+    validFromDate?: string;
+    jobUrl?: string;
+    jobDescription?: {
+      websiteDescription?: string;
+      onCampusDescription?: string;
+    };
+    jobMetadata?: {
+      jobLocations?: Array<{ name?: string }>;
+      jobSeekerCategories?: Array<{ name?: string }>;
+    };
+    jobCategory?: Array<{ name?: string }>;
+    department?: { name?: string };
+    hireType?: { name?: string };
+  };
+};
+
+type PaylocityPageData = {
+  Jobs?: PaylocityJob[];
+};
+
+type PaylocityJob = {
+  JobId?: number | string;
+  JobTitle?: string;
+  LocationName?: string;
+  PublishedDate?: string;
+  Description?: string;
+  IsRemote?: boolean;
+  HiringDepartment?: string | null;
+  JobLocation?: {
+    City?: string;
+    State?: string;
+    Country?: string;
+  };
+};
+
+const APPLE_CARD_START_PATTERN = /<div id="search-search-job-title-(?<jobKey>[^"]+)-\d+"/gi;
+const APPLE_LINK_PATTERN =
+  /<h3>\s*<a\b[^>]*href="(?<href>[^"]+)"[^>]*>(?<title>[\s\S]*?)<\/a>\s*<\/h3>/i;
+const APPLE_TEAM_PATTERN =
+  /<span\b[^>]*class="[^"]*\bteam-name\b[^"]*"[^>]*>(?<team>[\s\S]*?)<\/span>/i;
+const APPLE_POSTED_DATE_PATTERN =
+  /<span\b[^>]*class="[^"]*\bjob-posted-date\b[^"]*"[^>]*>(?<postingDate>[\s\S]*?)<\/span>/i;
+const APPLE_LOCATION_PATTERNS = [
+  /<span\b[^>]*class="[^"]*\btable--advanced-search__location-sub\b[^"]*"[^>]*>(?<location>[\s\S]*?)<\/span>/i,
+  /<span\b[^>]*id="search-store-name(?:-container)?-\d+"[^>]*>(?<location>[\s\S]*?)<\/span>/i
+];
+const APPLE_CARD_SCAN_LIMIT = 12_000;
 const GOOGLE_INIT_DATA_PATTERN = /AF_initDataCallback\((\{key: 'ds:1'[\s\S]*?sideChannel:\s*\{\}\})\);/;
 const GOOGLE_RESULT_HREF_PATTERN =
   /href="(?<href>jobs\/results\/(?<jobId>\d+)-[^"]+)"/g;
@@ -56,17 +110,44 @@ const BLOOMBERG_LINK_PATTERN =
   /<a\b[^>]*href="(?<href>[^"]+)"[^>]*>(?<title>[\s\S]*?)<\/a>/i;
 const BLOOMBERG_LOCATION_PATTERN =
   /<span\b[^>]*class="[^"]*list-item-location[^"]*"[^>]*>(?<location>[\s\S]*?)<\/span>/i;
+const GRESEARCH_CARD_PATTERN =
+  /<a\b(?=[^>]*class="[^"]*\bc-vacancy-result\b[^"]*")(?=[^>]*href="(?<href>[^"]+)")[^>]*>(?<body>[\s\S]*?)<\/a>/gi;
+const VACANCY_TITLE_PATTERN =
+  /<span\b[^>]*class="[^"]*\bc-vacancy-result__title\b[^"]*"[^>]*>(?<title>[\s\S]*?)<\/span>/i;
+const VACANCY_LOCATION_PATTERN =
+  /<span\b[^>]*class="[^"]*\bc-vacancy-result__location\b[^"]*"[^>]*>(?<location>[\s\S]*?)<\/span>/i;
+const NEXT_PAGE_PATTERN = /<link\b[^>]*rel=["']next["'][^>]*href=["'](?<href>[^"']+)["'][^>]*>/i;
+const TWO_SIGMA_ARTICLE_PATTERN =
+  /<article\b[^>]*class="[^"]*\barticle--card\b[^"]*"[^>]*>(?<body>[\s\S]*?)<\/article>/gi;
+const TWO_SIGMA_FIELD_PATTERN =
+  /<strong>(?<label>[^<]+)<\/strong>\s*<span\b[^>]*class="[^"]*\bparagraph_inner-span\b[^"]*"[^>]*>(?<value>[\s\S]*?)<\/span>/gi;
+const PAYLOCITY_PAGE_DATA_PATTERN = /window\.pageData\s*=\s*(?<json>\{[\s\S]*?\});\s*<\/script>/i;
+const TALENTBREW_JOB_CARD_PATTERN =
+  /<li\b[^>]*class="[^"]*\bjob-card\b[^"]*"[^>]*>(?<body>[\s\S]*?)<\/li>/gi;
+const TALENTBREW_TITLE_PATTERN =
+  /<a\b(?=[^>]*class="[^"]*\bjob-card__title\b[^"]*")(?=[^>]*href="(?<href>[^"]+)")(?=[^>]*data-job-id="(?<jobId>[^"]+)")[^>]*>(?<title>[\s\S]*?)<\/a>/i;
+const TALENTBREW_INTRO_PATTERN =
+  /<span\b[^>]*class="[^"]*\bjob-card__intro\b[^"]*"[^>]*>(?<intro>[\s\S]*?)<\/span>/i;
+const TALENTBREW_LOCATION_PATTERN =
+  /<span\b[^>]*class="[^"]*\blocation\b[^"]*"[^>]*>(?<location>[\s\S]*?)<\/span>/i;
+const TALENTBREW_CATEGORY_PATTERN =
+  /<span\b[^>]*class="[^"]*\bcategory\b[^"]*"[^>]*>(?<category>[\s\S]*?)<\/span>/i;
 
 function getParserId(context: AdapterFetchContext): CustomHtmlParserId {
   const parserId = context.source.parserConfigJson?.parserId;
 
   if (
     parserId === "apple-search" ||
+    parserId === "deshaw-careers" ||
     parserId === "drw-listings" ||
+    parserId === "gresearch-vacancies" ||
     parserId === "netflix-smartapply-search" ||
     parserId === "google-careers-search" ||
+    parserId === "paylocity-page-data" ||
     parserId === "shopify-careers" ||
-    parserId === "bloomberg-avature-search"
+    parserId === "talentbrew-search" ||
+    parserId === "bloomberg-avature-search" ||
+    parserId === "two-sigma-avature-cards"
   ) {
     return parserId;
   }
@@ -133,21 +214,50 @@ function timestampTupleToDate(value: unknown): Date | undefined {
   return new Date(seconds * 1_000 + Math.floor(nanos / 1_000_000));
 }
 
+function cleanInlineHtml(value?: string): string {
+  return normalizeWhitespace(decodeHtmlEntities((value ?? "").replace(/<[^>]+>/g, " ")));
+}
+
+function extractAppleLocation(cardHtml: string): string {
+  for (const pattern of APPLE_LOCATION_PATTERNS) {
+    const match = cardHtml.match(pattern);
+    const location = cleanInlineHtml(match?.groups?.location);
+
+    if (location) {
+      return location;
+    }
+  }
+
+  return "";
+}
+
 function parseApplePage(html: string, baseUrl: string): AdapterFetchedPosting[] {
   const postings: AdapterFetchedPosting[] = [];
+  const starts = Array.from(html.matchAll(APPLE_CARD_START_PATTERN));
 
-  for (const match of html.matchAll(APPLE_CARD_PATTERN)) {
+  for (let index = 0; index < starts.length; index += 1) {
+    const match = starts[index];
     const groups = match.groups;
+    const startIndex = match.index ?? 0;
 
-    if (!groups?.jobKey || !groups.href || !groups.title) {
+    if (!groups?.jobKey) {
       continue;
     }
 
-    const title = normalizeWhitespace(decodeHtmlEntities(groups.title));
-    const locationRaw = normalizeWhitespace(decodeHtmlEntities(groups.location ?? ""));
-    const postingDateRaw = normalizeWhitespace(decodeHtmlEntities(groups.postingDate ?? ""));
-    const team = normalizeWhitespace(decodeHtmlEntities(groups.team ?? ""));
-    const applicationUrl = toAbsoluteUrl(baseUrl, decodeHtmlEntities(groups.href));
+    const nextStartIndex = starts[index + 1]?.index ?? html.length;
+    const cardHtml = html.slice(startIndex, Math.min(nextStartIndex, startIndex + APPLE_CARD_SCAN_LIMIT));
+    const linkMatch = cardHtml.match(APPLE_LINK_PATTERN);
+    const href = linkMatch?.groups?.href;
+    const title = cleanInlineHtml(linkMatch?.groups?.title);
+
+    if (!href || !title) {
+      continue;
+    }
+
+    const locationRaw = extractAppleLocation(cardHtml);
+    const postingDateRaw = cleanInlineHtml(cardHtml.match(APPLE_POSTED_DATE_PATTERN)?.groups?.postingDate);
+    const team = cleanInlineHtml(cardHtml.match(APPLE_TEAM_PATTERN)?.groups?.team);
+    const applicationUrl = toAbsoluteUrl(baseUrl, decodeHtmlEntities(href));
 
     postings.push({
       externalJobId: groups.jobKey,
@@ -161,7 +271,7 @@ function parseApplePage(html: string, baseUrl: string): AdapterFetchedPosting[] 
       },
       raw: {
         jobKey: groups.jobKey,
-        href: groups.href,
+        href,
         title,
         locationRaw,
         postingDate: postingDateRaw,
@@ -516,6 +626,14 @@ function cleanHtmlText(value?: string): string | undefined {
   return value ? normalizeWhitespace(decodeHtmlEntities(value.replace(/<[^>]+>/g, " "))) : undefined;
 }
 
+function slugifyForUrl(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function externalJobIdFromUrl(value: string): string {
   const url = new URL(value);
   const segments = url.pathname.split("/").filter(Boolean);
@@ -652,6 +770,337 @@ async function fetchBloombergPostings(
   return postings;
 }
 
+function normalizeDeshawPosting(job: DeshawJobEnvelope, baseUrl: string): AdapterFetchedPosting | undefined {
+  const data = job.data;
+  const externalJobId = data?.id === undefined || data.id === null ? undefined : String(data.id);
+  const title = cleanHtmlText(data?.displayName);
+
+  if (!data || !externalJobId || !title) {
+    return undefined;
+  }
+
+  const sourceUrl = data.jobUrl
+    ? toAbsoluteUrl(baseUrl, data.jobUrl)
+    : toAbsoluteUrl(baseUrl, `/careers/${slugifyForUrl(title)}-${externalJobId}`);
+  const descriptionHtml =
+    data.jobDescription?.onCampusDescription ?? data.jobDescription?.websiteDescription;
+  const locations = uniqueStrings(
+    (data.jobMetadata?.jobLocations ?? [])
+      .map((location) => cleanHtmlText(location.name))
+      .filter((location): location is string => Boolean(location))
+  );
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl: sourceUrl,
+    sourceUrl,
+    postingDate: data.validFromDate,
+    descriptionHtml,
+    locationRaw: locations[0],
+    additionalLocations: locations.slice(1),
+    employmentType: data.hireType?.name,
+    metadata: {
+      department: data.department?.name,
+      jobCategories: (data.jobCategory ?? []).map((entry) => entry.name).filter(Boolean),
+      jobSeekerCategories: (data.jobMetadata?.jobSeekerCategories ?? [])
+        .map((entry) => entry.name)
+        .filter(Boolean)
+    },
+    raw: data
+  };
+}
+
+async function fetchDeshawPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const html = await fetchText(context, context.source.sourceUrl);
+  const payload = extractNextDataJson<{
+    props?: {
+      pageProps?: {
+        regularJobs?: DeshawJobEnvelope[];
+      };
+    };
+  }>(html);
+
+  return (payload.props?.pageProps?.regularJobs ?? [])
+    .map((job) => normalizeDeshawPosting(job, context.source.sourceUrl))
+    .filter((posting): posting is AdapterFetchedPosting => Boolean(posting));
+}
+
+function parseGResearchPostings(html: string, baseUrl: string): AdapterFetchedPosting[] {
+  const postings: AdapterFetchedPosting[] = [];
+
+  for (const match of html.matchAll(GRESEARCH_CARD_PATTERN)) {
+    const body = match.groups?.body;
+    const href = match.groups?.href;
+
+    if (!body || !href) {
+      continue;
+    }
+
+    const title = cleanHtmlText(body.match(VACANCY_TITLE_PATTERN)?.groups?.title);
+    const sourceUrl = toAbsoluteUrl(baseUrl, decodeHtmlEntities(href));
+
+    if (!title) {
+      continue;
+    }
+
+    postings.push({
+      externalJobId: externalJobIdFromUrl(sourceUrl),
+      title,
+      applicationUrl: sourceUrl,
+      sourceUrl,
+      locationRaw: cleanHtmlText(body.match(VACANCY_LOCATION_PATTERN)?.groups?.location),
+      raw: {
+        href,
+        title
+      }
+    });
+  }
+
+  return postings;
+}
+
+async function fetchGResearchPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 4);
+  const seen = new Set<string>();
+  const postings: AdapterFetchedPosting[] = [];
+  let nextUrl: string | undefined = context.source.sourceUrl;
+
+  for (let page = 0; page < maxPages && nextUrl; page += 1) {
+    const html = await fetchText(context, nextUrl);
+    const pagePostings = parseGResearchPostings(html, nextUrl);
+
+    for (const posting of pagePostings) {
+      if (seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+    }
+
+    const nextHref = html.match(NEXT_PAGE_PATTERN)?.groups?.href;
+    nextUrl = nextHref ? toAbsoluteUrl(nextUrl, decodeHtmlEntities(nextHref)) : undefined;
+  }
+
+  return postings;
+}
+
+function parseTwoSigmaFields(articleBody: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+
+  for (const match of articleBody.matchAll(TWO_SIGMA_FIELD_PATTERN)) {
+    const label = cleanHtmlText(match.groups?.label);
+    const value = cleanHtmlText(match.groups?.value);
+
+    if (label && value) {
+      fields[label] = value;
+    }
+  }
+
+  return fields;
+}
+
+function parseTwoSigmaPostings(html: string, baseUrl: string): AdapterFetchedPosting[] {
+  const postings: AdapterFetchedPosting[] = [];
+
+  for (const articleMatch of html.matchAll(TWO_SIGMA_ARTICLE_PATTERN)) {
+    const articleBody = articleMatch.groups?.body;
+
+    if (!articleBody) {
+      continue;
+    }
+
+    const linkMatch = articleBody.match(BLOOMBERG_LINK_PATTERN);
+    const linkGroups = linkMatch?.groups;
+
+    if (!linkGroups?.href || !linkGroups.title) {
+      continue;
+    }
+
+    const sourceUrl = toAbsoluteUrl(baseUrl, decodeHtmlEntities(linkGroups.href));
+    const title = cleanHtmlText(linkGroups.title);
+
+    if (!title || /^view role$/i.test(title)) {
+      continue;
+    }
+
+    const fields = parseTwoSigmaFields(articleBody);
+
+    postings.push({
+      externalJobId: externalJobIdFromUrl(sourceUrl),
+      title,
+      applicationUrl: sourceUrl,
+      sourceUrl,
+      locationRaw: fields.Location,
+      employmentType: fields["Experience Level"],
+      metadata: {
+        function: fields.Function
+      },
+      raw: {
+        href: linkGroups.href,
+        title,
+        fields
+      }
+    });
+  }
+
+  return postings;
+}
+
+async function fetchTwoSigmaPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const html = await fetchText(context, context.source.sourceUrl);
+
+  return parseTwoSigmaPostings(html, context.source.sourceUrl);
+}
+
+function parseTalentbrewSearchPostings(html: string, baseUrl: string): AdapterFetchedPosting[] {
+  const postings: AdapterFetchedPosting[] = [];
+
+  for (const match of html.matchAll(TALENTBREW_JOB_CARD_PATTERN)) {
+    const body = match.groups?.body;
+
+    if (!body) {
+      continue;
+    }
+
+    const titleMatch = body.match(TALENTBREW_TITLE_PATTERN);
+    const groups = titleMatch?.groups;
+    const title = cleanHtmlText(groups?.title);
+    const href = groups?.href;
+    const externalJobId = groups?.jobId;
+
+    if (!title || !href || !externalJobId) {
+      continue;
+    }
+
+    const sourceUrl = toAbsoluteUrl(baseUrl, decodeHtmlEntities(href));
+    const descriptionText = cleanHtmlText(body.match(TALENTBREW_INTRO_PATTERN)?.groups?.intro);
+
+    postings.push({
+      externalJobId,
+      title,
+      applicationUrl: sourceUrl,
+      sourceUrl,
+      descriptionText,
+      locationRaw: cleanHtmlText(body.match(TALENTBREW_LOCATION_PATTERN)?.groups?.location),
+      metadata: {
+        category: cleanHtmlText(body.match(TALENTBREW_CATEGORY_PATTERN)?.groups?.category)
+      },
+      raw: {
+        href,
+        externalJobId,
+        title
+      }
+    });
+  }
+
+  return postings;
+}
+
+function buildTalentbrewSearchUrl(sourceUrl: string, page: number): string {
+  const url = new URL(sourceUrl);
+
+  if (page > 1) {
+    url.searchParams.set("p", String(page));
+  } else {
+    url.searchParams.delete("p");
+  }
+
+  return url.toString();
+}
+
+async function fetchTalentbrewSearchPostings(
+  context: AdapterFetchContext
+): Promise<AdapterFetchedPosting[]> {
+  const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 4);
+  const postings: AdapterFetchedPosting[] = [];
+  const seen = new Set<string>();
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const searchUrl = buildTalentbrewSearchUrl(context.source.sourceUrl, page);
+    const pagePostings = parseTalentbrewSearchPostings(await fetchText(context, searchUrl), searchUrl);
+
+    if (pagePostings.length === 0) {
+      break;
+    }
+
+    let newCount = 0;
+
+    for (const posting of pagePostings) {
+      if (seen.has(posting.externalJobId)) {
+        continue;
+      }
+
+      seen.add(posting.externalJobId);
+      postings.push(posting);
+      newCount += 1;
+    }
+
+    if (newCount === 0) {
+      break;
+    }
+  }
+
+  return postings;
+}
+
+function extractPaylocityPageData(html: string): PaylocityPageData {
+  const json = html.match(PAYLOCITY_PAGE_DATA_PATTERN)?.groups?.json;
+
+  if (!json) {
+    throw new Error("Unable to find Paylocity pageData payload");
+  }
+
+  return JSON.parse(json) as PaylocityPageData;
+}
+
+function formatPaylocityLocation(job: PaylocityJob): string | undefined {
+  return (
+    cleanHtmlText(job.LocationName) ||
+    normalizeWhitespace(
+      uniqueStrings([job.JobLocation?.City, job.JobLocation?.State, job.JobLocation?.Country]).join(", ")
+    ) ||
+    undefined
+  );
+}
+
+function normalizePaylocityPosting(job: PaylocityJob, baseUrl: string): AdapterFetchedPosting | undefined {
+  const externalJobId = job.JobId === undefined || job.JobId === null ? undefined : String(job.JobId);
+  const title = cleanHtmlText(job.JobTitle);
+
+  if (!externalJobId || !title) {
+    return undefined;
+  }
+
+  const sourceUrl = toAbsoluteUrl(baseUrl, `/Recruiting/Jobs/Details/${encodeURIComponent(externalJobId)}`);
+  const applicationUrl = toAbsoluteUrl(baseUrl, `/Recruiting/Jobs/Apply/${encodeURIComponent(externalJobId)}`);
+
+  return {
+    externalJobId,
+    title,
+    applicationUrl,
+    sourceUrl,
+    postingDate: job.PublishedDate,
+    descriptionHtml: job.Description || undefined,
+    locationRaw: formatPaylocityLocation(job),
+    remoteTypeHint: job.IsRemote ? "Remote" : undefined,
+    metadata: {
+      hiringDepartment: job.HiringDepartment
+    },
+    raw: job
+  };
+}
+
+async function fetchPaylocityPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
+  const html = await fetchText(context, context.source.sourceUrl);
+  const pageData = extractPaylocityPageData(html);
+
+  return (pageData.Jobs ?? [])
+    .map((job) => normalizePaylocityPosting(job, context.source.sourceUrl))
+    .filter((posting): posting is AdapterFetchedPosting => Boolean(posting));
+}
+
 export class CustomHtmlAdapter implements SourceAdapter {
   readonly type = "CUSTOM_HTML" as const;
 
@@ -661,14 +1110,24 @@ export class CustomHtmlAdapter implements SourceAdapter {
         return fetchApplePostings(context);
       case "bloomberg-avature-search":
         return fetchBloombergPostings(context);
+      case "deshaw-careers":
+        return fetchDeshawPostings(context);
       case "drw-listings":
         return fetchDrwPostings(context);
+      case "gresearch-vacancies":
+        return fetchGResearchPostings(context);
       case "google-careers-search":
         return fetchGooglePostings(context);
       case "netflix-smartapply-search":
         return fetchNetflixPostings(context);
+      case "paylocity-page-data":
+        return fetchPaylocityPostings(context);
       case "shopify-careers":
         return fetchShopifyPostings(context);
+      case "talentbrew-search":
+        return fetchTalentbrewSearchPostings(context);
+      case "two-sigma-avature-cards":
+        return fetchTwoSigmaPostings(context);
       default:
         return [];
     }

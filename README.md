@@ -49,236 +49,158 @@ packages/
 - duplicate detection and canonical merge tools
 - CSV export for filtered listings
 
-## Priority Target Universe
+## Target Company Coverage
 
-This is the intended big-tech plus quant/trading/hedge fund target universe for the project. Status reflects whether the repo currently seeds at least one active source for that company.
+Single source of truth for the seeded target universe. `Tracked` means `db:seed` currently creates an active `CompanySource` for that company; `Not yet tracked` means the company is in the target universe but still needs a reliable public feed or adapter.
 
-### FAANG / Big Tech / High-Paying SWE Coverage
-
-| Company | Bucket | Status |
-| --- | --- | --- |
-| Apple | FAANG | Tracked |
-| Amazon | FAANG | Tracked |
-| Google | FAANG | Tracked |
-| Meta | FAANG | Tracked |
-| Microsoft | FAANG | Tracked |
-| Netflix | FAANG | Tracked |
-| Nvidia | FAANG | Tracked |
-| Tesla | FAANG | Not yet tracked |
-| Adobe | BIG_TECH | Tracked |
-| Airbnb | BIG_TECH | Tracked |
-| AMD | BIG_TECH | Tracked |
-| Asana | BIG_TECH | Tracked |
-| Atlassian | BIG_TECH | Tracked |
-| Block | BIG_TECH | Tracked |
-| Bloomberg | BIG_TECH | Tracked |
-| Cloudflare | BIG_TECH | Tracked |
-| Coinbase | BIG_TECH | Tracked |
-| Databricks | BIG_TECH | Tracked |
-| Datadog | BIG_TECH | Tracked |
-| DoorDash | BIG_TECH | Tracked |
-| Dropbox | BIG_TECH | Tracked |
-| Figma | BIG_TECH | Tracked |
-| GitHub | BIG_TECH | Tracked |
-| HubSpot | BIG_TECH | Tracked |
-| Intel | BIG_TECH | Tracked |
-| LinkedIn | BIG_TECH | Tracked |
-| Lyft | BIG_TECH | Tracked |
-| MongoDB | BIG_TECH | Tracked |
-| Notion | BIG_TECH | Tracked |
-| Oracle | BIG_TECH | Tracked |
-| Palantir | BIG_TECH | Tracked |
-| Pinterest | BIG_TECH | Tracked |
-| Qualcomm | BIG_TECH | Tracked |
-| Reddit | BIG_TECH | Tracked |
-| Robinhood | BIG_TECH | Tracked |
-| Salesforce | BIG_TECH | Tracked |
-| ServiceNow | BIG_TECH | Tracked |
-| Shopify | BIG_TECH | Tracked |
-| Snap | BIG_TECH | Tracked |
-| Snowflake | BIG_TECH | Tracked |
-| Spotify | BIG_TECH | Tracked |
-| Stripe | BIG_TECH | Tracked |
-| TikTok | BIG_TECH | Tracked |
-| Twilio | BIG_TECH | Tracked |
-| Uber | BIG_TECH | Tracked |
-| Vercel | BIG_TECH | Tracked |
-| Waymo | BIG_TECH | Tracked |
-| Workday | BIG_TECH | Tracked |
-| Zoom | BIG_TECH | Tracked |
-
-### Quant / Trading / Hedge Fund Coverage
-
-| Company | Status |
-| --- | --- |
-| Akuna Capital | Tracked |
-| Belvedere Trading | Tracked |
-| Citadel | Not yet tracked |
-| Citadel Securities | Not yet tracked |
-| CTC | Tracked |
-| DE Shaw | Not yet tracked |
-| DRW | Tracked |
-| Five Rings | Tracked |
-| Flow Traders | Tracked |
-| G-Research | Not yet tracked |
-| Geneva Trading | Tracked |
-| Hudson River Trading | Tracked |
-| IMC | Tracked |
-| Jane Street | Tracked |
-| Jump Trading | Tracked |
-| Maven Securities | Not yet tracked |
-| Millennium | Not yet tracked |
-| Old Mission | Tracked |
-| Optiver | Tracked |
-| PDT Partners | Not yet tracked |
-| Qube Research & Technologies | Not yet tracked |
-| SIG | Not yet tracked |
-| Susquehanna | Not yet tracked |
-| Tower Research Capital | Not yet tracked |
-| Two Sigma | Not yet tracked |
-| Virtu Financial | Tracked |
-| Wolverine Trading | Tracked |
-| XR Trading | Not yet tracked |
-
-## Currently Tracked Companies
-
-The seeded tracked set is still intentionally curated, but it now includes both ATS-backed sources and direct official careers pages where the company exposes usable public listing data.
-
-| Company | Bucket | Official careers page | Feed type |
-| --- | --- | --- | --- |
-| Apple | FAANG | `https://jobs.apple.com/en-us/search?team=internships-STDNT-INTRN` | Official careers HTML search |
-| Amazon | FAANG | `https://www.amazon.jobs/en/search?base_query=&loc_query=` | Official careers JSON search |
-| Google | FAANG | `https://www.google.com/about/careers/applications/jobs/results?q=intern` | Official careers structured HTML payload |
-| Meta | FAANG | `https://www.metacareers.com/jobs/?q=intern` | Official careers GraphQL search |
-| Microsoft | FAANG | `https://apply.careers.microsoft.com/careers` | Official careers JSON API |
-| Netflix | FAANG | `https://explore.jobs.netflix.net/careers/search?query=intern` | Official careers search payload |
-| Nvidia | FAANG | `https://www.nvidia.com/en-us/about-nvidia/careers/` | Workday |
-| Adobe | BIG_TECH | `https://careers.adobe.com/us/en/search-results` | Workday |
-| AMD | BIG_TECH | `https://careers.amd.com/careers-home/jobs` | Official careers Jibe API |
-| Airbnb | BIG_TECH | `https://careers.airbnb.com/positions/` | Greenhouse |
-| Akuna Capital | TRADING / QUANT | `https://akunacapital.com/careers` | Greenhouse (`akunacapital`) |
-| Atlassian | BIG_TECH | `https://www.atlassian.com/company/careers/all-jobs` | Lever |
-| Belvedere Trading | TRADING / QUANT | `https://www.belvederetrading.com/our-positions` | Lever (`belvederetrading`) |
-| Block | BIG_TECH | `https://block.xyz/careers` | Greenhouse |
-| Bloomberg | BIG_TECH | `https://bloomberg.avature.net/careers/SearchJobs/?keywords=intern` | Official Avature careers search |
-| Coinbase | BIG_TECH | `https://www.coinbase.com/careers/positions` | Greenhouse |
-| CTC | TRADING / QUANT | `https://www.ctccapital.com/careers` | Greenhouse (`chicagotrading`) |
-| Databricks | BIG_TECH | `https://www.databricks.com/company/careers/open-positions` | Greenhouse |
-| Datadog | BIG_TECH | `https://careers.datadoghq.com` | Greenhouse |
-| DoorDash | BIG_TECH | `https://careers.doordash.com` | Greenhouse (`doordashusa`) |
-| DRW | TRADING / QUANT | `https://www.drw.com/work-at-drw/listings` | Official careers structured Next.js payload |
-| Dropbox | BIG_TECH | `https://jobs.dropbox.com/all-jobs` | Greenhouse |
-| Figma | BIG_TECH | `https://www.figma.com/careers` | Greenhouse |
-| Flow Traders | TRADING / QUANT | `https://www.flowtraders.com/careers/` | Greenhouse (`flowtraders`) |
-| Geneva Trading | TRADING / QUANT | `https://www.genevatrading.com/career-in-trading/` | Greenhouse (`genevatrading`) |
-| GitHub | BIG_TECH | `https://www.github.careers/careers-home` | Official careers JSON API |
-| HubSpot | BIG_TECH | `https://www.hubspot.com/careers` | Greenhouse |
-| IMC | TRADING / QUANT | `https://www.imc.com/us/careers/` | Greenhouse (`imc`) |
-| Intel | BIG_TECH | `https://jobs.intel.com/en` | Workday |
-| Jane Street | TRADING / QUANT | `https://www.janestreet.com/join-jane-street/open-roles/` | Greenhouse (`janestreet`) |
-| Jump Trading | TRADING / QUANT | `https://www.jumptrading.com/hr/students-new-grads` | Greenhouse (`jumptrading`) |
-| LinkedIn | BIG_TECH | `https://careers.linkedin.com` | Greenhouse |
-| Lyft | BIG_TECH | `https://www.lyft.com/careers` | Greenhouse |
-| MongoDB | BIG_TECH | `https://www.mongodb.com/careers` | Greenhouse |
-| Notion | BIG_TECH | `https://www.notion.so/careers` | Ashby |
-| Oracle | BIG_TECH | `https://careers.oracle.com` | Official Oracle HCM careers API |
-| Old Mission | TRADING / QUANT | `https://www.oldmissioncapital.com/careers/` | Greenhouse (`oldmissioncapital`) |
-| Optiver | TRADING / QUANT | `https://optiver.com/working-at-optiver/early-careers/` | Greenhouse (`optiverus`) |
-| Palantir | BIG_TECH | `https://www.palantir.com/careers/` | Lever |
-| Pinterest | BIG_TECH | `https://www.pinterestcareers.com/` | Greenhouse |
-| Qualcomm | BIG_TECH | `https://careers.qualcomm.com/careers` | Official careers `pcsx` API |
-| Reddit | BIG_TECH | `https://redditinc.com/careers` | Greenhouse |
-| Robinhood | BIG_TECH | `https://careers.robinhood.com/` | Greenhouse |
-| Salesforce | BIG_TECH | `https://careers.salesforce.com/en/jobs/` | Official jobs RSS feed |
-| ServiceNow | BIG_TECH | `https://careers.servicenow.com` | Official SmartRecruiters careers API |
-| Shopify | BIG_TECH | `https://www.shopify.com/jobs/` | Official careers HTML page |
-| Snap | BIG_TECH | `https://careers.snap.com/jobs` | Workday |
-| Snowflake | BIG_TECH | `https://careers.snowflake.com/us/en/search-results` | Ashby |
-| Spotify | BIG_TECH | `https://www.lifeatspotify.com/jobs` | Lever |
-| Stripe | BIG_TECH | `https://stripe.com/jobs/search` | Greenhouse |
-| Cloudflare | BIG_TECH | `https://www.cloudflare.com/careers/jobs/` | Greenhouse |
-| Asana | BIG_TECH | `https://asana.com/jobs` | Greenhouse |
-| TikTok | BIG_TECH | `https://lifeattiktok.com/search?keyword=intern` | Official Life at TikTok careers API |
-| Twilio | BIG_TECH | `https://www.twilio.com/company/jobs` | Greenhouse |
-| Uber | BIG_TECH | `https://www.uber.com/us/en/careers/list/?query=intern` | Official careers search API |
-| Vercel | BIG_TECH | `https://vercel.com/careers` | Greenhouse |
-| Virtu Financial | TRADING / QUANT | `https://www.virtu.com/careers/` | Greenhouse (`virtu`) |
-| Waymo | BIG_TECH | `https://careers.withwaymo.com/` | Greenhouse |
-| Wolverine Trading | TRADING / QUANT | `https://www.wolve.com/careers/` | Lever (`wolve`) |
-| Workday | BIG_TECH | `https://workday.wd5.myworkdayjobs.com/Workday` | Workday |
-| Zoom | BIG_TECH | `https://careers.zoom.us/home` | Workday |
-| Hudson River Trading | TRADING / QUANT | `https://www.hudsonrivertrading.com/careers/` | Greenhouse (`wehrtyou`) |
-| Five Rings | TRADING / QUANT | `https://fiverings.com/careers/` | Greenhouse (`fiveringsllc`) |
-
-Current live tracked companies:
-
-- Apple
-- Amazon
-- Adobe
-- AMD
-- Airbnb
-- Akuna Capital
-- Belvedere Trading
-- Atlassian
-- Block
-- Bloomberg
-- Coinbase
-- CTC
-- Databricks
-- Datadog
-- DoorDash
-- DRW
-- Dropbox
-- Figma
-- Flow Traders
-- Geneva Trading
-- GitHub
-- Google
-- HubSpot
-- IMC
-- Intel
-- Jane Street
-- Jump Trading
-- LinkedIn
-- Lyft
-- Meta
-- Microsoft
-- MongoDB
-- Netflix
-- Nvidia
-- Notion
-- Oracle
-- Old Mission
-- Optiver
-- Palantir
-- Pinterest
-- Qualcomm
-- Reddit
-- Robinhood
-- Salesforce
-- ServiceNow
-- Shopify
-- Snap
-- Snowflake
-- Spotify
-- Stripe
-- TikTok
-- Cloudflare
-- Asana
-- Twilio
-- Uber
-- Vercel
-- Virtu Financial
-- Waymo
-- Wolverine Trading
-- Workday
-- Zoom
-- Hudson River Trading
-- Five Rings
-
-Apple, Google, Netflix, Shopify, Bloomberg, and DRW are pulled directly from official public careers pages or structured page payloads. Amazon is pulled from Amazon Jobs' official public `search.json` endpoint, AMD and GitHub use official Jibe careers APIs, Meta, Oracle, ServiceNow, TikTok, Uber, Microsoft, and Qualcomm use official public careers APIs, Salesforce uses its official jobs RSS feed, Adobe, Intel, Nvidia, Snap, Workday, and Zoom use official public Workday surfaces, Notion and Snowflake use Ashby's public job-board API, Atlassian, Belvedere Trading, Palantir, Spotify, and Wolverine Trading use Lever, and the remaining tracked companies currently use official Greenhouse boards.
-
-Tesla remains untracked because the current official careers surfaces return bot-gated 403 responses to normal worker-style requests.
+| Company | Bucket | Status | Careers page | Feed type | Notes |
+| --- | --- | --- | --- | --- | --- |
+| Adobe | Big Tech | Tracked | [Careers](https://careers.adobe.com/us/en/search-results) | Workday (adobe-external-experienced) | Polling enabled; priority 8; Official Adobe careers via Workday |
+| Affirm | Big Tech | Tracked | [Careers](https://www.affirm.com/careers/) | Greenhouse (affirm) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Airbnb | Big Tech | Tracked | [Careers](https://careers.airbnb.com/positions/) | Greenhouse (airbnb) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Akuna Capital | Trading | Tracked | [Careers](https://akunacapital.com/careers) | Greenhouse (akunacapital) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Amazon | FAANG | Tracked | [Careers](https://www.amazon.jobs) | Custom API (amazon-search) | Polling enabled; priority 6; Official Amazon internships search |
+| AMD | Big Tech | Tracked | [Careers](https://careers.amd.com/careers-home/jobs) | Custom API (amd-jibe) | Polling enabled; priority 7; Official AMD careers API |
+| Anduril | Big Tech | Tracked | [Careers](https://www.anduril.com/careers) | Greenhouse (andurilindustries) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Anthropic | Big Tech | Tracked | [Careers](https://www.anthropic.com/careers) | Greenhouse (anthropic) | Polling enabled; priority 8; Official careers site via Greenhouse |
+| Apple | FAANG | Tracked | [Careers](https://jobs.apple.com) | Custom HTML (apple-internships) | Polling enabled; priority 5; Official Apple internships search |
+| AQR | Hedge Fund | Tracked | [Careers](https://www.aqr.com/About-Us/Careers) | Greenhouse (aqr) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Aquatic Capital Management | Hedge Fund | Tracked | [Careers](https://www.aquatic.com/careers) | Greenhouse (aquaticcapitalmanagement) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Arm | Big Tech | Tracked | [Careers](https://careers.arm.com/search-jobs) | Custom HTML (arm-talentbrew-intern) | Polling enabled; priority 7; Official Arm careers search |
+| Asana | Big Tech | Tracked | [Careers](https://asana.com/jobs) | Greenhouse (asana) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Astranis | Big Tech | Tracked | [Careers](https://www.astranis.com/careers) | Greenhouse (astranis) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Atlassian | Big Tech | Tracked | [Careers](https://www.atlassian.com/company/careers/all-jobs) | Lever (atlassian) | Polling enabled; priority 9; Official careers site via Lever |
+| Aurora | Big Tech | Tracked | [Careers](https://aurora.tech/careers/) | Greenhouse (aurorainnovation) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Belvedere Trading | Trading | Tracked | [Careers](https://www.belvederetrading.com/our-positions) | Lever (belvederetrading) | Polling enabled; priority 9; Official careers site via Lever |
+| Block | Big Tech | Tracked | [Careers](https://block.xyz/careers) | Greenhouse (block) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Bloomberg | Big Tech | Tracked | [Careers](https://www.bloomberg.com/company/careers) | Custom HTML (bloomberg-avature) | Polling enabled; priority 7; Official Bloomberg careers search |
+| BlueCrest Capital Management | Hedge Fund | Tracked | [Careers](https://www.bluecrestcapital.com/careers/) | Greenhouse (bluecrestcapitalmanagement) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Box | Big Tech | Tracked | [Careers](https://careers.box.com/en/) | Greenhouse (boxinc) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Brex | Big Tech | Tracked | [Careers](https://www.brex.com/careers/) | Greenhouse (brex) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Broadcom | Big Tech | Tracked | [Careers](https://www.broadcom.com/company/careers) | Workday (broadcom-external-career) | Polling enabled; priority 8; Official Broadcom careers via Workday |
+| Capital Fund Management | Hedge Fund | Tracked | [Careers](https://www.cfm.com/join-us-cfm-careers/) | Greenhouse (cfm) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Chime | Big Tech | Tracked | [Careers](https://careers.chime.com/jobs/) | Greenhouse (chime) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Cisco | Big Tech | Tracked | [Careers](https://careers.cisco.com/global/en/) | Custom API (cisco-phenom) | Polling enabled; priority 7; Official Cisco careers via Phenom |
+| Citadel | Hedge Fund | Not yet tracked | [Careers](https://www.citadel.com/careers/open-opportunities/) | TBD | Official open-opportunities page and WordPress API are Cloudflare-gated for worker-style requests |
+| Citadel Securities | Quant | Not yet tracked | [Careers](https://www.citadelsecurities.com/careers/open-opportunities/) | TBD | Official open-opportunities page and WordPress API are Cloudflare-gated for worker-style requests |
+| Cloudflare | Big Tech | Tracked | [Careers](https://www.cloudflare.com/careers/jobs/) | Greenhouse (cloudflare) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Cockroach Labs | Big Tech | Tracked | [Careers](https://www.cockroachlabs.com/careers) | Greenhouse (cockroachlabs) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Coinbase | Big Tech | Tracked | [Careers](https://www.coinbase.com/careers/positions) | Greenhouse (coinbase) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| CoreWeave | Big Tech | Tracked | [Careers](https://www.coreweave.com/careers) | Greenhouse (coreweave) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| CrowdStrike | Big Tech | Tracked | [Careers](https://www.crowdstrike.com/en-us/careers/) | Workday (crowdstrike-workday) | Polling enabled; priority 8; Official CrowdStrike careers via Workday |
+| CTC | Trading | Tracked | [Careers](https://www.ctccapital.com/careers) | Greenhouse (chicagotrading) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Cursor | Big Tech | Tracked | [Careers](https://cursor.com/careers) | Ashby (cursor) | Polling enabled; priority 8; Official careers site via Ashby |
+| Databricks | Big Tech | Tracked | [Careers](https://www.databricks.com/company/careers/open-positions) | Greenhouse (databricks) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Datadog | Big Tech | Tracked | [Careers](https://careers.datadoghq.com) | Greenhouse (datadog) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| DE Shaw | Hedge Fund | Tracked | [Careers](https://www.deshaw.com/careers) | Custom HTML (deshaw-careers) | Polling enabled; priority 7; Official D. E. Shaw careers page |
+| Dell Technologies | Big Tech | Tracked | [Careers](https://jobs.dell.com/) | Custom API (dell-oracle-hcm) | Polling enabled; priority 7; Official Dell careers via Oracle HCM |
+| Discord | Big Tech | Tracked | [Careers](https://discord.com/careers) | Greenhouse (discord) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| DoorDash | Big Tech | Tracked | [Careers](https://careers.doordash.com) | Greenhouse (doordashusa) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Dropbox | Big Tech | Tracked | [Careers](https://jobs.dropbox.com/all-jobs) | Greenhouse (dropbox) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| DRW | Trading | Tracked | [Careers](https://www.drw.com/work-at-drw/listings) | Custom HTML (drw-listings) | Polling enabled; priority 6; Official DRW careers listings |
+| Duolingo | Big Tech | Tracked | [Careers](https://careers.duolingo.com/) | Greenhouse (duolingo) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Elastic | Big Tech | Tracked | [Careers](https://www.elastic.co/careers) | Greenhouse (elastic) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Engineers Gate | Hedge Fund | Tracked | [Careers](https://www.engineersgate.com/careers) | Greenhouse (engineersgate) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| ExodusPoint | Hedge Fund | Tracked | [Careers](https://www.exoduspoint.com/careers) | Greenhouse (exoduspoint) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Figma | Big Tech | Tracked | [Careers](https://www.figma.com/careers) | Greenhouse (figma) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Five Rings | Trading | Tracked | [Careers](https://fiverings.com/careers/) | Greenhouse (fiveringsllc) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Fivetran | Big Tech | Tracked | [Careers](https://www.fivetran.com/careers) | Greenhouse (fivetran) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Flow Traders | Trading | Tracked | [Careers](https://www.flowtraders.com/careers/) | Greenhouse (flowtraders) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Geneva Trading | Trading | Tracked | [Careers](https://www.genevatrading.com/career-in-trading/) | Greenhouse (genevatrading) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| GitHub | Big Tech | Tracked | [Careers](https://www.github.careers/careers-home) | Custom API (github-jibe) | Polling enabled; priority 7; Official GitHub careers API |
+| GitLab | Big Tech | Tracked | [Careers](https://about.gitlab.com/jobs/all-jobs/) | Greenhouse (gitlab) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Google | FAANG | Tracked | [Careers](https://www.google.com/about/careers/applications) | Custom HTML (google-careers-intern) | Polling enabled; priority 6; Official Google careers internships search |
+| Graham Capital Management | Hedge Fund | Tracked | [Careers](https://www.grahamcapital.com/careers/) | Greenhouse (grahamcapitalmanagement) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| G-Research | Hedge Fund | Tracked | [Careers](https://www.gresearch.com/vacancies/) | Custom HTML (gresearch-vacancies) | Polling enabled; priority 7; Official G-Research vacancies page |
+| GSA Capital | Trading | Tracked | [Careers](https://www.gsacapital.com/join-us) | Greenhouse (gsacapital) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Hewlett Packard Enterprise | Big Tech | Tracked | [Careers](https://careers.hpe.com/us/en/home) | Custom API (hpe-phenom) | Polling enabled; priority 7; Official HPE careers via Phenom |
+| HubSpot | Big Tech | Tracked | [Careers](https://www.hubspot.com/careers) | Greenhouse (hubspot) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Hudson River Trading | Trading | Tracked | [Careers](https://www.hudsonrivertrading.com/careers/) | Greenhouse (wehrtyou) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| IBM | Big Tech | Tracked | [Careers](https://www.ibm.com/careers/search) | Custom API (ibm-careers-search) | Polling enabled; priority 7; Official IBM careers search |
+| IMC | Trading | Tracked | [Careers](https://www.imc.com/us/careers/) | Greenhouse (imc) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Instacart | Big Tech | Tracked | [Careers](https://www.instacart.careers/) | Greenhouse (instacart) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Intel | Big Tech | Tracked | [Careers](https://jobs.intel.com/en) | Workday (intel-external) | Polling enabled; priority 8; Official Intel careers via Workday |
+| Jane Street | Trading | Tracked | [Careers](https://www.janestreet.com/join-jane-street/open-roles/) | Greenhouse (janestreet) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Jump Trading | Trading | Tracked | [Careers](https://www.jumptrading.com/hr/students-new-grads) | Greenhouse (jumptrading) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| LaunchDarkly | Big Tech | Tracked | [Careers](https://launchdarkly.com/careers/) | Greenhouse (launchdarkly) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| LinkedIn | Big Tech | Tracked | [Careers](https://careers.linkedin.com) | Greenhouse (linkedin) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Lyft | Big Tech | Tracked | [Careers](https://www.lyft.com/careers) | Greenhouse (lyft) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Man Group | Hedge Fund | Tracked | [Careers](https://www.man.com/careers) | Greenhouse (mangroup) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Marshall Wace | Hedge Fund | Tracked | [Careers](https://www.mwam.com/join-us/) | Greenhouse (marshallwace) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Marvell | Big Tech | Tracked | [Careers](https://www.marvell.com/company/careers.html) | Workday (marvell-workday) | Polling enabled; priority 8; Official Marvell careers via Workday |
+| Maven Securities | Trading | Tracked | [Careers](https://www.mavensecurities.com/jobs/) | Greenhouse (mavensecuritiesholdingltd) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Meta | FAANG | Tracked | [Careers](https://www.metacareers.com) | Custom API (meta-careers-intern) | Polling enabled; priority 7; Official Meta careers search |
+| Micron | Big Tech | Tracked | [Careers](https://www.micron.com/about/careers) | Custom API (micron-pcsx) | Polling enabled; priority 7; Official Micron careers via PCSX |
+| Microsoft | FAANG | Tracked | [Careers](https://jobs.careers.microsoft.com) | Custom API (microsoft-pcsx) | Polling enabled; priority 7; Official Microsoft careers internships search |
+| Millennium | Hedge Fund | Tracked | [Careers](https://career.mlp.com/careers) | Custom API (millennium-eightfold) | Polling enabled; priority 7; Official Millennium careers API via Eightfold |
+| MongoDB | Big Tech | Tracked | [Careers](https://www.mongodb.com/careers) | Greenhouse (mongodb) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Netflix | FAANG | Tracked | [Careers](https://jobs.netflix.com) | Custom HTML (netflix-intern-search) | Polling enabled; priority 8; Official Netflix internship search |
+| Neuralink | Big Tech | Tracked | [Careers](https://neuralink.com/careers/) | Greenhouse (neuralink) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Notion | Big Tech | Tracked | [Careers](https://www.notion.so/careers) | Ashby (notion) | Polling enabled; priority 9; Official careers site via Ashby |
+| Nuro | Big Tech | Tracked | [Careers](https://www.nuro.ai/careers) | Greenhouse (nuro) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Nvidia | FAANG | Tracked | [Careers](https://www.nvidia.com/en-us/about-nvidia/careers) | Workday (nvidia-external-careers) | Polling enabled; priority 8; Official Nvidia careers via Workday |
+| Okta | Big Tech | Tracked | [Careers](https://www.okta.com/company/careers/) | Greenhouse (okta) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Old Mission | Trading | Tracked | [Careers](https://www.oldmissioncapital.com/careers/) | Greenhouse (oldmissioncapital) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Optiver | Trading | Tracked | [Careers](https://optiver.com/working-at-optiver/early-careers/) | Greenhouse (optiverus) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Oracle | Big Tech | Tracked | [Careers](https://careers.oracle.com) | Custom API (oracle-hcm-jobsearch) | Polling enabled; priority 7; Official Oracle careers search |
+| Palantir | Big Tech | Tracked | [Careers](https://www.palantir.com/careers/) | Lever (palantir) | Polling enabled; priority 9; Official careers site via Lever |
+| Palo Alto Networks | Big Tech | Tracked | [Careers](https://jobs.paloaltonetworks.com/en) | Workday (palo-alto-networks-workday) | Polling enabled; priority 8; Official Palo Alto Networks careers via Workday |
+| PDT Partners | Hedge Fund | Tracked | [Careers](https://www.pdtpartners.com/careers/) | Greenhouse (pdtpartners) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Perplexity | Big Tech | Tracked | [Careers](https://www.perplexity.ai/hub/careers) | Ashby (perplexity) | Polling enabled; priority 8; Official careers site via Ashby |
+| Pinterest | Big Tech | Tracked | [Careers](https://www.pinterestcareers.com/) | Greenhouse (pinterest) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Point72 | Hedge Fund | Tracked | [Careers](https://careers.point72.com/) | Greenhouse (point72) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Quadrature Capital | Trading | Tracked | [Careers](https://www.quadrature.ai/careers/join-us/) | Greenhouse (quadraturecapital) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Qualcomm | Big Tech | Tracked | [Careers](https://careers.qualcomm.com/careers) | Custom API (qualcomm-pcsx) | Polling enabled; priority 7; Official Qualcomm careers search |
+| Qube Research & Technologies | Hedge Fund | Tracked | [Careers](https://www.qube-rt.com/careers/) | Greenhouse (quberesearchandtechnologies) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Ramp | Big Tech | Tracked | [Careers](https://ramp.com/careers) | Ashby (ramp) | Polling enabled; priority 8; Official careers site via Ashby |
+| Reddit | Big Tech | Tracked | [Careers](https://redditinc.com/careers) | Greenhouse (reddit) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Robinhood | Big Tech | Tracked | [Careers](https://careers.robinhood.com/) | Greenhouse (robinhood) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Roblox | Big Tech | Tracked | [Careers](https://careers.roblox.com/) | Greenhouse (roblox) | Polling enabled; priority 8; Official careers site via Greenhouse |
+| Rubrik | Big Tech | Tracked | [Careers](https://www.rubrik.com/company/careers) | Greenhouse (rubrik) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Salesforce | Big Tech | Tracked | [Careers](https://careers.salesforce.com/en/jobs/) | Custom API (salesforce-rss) | Polling enabled; priority 6; Official Salesforce jobs RSS |
+| Samsara | Big Tech | Tracked | [Careers](https://www.samsara.com/careers) | Greenhouse (samsara) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| SAP | Big Tech | Tracked | [Careers](https://jobs.sap.com/) | Custom API (sap-rss-internship) | Polling enabled; priority 7; Official SAP jobs RSS |
+| Scale AI | Big Tech | Tracked | [Careers](https://scale.com/careers) | Greenhouse (scaleai) | Polling enabled; priority 8; Official careers site via Greenhouse |
+| Schonfeld | Hedge Fund | Tracked | [Careers](https://www.schonfeld.com/careers/) | Greenhouse (schonfeld) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| ServiceNow | Big Tech | Tracked | [Careers](https://careers.servicenow.com) | Custom API (servicenow-smartrecruiters) | Polling enabled; priority 7; Official ServiceNow careers API |
+| Shopify | Big Tech | Tracked | [Careers](https://www.shopify.com/careers) | Custom HTML (shopify-careers) | Polling enabled; priority 7; Official Shopify careers page |
+| SIG | Trading | Tracked | [Careers](https://careers.sig.com/jobs) | Custom API (sig-jibe) | Polling enabled; priority 7; Official SIG careers API via iCIMS/Jibe |
+| Slack | Big Tech | Tracked | [Careers](https://slack.com/careers) | Workday (salesforce-slack-workday) | Polling enabled; priority 8; Official Slack careers via Salesforce Workday |
+| Snap | Big Tech | Tracked | [Careers](https://careers.snap.com/jobs) | Workday (snap-workday) | Polling enabled; priority 8; Official Snap careers via Workday |
+| Snowflake | Big Tech | Tracked | [Careers](https://careers.snowflake.com) | Ashby (snowflake) | Polling enabled; priority 9; Official careers site via Ashby |
+| Splunk | Big Tech | Tracked | [Careers](https://careers.cisco.com/global/en/splunk) | Custom API (cisco-phenom-splunk) | Polling enabled; priority 7; Official Splunk careers via Cisco Phenom |
+| Spotify | Big Tech | Tracked | [Careers](https://www.lifeatspotify.com/jobs) | Lever (spotify) | Polling enabled; priority 9; Official careers site via Lever |
+| Square | Big Tech | Tracked | [Careers](https://block.xyz/careers/jobs?businessUnits[]=square) | Greenhouse (block-square) | Polling enabled; priority 10; Official Square careers via Block Greenhouse |
+| Squarepoint Capital | Hedge Fund | Tracked | [Careers](https://www.squarepoint-capital.com/open-opportunities) | Greenhouse (squarepointcapital) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Stripe | Big Tech | Tracked | [Careers](https://stripe.com/jobs) | Greenhouse (stripe) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Susquehanna | Trading | Tracked | [Careers](https://careers.sig.com/jobs) | Custom API (susquehanna-jibe) | Polling enabled; priority 7; Official Susquehanna careers API via iCIMS/Jibe |
+| Tesla | FAANG | Not yet tracked | [Careers](https://www.tesla.com/careers) | TBD | Official careers page and careers API return Akamai 403 to worker-style requests |
+| Texas Instruments | Big Tech | Tracked | [Careers](https://careers.ti.com/en/sites/CX) | Custom API (texas-instruments-oracle-hcm) | Polling enabled; priority 7; Official Texas Instruments careers via Oracle HCM |
+| The Voleon Group | Hedge Fund | Tracked | [Careers](https://voleon.com/jobs/) | Ashby (voleon) | Polling enabled; priority 8; Official careers site via Ashby |
+| TikTok | Big Tech | Tracked | [Careers](https://lifeattiktok.com) | Custom API (tiktok-life-at-tiktok) | Polling enabled; priority 7; Official Life at TikTok careers API |
+| Toast | Big Tech | Tracked | [Careers](https://careers.toasttab.com/) | Greenhouse (toast) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Tower Research Capital | Trading | Tracked | [Careers](https://www.tower-research.com/open-positions/) | Greenhouse (towerresearchcapital) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| TransMarket Group | Trading | Tracked | [Careers](https://www.transmarketgroup.com/careers) | Greenhouse (transmarketgroup) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Twilio | Big Tech | Tracked | [Careers](https://www.twilio.com/company/jobs) | Greenhouse (twilio) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Two Sigma | Hedge Fund | Tracked | [Careers](https://careers.twosigma.com/) | Custom HTML (two-sigma-avature) | Polling enabled; priority 6; Official Two Sigma careers page |
+| Uber | Big Tech | Tracked | [Careers](https://www.uber.com/us/en/careers) | Custom API (uber-careers-search) | Polling enabled; priority 7; Official Uber careers search |
+| Unity | Big Tech | Tracked | [Careers](https://unity.com/careers) | Greenhouse (unity3d) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Valkyrie Trading | Trading | Tracked | [Careers](https://www.valkyrietrading.com/careers) | Lever (valkyrietrading) | Polling enabled; priority 9; Official careers site via Lever |
+| Vatic Labs | Trading | Tracked | [Careers](https://www.vaticlabs.ai/careers/) | Greenhouse (vaticlabs) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Vercel | Big Tech | Tracked | [Careers](https://vercel.com/careers) | Greenhouse (vercel) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Verkada | Big Tech | Tracked | [Careers](https://www.verkada.com/careers/) | Greenhouse (verkada) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Virtu Financial | Trading | Tracked | [Careers](https://www.virtu.com/careers/) | Greenhouse (virtu) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| VMware | Big Tech | Tracked | [Careers](https://www.broadcom.com/company/careers) | Workday (broadcom-external-career) | Polling enabled; priority 8; Official Broadcom careers via Workday |
+| Waymo | Big Tech | Tracked | [Careers](https://careers.withwaymo.com/) | Greenhouse (waymo) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Winton | Hedge Fund | Tracked | [Careers](https://www.winton.com/opportunities) | Greenhouse (winton) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| Wolverine Trading | Trading | Tracked | [Careers](https://www.wolve.com/careers/) | Lever (wolve) | Polling enabled; priority 9; Official careers site via Lever |
+| Workday | Big Tech | Tracked | [Careers](https://workday.wd5.myworkdayjobs.com/Workday) | Workday (workday-company-careers) | Polling enabled; priority 8; Official Workday careers via Workday |
+| WorldQuant | Hedge Fund | Tracked | [Careers](https://www.worldquant.com/career-listing/) | Greenhouse (worldquant) | Polling enabled; priority 10; Official careers site via Greenhouse |
+| XR Trading | Trading | Tracked | [Careers](https://recruiting.paylocity.com/recruiting/jobs/All/5c109104-7c4d-415c-9ee4-54e3af55f9e7/XR-Trading-LLC) | Custom HTML (xr-trading-paylocity) | Polling enabled; priority 6; Official XR Trading careers page via Paylocity |
+| Yahoo | Big Tech | Tracked | [Careers](https://www.yahooinc.com/careers/) | Workday (ouryahoo-careers) | Polling enabled; priority 8; Official Yahoo careers via Workday |
+| Yelp | Big Tech | Tracked | [Careers](https://www.yelp.careers/us/en) | Custom API (yelp-phenom) | Polling enabled; priority 7; Official Yelp careers API via Phenom |
+| Zoom | Big Tech | Tracked | [Careers](https://careers.zoom.us/home) | Workday (zoom-workday) | Polling enabled; priority 8; Official Zoom careers via Workday |
+| Zscaler | Big Tech | Tracked | [Careers](https://www.zscaler.com/careers) | Greenhouse (zscaler) | Polling enabled; priority 10; Official careers site via Greenhouse |
 
 ## Local Setup
 

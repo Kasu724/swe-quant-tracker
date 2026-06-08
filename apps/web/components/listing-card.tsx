@@ -7,16 +7,19 @@ import type { ApplicationState } from "@faang-quant/db";
 import { getPreferredPostingUrl } from "@faang-quant/shared";
 import type { FeedListing } from "../lib/queries";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../lib/actions";
+import { PostingListButton } from "./posting-list-button";
 
 export function ListingCard({
   posting,
   isFavorite,
+  isListed,
   applicationState,
   showPersonalActions,
   redirectTo
 }: {
   posting: FeedListing;
   isFavorite: boolean;
+  isListed: boolean;
   applicationState?: ApplicationState | null;
   showPersonalActions: boolean;
   redirectTo: string;
@@ -56,8 +59,15 @@ export function ListingCard({
               {posting.year ?? ""}
             </div>
           </div>
-          <div className="text-sm text-slate-500">
-            Seen {formatDistanceToNow(discoveredAt, { addSuffix: true })}
+          <div className="flex items-center gap-2">
+            <div className="text-sm text-slate-500">
+              Seen {formatDistanceToNow(discoveredAt, { addSuffix: true })}
+            </div>
+            <PostingListButton
+              postingId={posting.id}
+              initialListed={isListed}
+              isAuthenticated={showPersonalActions}
+            />
           </div>
         </div>
         <div className="grid gap-3 md:grid-cols-3">
