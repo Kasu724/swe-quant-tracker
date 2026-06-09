@@ -12,6 +12,8 @@
     "db:generate": "pnpm --filter @faang-quant/db generate",
     "db:migrate": "pnpm --filter @faang-quant/db migrate",
     "db:seed": "pnpm --filter @faang-quant/db seed",
+    "db:check": "pnpm --filter @faang-quant/db check",
+    "db:cloud:copy": "node scripts/migrate-postgres-to-supabase.mjs",
     "db:studio": "pnpm --filter @faang-quant/db studio",
     "worker:ingest": "pnpm --filter @faang-quant/worker ingest",
     "worker:digest": "pnpm --filter @faang-quant/worker digest",

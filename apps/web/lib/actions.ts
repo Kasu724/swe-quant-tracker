@@ -76,14 +76,29 @@ export async function registerUserAction(formData: FormData) {
     verifyUrl: verificationUrl
   });
 
-  await createMailProvider().send({
-    to: email,
-    subject: emailContent.subject,
-    html: emailContent.html,
-    text: emailContent.text
+  try {
+    await createMailProvider().send({
+      to: email,
+      subject: emailContent.subject,
+      html: emailContent.html,
+      text: emailContent.text
+    });
+  } catch (error) {
+    console.error("[verification-email]", error);
+    redirect("/auth/register?error=email-delivery");
+  }
+
+  const verificationParams = new URLSearchParams({
+    sent: "1",
+    email
   });
 
-  redirect(`/auth/verify?sent=1&email=${encodeURIComponent(email)}`);
+  if (env.EMAIL_PROVIDER === "console") {
+    verificationParams.set("delivery", "console");
+    verificationParams.set("localToken", token);
+  }
+
+  redirect(`/auth/verify?${verificationParams.toString()}`);
 }
 
 export async function saveSearchAction(formData: FormData) {

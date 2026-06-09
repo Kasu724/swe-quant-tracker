@@ -16,6 +16,10 @@ export class ResendMailProvider implements MailProvider {
       text: message.text
     });
 
+    if (result.error) {
+      throw new Error(`Resend email delivery failed: ${result.error.message}`);
+    }
+
     return {
       messageId: result.data?.id
     };

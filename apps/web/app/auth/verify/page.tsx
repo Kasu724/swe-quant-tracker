@@ -18,17 +18,34 @@ export default async function VerifyPage({
   const email = Array.isArray(resolvedSearchParams?.email)
     ? resolvedSearchParams?.email[0]
     : resolvedSearchParams?.email;
+  const delivery = Array.isArray(resolvedSearchParams?.delivery)
+    ? resolvedSearchParams?.delivery[0]
+    : resolvedSearchParams?.delivery;
+  const localToken = Array.isArray(resolvedSearchParams?.localToken)
+    ? resolvedSearchParams?.localToken[0]
+    : resolvedSearchParams?.localToken;
+  const isConsoleDelivery = sent && delivery === "console" && Boolean(localToken);
   const result = token ? await consumeVerificationToken(token) : null;
 
   return (
     <Container className="space-y-8 py-12">
       <PageHeader
         eyebrow="Verify Email"
-        title={result ? "Your account is ready" : sent ? "Check your inbox" : "Verification required"}
+        title={
+          result
+            ? "Your account is ready"
+            : isConsoleDelivery
+              ? "Verify your local account"
+              : sent
+                ? "Check your inbox"
+                : "Verification required"
+        }
         description={
           result
             ? "Email verification succeeded. You can sign in and start saving searches."
-            : sent
+            : isConsoleDelivery
+              ? "Email delivery is set to console mode, so no real email was sent."
+              : sent
               ? `A verification link was sent to ${email ?? "your email address"}.`
               : "Verification links expire after 24 hours."
         }
@@ -39,9 +56,22 @@ export default async function VerifyPage({
             <Button asChild>
               <Link href="/auth/signin">Go to sign in</Link>
             </Button>
+          ) : isConsoleDelivery ? (
+            <>
+              <p className="text-sm text-slate-600">
+                Console mode is intended for local development. Use the button below to finish
+                verification on this machine.
+              </p>
+              <Button asChild>
+                <Link href={`/auth/verify?token=${encodeURIComponent(localToken!)}`}>
+                  Verify account locally
+                </Link>
+              </Button>
+            </>
           ) : (
             <p className="text-sm text-slate-600">
-              If the link expired, go back to registration and submit the same email again to resend a fresh verification link.
+              Check your spam folder. If the link expired, go back to registration and submit the
+              same email again to resend a fresh verification link.
             </p>
           )}
         </CardContent>

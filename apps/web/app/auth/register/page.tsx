@@ -28,6 +28,8 @@ export default async function RegisterPage({
               <p className="text-sm text-rose-600">
                 {error === "email-in-use"
                   ? "That email is already registered and verified."
+                  : error === "email-delivery"
+                    ? "Your account was created, but the verification email could not be delivered. Check the email provider configuration and submit the form again."
                   : "Unable to create the account. Check your inputs and try again."}
               </p>
             ) : null}

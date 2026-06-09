@@ -243,6 +243,51 @@ Single source of truth for the seeded target universe. `Tracked` means `db:seed`
    pnpm worker:ingest
    ```
 
+## Supabase Cloud Database
+
+Supabase can host the PostgreSQL database used by Prisma, NextAuth, the web app, and the ingestion
+worker. The existing credentials auth remains in place; user accounts, password hashes,
+verification tokens, saved searches, posting lists, and application state are all stored in the
+cloud database. Supabase Auth and browser-side database access are intentionally not enabled.
+
+1. Create a [Supabase project](https://supabase.com/dashboard) and open its **Connect** dialog.
+2. Copy `.env.supabase.example` into the deployment's secret/environment-variable configuration.
+3. Set `DATABASE_URL` to the pooled runtime URL:
+   - serverless deployments: Supavisor transaction pooler on port `6543`, with
+     `pgbouncer=true&connection_limit=1`
+   - persistent web/worker servers: direct connection or Supavisor session pooler on port `5432`
+4. Set `DIRECT_URL` to the direct connection, or the Supavisor session pooler on port `5432` when
+   the machine is IPv4-only. Prisma migrations and database-copy tools use this URL.
+5. Set production `NEXTAUTH_URL`, `APP_BASE_URL`, `NEXTAUTH_SECRET`, and email-provider secrets.
+
+For a fresh cloud database with no local data to preserve:
+
+```bash
+pnpm db:migrate
+pnpm db:seed
+pnpm db:check
+```
+
+To copy the current local database, run the guarded copy command against a fresh Supabase project.
+It uses locally installed PostgreSQL client tools when available and otherwise runs them through
+the `postgres:16` Docker image:
+
+```powershell
+$env:LOCAL_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/faang_quant_tracker"
+$env:DIRECT_URL="the Supabase direct or session-pooler URL"
+pnpm db:cloud:copy
+```
+
+On macOS or Linux, export the same two variables before running `pnpm db:cloud:copy`.
+
+The copy command refuses to run when the destination already contains public tables. It applies
+the committed Prisma migrations first, then copies all application data, including users and
+postings. After copying, set the deployment's pooled `DATABASE_URL` and run `pnpm db:check`.
+
+See the official [Supabase Prisma guide](https://supabase.com/docs/guides/database/prisma) and
+[database connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres) for
+connection-string details. Keep both database URLs server-only.
+
 ## Useful Commands
 
 ```bash
@@ -254,6 +299,8 @@ pnpm test
 pnpm db:generate
 pnpm db:migrate
 pnpm db:seed
+pnpm db:check
+pnpm db:cloud:copy
 pnpm worker:ingest
 pnpm worker:digest
 ```
@@ -356,6 +403,7 @@ pnpm test
 Key variables:
 
 - `DATABASE_URL`
+- `DIRECT_URL`
 - `NEXTAUTH_URL`
 - `NEXTAUTH_SECRET`
 - `APP_BASE_URL`
@@ -372,3 +420,8 @@ Key variables:
 - `POSTING_STALE_DAYS`
 
 See `.env.example` for defaults.
+
+`EMAIL_PROVIDER=console` is intended for local development and logs email content to the web
+server instead of delivering it. Account registration shows a local verification button in this
+mode. Configure `EMAIL_PROVIDER=resend` with `RESEND_API_KEY`, or `EMAIL_PROVIDER=smtp` with
+`SMTP_URL`, to deliver verification emails to real inboxes.
