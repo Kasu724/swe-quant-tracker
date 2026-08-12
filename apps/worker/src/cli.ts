@@ -2,6 +2,8 @@ import { runDailyDigestCycle } from "./jobs/digest";
 import { runIngestionCycle } from "./jobs/ingest";
 import { runPostingLinkCheck } from "./jobs/link-check";
 import { runInternshipReclassification } from "./jobs/reclassify";
+import { runDiscordNotifications } from "./jobs/discord";
+import { prisma } from "@faang-quant/db";
 
 async function main() {
   const command = process.argv[2];
@@ -26,10 +28,19 @@ async function main() {
     return;
   }
 
+  if (command === "discord") {
+    await runDiscordNotifications();
+    return;
+  }
+
   throw new Error(`Unknown worker command: ${command ?? "<missing>"}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .catch((error) => {
+    console.error(error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

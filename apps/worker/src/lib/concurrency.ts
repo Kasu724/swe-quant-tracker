@@ -1,18 +1,19 @@
 export async function runWithConcurrency<T>(
-  items: T[],
+  items: readonly T[],
   limit: number,
   handler: (item: T) => Promise<void>
 ) {
-  const queue = [...items];
-  const workers = Array.from({ length: Math.max(1, limit) }, async () => {
-    while (queue.length > 0) {
-      const item = queue.shift();
+  const workerCount = Math.min(
+    items.length,
+    Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 1
+  );
+  let nextIndex = 0;
 
-      if (!item) {
-        break;
-      }
-
-      await handler(item);
+  const workers = Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const itemIndex = nextIndex;
+      nextIndex += 1;
+      await handler(items[itemIndex]!);
     }
   });
 

@@ -17,7 +17,7 @@ import {
 import { subDays } from "date-fns";
 import { sendImmediateAlertsForPostings } from "../lib/alerts";
 import { runWithConcurrency } from "../lib/concurrency";
-import { resolveLivePostingUrl } from "../lib/link-health";
+import { resolvePostingUrl } from "../lib/link-health";
 import { logger } from "../lib/logger";
 
 type SourceWithCompany = Prisma.CompanySourceGetPayload<{
@@ -35,6 +35,11 @@ type PostingWithCanonicalSource = Prisma.InternshipPostingGetPayload<{
 type IngestionTimingOptions = {
   requestTimeoutMs: number;
   sourceTimeoutMs: number;
+};
+
+type SourceProcessingResult = {
+  discoveredPostingIds: string[];
+  status: "success" | "partial" | "failed";
 };
 
 function toObject(value: Prisma.JsonValue | null): Record<string, unknown> | undefined {
@@ -176,7 +181,7 @@ function buildCanonicalData(input: {
   };
 }
 
-async function persistPosting(input: {
+export async function persistPosting(input: {
   source: SourceWithCompany;
   normalized: ReturnType<typeof normalizeFetchedPosting>;
 }): Promise<{ postingId: string; discovered: boolean }> {
@@ -189,6 +194,10 @@ async function persistPosting(input: {
   });
 
   return prisma.$transaction(async (tx) => {
+    // Different sources for the same company can run concurrently. Lock the company while
+    // matching and creating so two transactions cannot both decide the same posting is new.
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`internship-ingest:${source.companyId}`}))`;
+
     const existingSourceRecord = await tx.postingSourceRecord.findUnique({
       where: {
         companySourceId_externalJobId: {
@@ -331,6 +340,12 @@ async function persistPosting(input: {
       }
     });
 
+    await tx.discordNotification.create({
+      data: {
+        internshipPostingId: created.id
+      }
+    });
+
     return {
       postingId: created.id,
       discovered: true
@@ -341,7 +356,7 @@ async function persistPosting(input: {
 async function processSource(
   source: SourceWithCompany,
   options: IngestionTimingOptions
-): Promise<string[]> {
+): Promise<SourceProcessingResult> {
   const requestConfig = toObject(source.requestConfigJson);
   const requestTimeoutMs = readPositiveNumberConfig(
     requestConfig?.requestTimeoutMs,
@@ -368,17 +383,18 @@ async function processSource(
     }
   });
 
-  const adapter = getAdapter(source.sourceType);
   const discoveredPostingIds: string[] = [];
   const stats = {
     fetched: 0,
     skipped: 0,
     normalized: 0,
     discovered: 0,
-    updated: 0
+    updated: 0,
+    failed: 0
   };
 
   try {
+    const adapter = getAdapter(source.sourceType);
     logger.info(
       {
         sourceId: source.id,
@@ -413,69 +429,94 @@ async function processSource(
     stats.fetched = postings.length;
 
     for (const posting of postings) {
-      throwIfSourceAborted(controller.signal, source);
-
-      const normalized = normalizeFetchedPosting({
-        company: {
-          id: source.company.id,
-          name: source.company.name,
-          slug: source.company.slug
-        },
-        source: {
-          id: source.id,
-          sourceType: source.sourceType,
-          sourceName: source.sourceName,
-          sourceIdentifier: source.sourceIdentifier,
-          sourceUrl: source.sourceUrl,
-          requestConfigJson: toObject(source.requestConfigJson),
-          parserConfigJson: toObject(source.parserConfigJson)
-        },
-        posting
-      });
-
-      if (
-        !normalized.internshipFlag ||
-        !isUsOrUnknownPostingLocation(normalized.locationCountries) ||
-        !normalized.applicationUrl
-      ) {
-        stats.skipped += 1;
-        continue;
-      }
-
-      if (readBooleanConfig(requestConfig?.validatePostingUrls, false)) {
-        const liveUrl = await resolveLivePostingUrl(
-          {
-            sourceUrl: normalized.sourceUrl,
-            applicationUrl: normalized.applicationUrl
-          },
-          {
-            signal: controller.signal,
-            timeoutMs: requestTimeoutMs
-          }
-        );
-
+      try {
         throwIfSourceAborted(controller.signal, source);
 
-        if (!liveUrl) {
+        const normalized = normalizeFetchedPosting({
+          company: {
+            id: source.company.id,
+            name: source.company.name,
+            slug: source.company.slug
+          },
+          source: {
+            id: source.id,
+            sourceType: source.sourceType,
+            sourceName: source.sourceName,
+            sourceIdentifier: source.sourceIdentifier,
+            sourceUrl: source.sourceUrl,
+            requestConfigJson: toObject(source.requestConfigJson),
+            parserConfigJson: toObject(source.parserConfigJson)
+          },
+          posting
+        });
+
+        if (
+          !normalized.internshipFlag ||
+          !isUsOrUnknownPostingLocation(normalized.locationCountries) ||
+          !normalized.applicationUrl
+        ) {
           stats.skipped += 1;
           continue;
         }
 
-        normalized.applicationUrl = liveUrl;
-      }
+        if (readBooleanConfig(requestConfig?.validatePostingUrls, false)) {
+          const resolution = await resolvePostingUrl(
+            {
+              sourceUrl: normalized.sourceUrl,
+              applicationUrl: normalized.applicationUrl
+            },
+            {
+              signal: controller.signal,
+              timeoutMs: requestTimeoutMs
+            }
+          );
 
-      stats.normalized += 1;
+          throwIfSourceAborted(controller.signal, source);
 
-      const result = await persistPosting({
-        source,
-        normalized
-      });
+          if (!resolution.url && resolution.conclusiveDead) {
+            stats.skipped += 1;
+            continue;
+          }
 
-      if (result.discovered) {
-        stats.discovered += 1;
-        discoveredPostingIds.push(result.postingId);
-      } else {
-        stats.updated += 1;
+          if (resolution.url) {
+            normalized.applicationUrl = resolution.url;
+          } else {
+            logger.warn(
+              {
+                sourceId: source.id,
+                company: source.company.name,
+                externalJobId: normalized.externalJobId
+              },
+              "Keeping posting after inconclusive URL validation"
+            );
+          }
+        }
+
+        stats.normalized += 1;
+
+        const result = await persistPosting({
+          source,
+          normalized
+        });
+
+        if (result.discovered) {
+          stats.discovered += 1;
+          discoveredPostingIds.push(result.postingId);
+        } else {
+          stats.updated += 1;
+        }
+      } catch (error) {
+        throwIfSourceAborted(controller.signal, source);
+        stats.failed += 1;
+        logger.error(
+          {
+            error,
+            sourceId: source.id,
+            company: source.company.name,
+            externalJobId: posting.externalJobId
+          },
+          "Skipping a posting that failed normalization or persistence"
+        );
       }
     }
 
@@ -489,7 +530,7 @@ async function processSource(
     await prisma.ingestionRun.update({
       where: { id: run.id },
       data: {
-        status: IngestionRunStatus.SUCCESS,
+        status: stats.failed > 0 ? IngestionRunStatus.PARTIAL : IngestionRunStatus.SUCCESS,
         finishedAt: new Date(),
         statsJson: stats as Prisma.InputJsonValue
       }
@@ -505,7 +546,10 @@ async function processSource(
       "Source ingestion completed"
     );
 
-    return discoveredPostingIds;
+    return {
+      discoveredPostingIds,
+      status: stats.failed > 0 ? "partial" : "success"
+    };
   } catch (error) {
     logger.error(
       {
@@ -517,17 +561,24 @@ async function processSource(
       "Source ingestion failed"
     );
 
-    await prisma.ingestionRun.update({
-      where: { id: run.id },
-      data: {
-        status: IngestionRunStatus.FAILED,
-        finishedAt: new Date(),
-        statsJson: stats as Prisma.InputJsonValue,
-        errorText: error instanceof Error ? error.message : "Unknown ingestion error"
-      }
-    });
+    try {
+      await prisma.ingestionRun.update({
+        where: { id: run.id },
+        data: {
+          status: IngestionRunStatus.FAILED,
+          finishedAt: new Date(),
+          statsJson: stats as Prisma.InputJsonValue,
+          errorText: error instanceof Error ? error.message : "Unknown ingestion error"
+        }
+      });
+    } catch (updateError) {
+      logger.error(
+        { error: updateError, ingestionRunId: run.id },
+        "Could not record failed ingestion run"
+      );
+    }
 
-    return [];
+    return { discoveredPostingIds, status: "failed" };
   } finally {
     clearTimeout(timeout);
   }
@@ -596,32 +647,84 @@ export async function runIngestionCycle(options?: { sourceId?: string }) {
 
   if (sources.length === 0) {
     logger.info("No active sources available for ingestion");
-    return;
+    return {
+      sourcesProcessed: 0,
+      discovered: 0,
+      staleMarkedInactive: 0,
+      failedSources: 0,
+      partialSources: 0
+    };
   }
 
   const discoveredPostingIds: string[] = [];
+  let failedSources = 0;
+  let partialSources = 0;
 
   await runWithConcurrency(
     sources,
     options?.sourceId ? 1 : env.INGESTION_CONCURRENCY,
     async (source) => {
-      const discovered = await processSource(source, {
-        requestTimeoutMs: env.INGESTION_REQUEST_TIMEOUT_MS,
-        sourceTimeoutMs: env.INGESTION_SOURCE_TIMEOUT_MS
-      });
-      discoveredPostingIds.push(...discovered);
+      try {
+        const result = await processSource(source, {
+          requestTimeoutMs: env.INGESTION_REQUEST_TIMEOUT_MS,
+          sourceTimeoutMs: env.INGESTION_SOURCE_TIMEOUT_MS
+        });
+        discoveredPostingIds.push(...result.discoveredPostingIds);
+
+        if (result.status === "failed") {
+          failedSources += 1;
+        } else if (result.status === "partial") {
+          partialSources += 1;
+        }
+      } catch (error) {
+        failedSources += 1;
+        logger.error(
+          { error, sourceId: source.id, company: source.company.name },
+          "Source ingestion could not be started"
+        );
+      }
     }
   );
 
-  const staleCount = await deactivateStalePostings();
-  await sendImmediateAlertsForPostings(discoveredPostingIds);
+  const completeFullCycle = !options?.sourceId && failedSources === 0 && partialSources === 0;
+  const staleCount = completeFullCycle ? await deactivateStalePostings() : 0;
+
+  if (!completeFullCycle) {
+    logger.warn(
+      { failedSources, partialSources, targetedSourceId: options?.sourceId },
+      "Skipped stale-posting deactivation because the ingestion cycle was incomplete"
+    );
+  }
+
+  const notificationResults = await Promise.allSettled([
+    sendImmediateAlertsForPostings(discoveredPostingIds)
+  ]);
+
+  for (const [index, result] of notificationResults.entries()) {
+    if (result.status === "rejected") {
+      logger.error(
+        { error: result.reason, channel: "email", notificationIndex: index },
+        "Post-ingestion notification dispatch failed"
+      );
+    }
+  }
 
   logger.info(
     {
       sourcesProcessed: sources.length,
       discovered: discoveredPostingIds.length,
-      staleMarkedInactive: staleCount
+      staleMarkedInactive: staleCount,
+      failedSources,
+      partialSources
     },
     "Ingestion cycle completed"
   );
+
+  return {
+    sourcesProcessed: sources.length,
+    discovered: discoveredPostingIds.length,
+    staleMarkedInactive: staleCount,
+    failedSources,
+    partialSources
+  };
 }

@@ -1,7 +1,7 @@
 import { prisma } from "@faang-quant/db";
 import { logger } from "../lib/logger";
 import { runWithConcurrency } from "../lib/concurrency";
-import { resolveLivePostingUrl } from "../lib/link-health";
+import { resolvePostingUrl } from "../lib/link-health";
 
 export async function runPostingLinkCheck(options?: { limit?: number }) {
   const postings = await prisma.internshipPosting.findMany({
@@ -9,7 +9,7 @@ export async function runPostingLinkCheck(options?: { limit?: number }) {
       isActive: true,
       internshipFlag: true
     },
-    orderBy: [{ updatedAt: "desc" }],
+    orderBy: [{ updatedAt: "asc" }],
     ...(options?.limit ? { take: options.limit } : {}),
     select: {
       id: true,
@@ -25,14 +25,30 @@ export async function runPostingLinkCheck(options?: { limit?: number }) {
     checked: 0,
     updated: 0,
     deactivated: 0,
-    unchanged: 0
+    unchanged: 0,
+    inconclusive: 0
   };
 
   await runWithConcurrency(postings, 8, async (posting) => {
     stats.checked += 1;
-    const chosenUrl = await resolveLivePostingUrl(posting);
+    const resolution = await resolvePostingUrl(posting);
+    const chosenUrl = resolution.url;
 
     if (!chosenUrl) {
+      if (!resolution.conclusiveDead) {
+        stats.inconclusive += 1;
+        logger.warn(
+          {
+            postingId: posting.id,
+            slug: posting.slug,
+            company: posting.companyNameSnapshot,
+            title: posting.title
+          },
+          "Kept posting active because its link check failed inconclusively"
+        );
+        return;
+      }
+
       await prisma.internshipPosting.update({
         where: { id: posting.id },
         data: {

@@ -5,8 +5,10 @@
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "ingest": "dotenv -e ../../.env -- tsx src/cli.ts ingest",
     "digest": "dotenv -e ../../.env -- tsx src/cli.ts digest",
+    "discord": "dotenv -e ../../.env -- tsx src/cli.ts discord",
     "links": "dotenv -e ../../.env -- tsx src/cli.ts links",
     "reclassify": "dotenv -e ../../.env -- tsx src/cli.ts reclassify"
   },
