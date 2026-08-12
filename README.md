@@ -1,11 +1,24 @@
-# Internship Quant Tracker
+# SWE + Quant Internship Tracker
 
-Production-minded internship tracker focused on:
+An open-source tracker for software engineering and quantitative internships. It brings postings from
+technology companies, trading firms, hedge funds, and other quantitative employers into one searchable
+feed, with saved searches, application tracking, and alerts.
 
-- FAANG, mega-cap tech, developer tools, infrastructure, and high-growth software companies
-- Quant, trading, market making, hedge fund, and prop trading firms
+This project is built in public for students and contributors. It prefers official, structured,
+ATS-backed job data over brittle scraping. The current ingestion adapters support Greenhouse, Lever,
+Ashby, Workday, and selected official careers APIs and HTML payloads.
 
-The project prefers official structured ATS-backed public job data over brittle scraping. The current ingestion adapters target Greenhouse, Lever, Ashby, selected official careers HTML payloads, and Workday where the public endpoints are clean enough to integrate directly.
+### What belongs here
+
+- software engineering internships across big tech, startups, developer tools, infrastructure, and
+  other software-focused employers
+- quantitative developer, researcher, and trader internships at trading firms, market makers, hedge
+  funds, and related employers
+- reliable sources that link applicants back to an employer's official posting or application page
+
+The tracker is community-maintained. Contributions that add employers, improve adapters or
+normalization, fix stale links, or make the product easier to use are welcome. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md) to get started.
 
 ## Stack
 
@@ -16,6 +29,7 @@ The project prefers official structured ATS-backed public job data over brittle 
 - `Tailwind CSS`
 - `NextAuth` credentials auth with email verification
 - background worker with recurring polling and digest scheduling
+- durable Discord webhook notifications for newly discovered internships
 - monorepo with `pnpm` workspaces
 
 ## Monorepo Layout
@@ -243,6 +257,25 @@ Single source of truth for the seeded target universe. `Tracked` means `db:seed`
    pnpm worker:ingest
    ```
 
+### Discord notifications
+
+To announce newly discovered internships in Discord:
+
+1. In the target Discord server, open **Server Settings → Integrations → Webhooks**, create a
+   webhook, and copy its URL.
+2. Set `DISCORD_WEBHOOK_URL` in the worker's secret/environment configuration. Treat this URL as a
+   secret because anyone holding it can post to the channel.
+3. Apply the database migrations with `pnpm db:migrate`, then run or restart the worker.
+
+The worker creates a durable notification record in the same database transaction as each new
+internship. A unique posting constraint prevents duplicate delivery intent, while short webhook
+retries handle network failures, server errors, and Discord rate limits. Failed or interrupted
+deliveries remain in the outbox and are reclaimed by a later notification cycle. If the webhook is not
+configured, ingestion continues normally and notifications remain queued for later delivery. Webhook
+delivery runs separately from ingestion on `DISCORD_NOTIFICATION_CRON`, so Discord latency or outages
+cannot slow down or break internship discovery. For one-off/serverless scheduling, run
+`pnpm worker:discord`.
+
 ## Supabase Cloud Database
 
 Supabase can host the PostgreSQL database used by Prisma, NextAuth, the web app, and the ingestion
@@ -303,6 +336,7 @@ pnpm db:check
 pnpm db:cloud:copy
 pnpm worker:ingest
 pnpm worker:digest
+pnpm worker:discord
 ```
 
 ## Seeded Admin Flow
@@ -322,15 +356,16 @@ pnpm worker:digest
 - `UserFavorite`
 - `UserApplicationState`
 - `AlertDelivery`
+- `DiscordNotification`
 - `IngestionRun`
 - `User`
 - `VerificationToken`
 
-See [`packages/db/prisma/schema.prisma`](/C:/Users/Kevin/Projects/faang-quant-tracker/packages/db/prisma/schema.prisma) for the full schema.
+See `packages/db/prisma/schema.prisma` for the full schema.
 
 ## Ingestion Notes
 
-- adapters are defined in [`packages/shared/src/adapters`](/C:/Users/Kevin/Projects/faang-quant-tracker/packages/shared/src/adapters)
+- adapters are defined in `packages/shared/src/adapters`
 - the worker normalizes each fetched record into canonical internship fields
 - duplicate handling first checks source-record identity, then canonical fingerprint, then fuzzy title/location matching
 - source records keep raw payloads for traceability
@@ -338,7 +373,7 @@ See [`packages/db/prisma/schema.prisma`](/C:/Users/Kevin/Projects/faang-quant-tr
 
 ## Adding Companies and Sources
 
-- edit the seed lists in [`packages/db/src/seed-data.ts`](/C:/Users/Kevin/Projects/faang-quant-tracker/packages/db/src/seed-data.ts)
+- edit the seed lists in `packages/db/src/seed-data.ts`
 - rerun `pnpm db:seed`
 - or use the admin dashboard to add additional company sources
 - rerunning `pnpm db:seed` syncs the database back to the current tracked-source pilot, disables older sample sources that are no longer part of the seeded set, and marks non-pilot postings inactive without deleting their historical records
@@ -350,11 +385,22 @@ For new adapter families:
 - extend the Prisma `SourceType` enum if needed
 - seed or add `CompanySource` rows that reference the new adapter
 
+## Contributing
+
+Issues and pull requests are welcome. Good first contributions include adding a missing official
+company source, improving role or location normalization, expanding adapter fixtures, and fixing
+accessibility or documentation gaps.
+
+Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request. It documents the local
+workflow, source-quality expectations, test commands, and guidelines for handling job-posting data.
+
 ## Alerts
 
-- mail transport lives in [`packages/email`](/C:/Users/Kevin/Projects/faang-quant-tracker/packages/email)
+- mail transport lives in `packages/email`
 - `EmailAlertProvider` implements the shared `AlertProvider` interface
-- `DiscordWebhookProvider` is stubbed for future expansion
+- newly created postings atomically create a `DiscordNotification` outbox row in the same database transaction
+- the independent Discord schedule drains that outbox with leases, bounded retries, rate-limit handling, and durable failure state
+- run `pnpm worker:discord` to process the outbox manually; webhook failures never roll back or block ingestion
 - unsubscribe links disable all future alert emails for the associated user
 
 ## Internal APIs / Server Actions
@@ -383,7 +429,8 @@ Implemented server actions include:
 
 ## Testing
 
-The current test suite focuses on shared pure logic:
+The test suite covers shared normalization and adapters plus web validation, email rendering,
+database seed integrity, ingestion reliability, link health, and Discord delivery behavior:
 
 - internship heuristics
 - compensation parsing
@@ -396,6 +443,10 @@ Run:
 
 ```bash
 pnpm test
+pnpm typecheck
+pnpm build
+pnpm db:migrate
+pnpm db:check
 ```
 
 ## Environment Variables
@@ -415,7 +466,14 @@ Key variables:
 - `SEED_ADMIN_PASSWORD`
 - `POLL_CRON`
 - `DAILY_DIGEST_CRON`
+- `DISCORD_NOTIFICATION_CRON` (outbox delivery schedule, default every minute)
 - `INGESTION_CONCURRENCY`
+- `INGESTION_REQUEST_TIMEOUT_MS`
+- `INGESTION_SOURCE_TIMEOUT_MS`
+- `DISCORD_WEBHOOK_URL` (optional Discord webhook secret; enables new-internship notifications)
+- `DISCORD_WEBHOOK_TIMEOUT_MS` (per-request timeout, default `5000`, maximum `60000`)
+- `DISCORD_MAX_RETRIES` (immediate retries for transient webhook failures, default `3`)
+- `DISCORD_NOTIFICATION_BATCH_SIZE` (outbox records processed per cycle, default `25`)
 - `LISTING_NEW_DAYS`
 - `POSTING_STALE_DAYS`
 
@@ -425,3 +483,11 @@ See `.env.example` for defaults.
 server instead of delivering it. Account registration shows a local verification button in this
 mode. Configure `EMAIL_PROVIDER=resend` with `RESEND_API_KEY`, or `EMAIL_PROVIDER=smtp` with
 `SMTP_URL`, to deliver verification emails to real inboxes.
+
+`DISCORD_WEBHOOK_URL` must be an HTTPS URL generated by Discord on a Discord-owned webhook host.
+Leave it empty to disable delivery without disabling ingestion. Never commit a real webhook URL.
+
+## License
+
+Licensed under the [MIT License](LICENSE). Copyright belongs to the SWE + Quant Internship Tracker
+contributors.
