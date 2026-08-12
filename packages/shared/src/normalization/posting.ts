@@ -17,7 +17,29 @@ function toDate(value?: string | Date | null): Date | undefined {
     return undefined;
   }
 
-  return value instanceof Date ? value : new Date(value);
+  const date = value instanceof Date ? value : new Date(value);
+
+  return Number.isFinite(date.getTime()) ? date : undefined;
+}
+
+function normalizeHttpUrl(value?: string | null): string | undefined {
+  const trimmed = value?.trim();
+
+  if (!trimmed) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(trimmed);
+
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
+      return undefined;
+    }
+
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 }
 
 function buildPostingSlug(companySlug: string, title: string, externalJobId: string): string {
@@ -33,6 +55,8 @@ export function normalizeFetchedPosting(input: {
   posting: AdapterFetchedPosting;
 }): NormalizedPostingRecord {
   const postingDate = toDate(input.posting.postingDate);
+  const applicationUrl = normalizeHttpUrl(input.posting.applicationUrl) ?? "";
+  const sourceUrl = normalizeHttpUrl(input.posting.sourceUrl);
   const descriptionText =
     input.posting.descriptionText?.trim() ||
     (input.posting.descriptionHtml ? stripHtml(input.posting.descriptionHtml) : undefined);
@@ -79,8 +103,8 @@ export function normalizeFetchedPosting(input: {
     compensationInterval: parsedCompensation.interval,
     payRaw: input.posting.payRaw ?? parsedCompensation.raw,
     postingDate,
-    applicationUrl: input.posting.applicationUrl,
-    sourceUrl: input.posting.sourceUrl ?? undefined,
+    applicationUrl,
+    sourceUrl,
     sourceType: input.source.sourceType,
     sourceName: input.source.sourceName,
     dedupeFingerprint,

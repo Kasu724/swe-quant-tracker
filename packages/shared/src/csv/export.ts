@@ -5,9 +5,10 @@ function escapeCsvValue(value: CsvSerializable): string {
     return "";
   }
 
-  const stringValue = String(value);
+  const rawValue = String(value);
+  const stringValue = /^[=+\-@\t\r]/.test(rawValue) ? `'${rawValue}` : rawValue;
 
-  if (/[",\n]/.test(stringValue)) {
+  if (/[",\r\n]/.test(stringValue)) {
     return `"${stringValue.replace(/"/g, '""')}"`;
   }
 
@@ -19,7 +20,7 @@ export function serializeRowsToCsv(
   columns?: string[]
 ): string {
   if (rows.length === 0) {
-    return "";
+    return columns?.map(escapeCsvValue).join(",") ?? "";
   }
 
   const headers = columns ?? Object.keys(rows[0]);

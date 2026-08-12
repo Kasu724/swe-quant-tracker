@@ -3,7 +3,21 @@ import { uniqueStrings } from "./normalization/text";
 function normalizeUrl(value?: string | null): string | undefined {
   const normalized = value?.trim();
 
-  return normalized ? normalized : undefined;
+  if (!normalized) {
+    return undefined;
+  }
+
+  try {
+    const url = new URL(normalized);
+
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
+      return undefined;
+    }
+
+    return url.toString();
+  } catch {
+    return undefined;
+  }
 }
 
 export function getPostingUrlCandidates(input: {

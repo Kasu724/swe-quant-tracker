@@ -73,6 +73,13 @@ enum AlertDeliveryStatus {
   SKIPPED
 }
 
+enum DiscordNotificationStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
 enum ApplicationState {
   NONE
   APPLIED
@@ -220,6 +227,7 @@ model InternshipPosting {
   postingListItems     UserPostingListItem[]
   applicationStates    UserApplicationState[]
   alertDeliveries      AlertDelivery[]
+  discordNotification  DiscordNotification?
 
   @@index([companyId, isActive, discoveredAt])
   @@index([postingDate])
@@ -275,6 +283,24 @@ model UserFavorite {
   createdAt           DateTime          @default(now())
 
   @@unique([userId, internshipPostingId], map: "user_favorite_unique_posting")
+}
+
+model DiscordNotification {
+  id                  String                    @id @default(cuid())
+  internshipPostingId String                    @unique
+  internshipPosting   InternshipPosting         @relation(fields: [internshipPostingId], references: [id], onDelete: Cascade)
+  status              DiscordNotificationStatus @default(PENDING)
+  attempts            Int                       @default(0)
+  nextAttemptAt       DateTime                  @default(now())
+  leaseExpiresAt      DateTime?
+  sentAt              DateTime?
+  providerMessageId   String?
+  lastError           String?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([status, leaseExpiresAt])
 }
 
 model UserPostingListItem {

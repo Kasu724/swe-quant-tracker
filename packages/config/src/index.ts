@@ -3,6 +3,34 @@ import path from "node:path";
 import { z } from "zod";
 
 const numericString = z.coerce.number().int().positive();
+const discordWebhookUrl = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z
+    .string()
+    .url()
+    .superRefine((value, context) => {
+      const url = new URL(value);
+      const allowedHosts = new Set([
+        "discord.com",
+        "discordapp.com",
+        "canary.discord.com",
+        "ptb.discord.com"
+      ]);
+
+      if (
+        url.protocol !== "https:" ||
+        Boolean(url.username || url.password) ||
+        !allowedHosts.has(url.hostname.toLowerCase()) ||
+        !/^\/api(?:\/v\d+)?\/webhooks\/[^/]+\/[^/]+\/?$/.test(url.pathname)
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Must be an HTTPS Discord webhook URL"
+        });
+      }
+    })
+    .optional()
+);
 let hasAttemptedEnvLoad = false;
 
 function findWorkspaceRoot(startDirectory: string): string | null {
@@ -106,9 +134,14 @@ const webEnvSchema = baseEnvSchema.extend({
 const workerEnvSchema = baseEnvSchema.extend({
   POLL_CRON: z.string().default("*/30 * * * *"),
   DAILY_DIGEST_CRON: z.string().default("0 8 * * *"),
+  DISCORD_NOTIFICATION_CRON: z.string().default("* * * * *"),
   INGESTION_CONCURRENCY: numericString.default(2),
   INGESTION_REQUEST_TIMEOUT_MS: numericString.default(20_000),
-  INGESTION_SOURCE_TIMEOUT_MS: numericString.default(120_000)
+  INGESTION_SOURCE_TIMEOUT_MS: numericString.default(120_000),
+  DISCORD_WEBHOOK_URL: discordWebhookUrl,
+  DISCORD_WEBHOOK_TIMEOUT_MS: numericString.max(60_000).default(5_000),
+  DISCORD_MAX_RETRIES: z.coerce.number().int().min(0).max(10).default(3),
+  DISCORD_NOTIFICATION_BATCH_SIZE: numericString.max(100).default(25)
 });
 
 const seedEnvSchema = baseEnvSchema.extend({

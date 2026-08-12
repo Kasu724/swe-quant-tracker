@@ -48,7 +48,7 @@ describe("listing filters", () => {
     ).toBe(true);
   });
 
-  it("excludes known non-US postings even when usOnly is disabled", () => {
+  it("includes known non-US postings when usOnly is disabled", () => {
     const filters = listingFilterSchema.parse({ usOnly: false });
 
     expect(
@@ -60,7 +60,7 @@ describe("listing filters", () => {
         },
         filters
       )
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("uses raw location text to reject non-US postings with stale country data", () => {

@@ -4,16 +4,20 @@
   "private": true,
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
   "dependencies": {
     "@faang-quant/config": "workspace:*",
     "@faang-quant/shared": "workspace:*",
-    "nodemailer": "^6.10.1",
+    "nodemailer": "^9.0.5",
     "resend": "^4.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.2",
-    "@types/nodemailer": "^6.4.17",
+    "@types/nodemailer": "^8.0.1",
     "typescript": "^5.8.3"
   }
 }
-

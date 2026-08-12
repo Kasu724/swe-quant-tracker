@@ -72,7 +72,14 @@ describe("location normalization", () => {
     expect(isUsOrUnknownPostingLocation([])).toBe(true);
     expect(isUsOrUnknownPostingLocation([], "Remote - United States")).toBe(true);
     expect(isUsOrUnknownPostingLocation([], "Remote - Canada")).toBe(false);
-    expect(isUsOrUnknownPostingLocation(["US", "CA"])).toBe(false);
+    expect(isUsOrUnknownPostingLocation(["US", "CA"])).toBe(true);
     expect(isUsOrUnknownPostingLocation(["GB"])).toBe(false);
+  });
+
+  it("keeps multi-country postings when the United States is one option", () => {
+    expect(
+      isUsOrUnknownPostingLocation(["CA", "US"], "Toronto, Canada | New York, United States")
+    ).toBe(true);
+    expect(isUsOrUnknownPostingLocation([], "Remote - Canada")).toBe(false);
   });
 });

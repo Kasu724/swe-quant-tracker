@@ -311,5 +311,5 @@ export function isUsOrUnknownPostingLocation(
     ...rawLocations.flatMap((location) => (location ? inferCountryCodesFromText(location) : []))
   ]);
 
-  return knownCountryCodes.length === 0 || knownCountryCodes.every((code) => code === "US");
+  return knownCountryCodes.length === 0 || knownCountryCodes.includes("US");
 }

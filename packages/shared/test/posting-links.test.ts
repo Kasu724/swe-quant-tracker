@@ -28,4 +28,13 @@ describe("posting links", () => {
       })
     ).toEqual(["https://company.com/jobs/123"]);
   });
+
+  it("rejects unsafe and credential-bearing URLs", () => {
+    expect(
+      getPostingUrlCandidates({
+        sourceUrl: "javascript:alert(1)",
+        applicationUrl: "https://user:secret@company.com/jobs/123"
+      })
+    ).toEqual([]);
+  });
 });

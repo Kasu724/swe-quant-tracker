@@ -5,6 +5,9 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "scripts": {
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "generate": "node ../../scripts/prisma-generate.mjs",
     "migrate": "dotenv -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
     "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev --schema prisma/schema.prisma",
@@ -13,6 +16,7 @@
     "studio": "dotenv -e ../../.env -- prisma studio --schema prisma/schema.prisma"
   },
   "dependencies": {
+    "@faang-quant/config": "workspace:*",
     "@prisma/client": "^6.6.0",
     "bcryptjs": "^3.0.2"
   },

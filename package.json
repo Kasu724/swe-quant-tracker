@@ -1,8 +1,17 @@
 {
-  "name": "faang-quant-tracker",
+  "name": "swe-quant-internship-tracker",
+  "description": "Open-source SWE and quant internship tracker with normalized listings, saved searches, and alerts.",
+  "license": "MIT",
+  "keywords": [
+    "internships",
+    "software-engineering",
+    "quant",
+    "open-source"
+  ],
   "private": true,
   "packageManager": "pnpm@10.0.0",
   "scripts": {
+    "postinstall": "pnpm db:generate",
     "dev": "turbo run dev --parallel",
     "dev:web": "pnpm --filter @faang-quant/web dev",
     "dev:worker": "pnpm --filter @faang-quant/worker dev",
@@ -17,6 +26,7 @@
     "db:studio": "pnpm --filter @faang-quant/db studio",
     "worker:ingest": "pnpm --filter @faang-quant/worker ingest",
     "worker:digest": "pnpm --filter @faang-quant/worker digest",
+    "worker:discord": "pnpm --filter @faang-quant/worker discord",
     "worker:links": "pnpm --filter @faang-quant/worker links",
     "worker:reclassify": "pnpm --filter @faang-quant/worker reclassify"
   },
@@ -24,5 +34,12 @@
     "turbo": "^2.5.0",
     "typescript": "^5.8.3",
     "vitest": "^3.1.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "nanoid@<3.3.18": "3.3.18",
+      "postcss@<8.5.23": "8.5.26",
+      "sharp@<0.35.0": "0.35.3"
+    }
   }
 }

@@ -1,4 +1,4 @@
-function escapeHtml(value: string): string {
+export function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -12,10 +12,20 @@ export function renderEmailLayout(input: {
   title: string;
   intro: string;
   bodyHtml: string;
+  bodyText: string;
   footerText?: string;
 }): { html: string; text: string } {
-  const footerText = input.footerText ?? "Internship Tracker";
-  const text = [input.eyebrow, input.title, "", input.intro, "", footerText].join("\n");
+  const footerText = input.footerText ?? "SWE + Quant Internship Tracker";
+  const text = [
+    input.eyebrow,
+    input.title,
+    "",
+    input.intro,
+    "",
+    input.bodyText.trim(),
+    "",
+    footerText
+  ].join("\n");
 
   return {
     text,

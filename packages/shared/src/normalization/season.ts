@@ -70,15 +70,19 @@ export function inferSeasonYear(
     typeof postingDate === "string"
       ? new Date(postingDate)
       : postingDate ?? undefined;
+  const validPostingDate =
+    postingDateValue && Number.isFinite(postingDateValue.getTime())
+      ? postingDateValue
+      : undefined;
   const combined = `${title} ${description ?? ""}`;
-  const season = inferSeasonFromKeywords(combined) ?? inferDefaultSeason(postingDateValue);
+  const season = inferSeasonFromKeywords(combined) ?? inferDefaultSeason(validPostingDate);
   const explicitYear = Array.from(combined.matchAll(YEAR_PATTERN))
     .map((match) => Number(match[1]))
     .find((year) => year >= 2020 && year <= 2100);
 
   return {
     season,
-    year: explicitYear ?? inferDefaultYear(season, postingDateValue)
+    year: explicitYear ?? inferDefaultYear(season, validPostingDate)
   };
 }
 

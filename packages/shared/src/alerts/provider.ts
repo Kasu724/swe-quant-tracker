@@ -18,11 +18,3 @@ export interface AlertProvider {
   send(message: AlertSendRequest): Promise<AlertSendResult>;
 }
 
-export class DiscordWebhookProvider implements AlertProvider {
-  readonly channel = "DISCORD" as const;
-
-  async send(): Promise<AlertSendResult> {
-    throw new Error("Discord delivery is not implemented yet. Plug in a webhook sender later.");
-  }
-}
-

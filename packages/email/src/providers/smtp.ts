@@ -6,9 +6,10 @@ export class SmtpMailProvider implements MailProvider {
 
   constructor(
     smtpUrl: string,
-    private readonly fromAddress: string
+    private readonly fromAddress: string,
+    transporter?: Transporter
   ) {
-    this.transporter = nodemailer.createTransport(smtpUrl);
+    this.transporter = transporter ?? nodemailer.createTransport(smtpUrl);
   }
 
   async send(message: MailMessage): Promise<MailSendResult> {

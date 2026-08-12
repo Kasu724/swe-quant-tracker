@@ -103,7 +103,7 @@ export function matchesListingFilters(record: ListingSearchRecord, filters: List
 
   const locationCountries = record.locationCountries ?? [];
 
-  if (!isUsOrUnknownPostingLocation(locationCountries, record.locationRaw)) {
+  if (filters.usOnly && !isUsOrUnknownPostingLocation(locationCountries, record.locationRaw)) {
     return false;
   }
 

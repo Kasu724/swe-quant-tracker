@@ -3,16 +3,26 @@ export function normalizeWhitespace(value: string): string {
 }
 
 export function decodeHtmlEntities(value: string): string {
+  const decodeCodePoint = (raw: string, radix: number, original: string): string => {
+    const codePoint = Number.parseInt(raw, radix);
+
+    return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff
+      ? String.fromCodePoint(codePoint)
+      : original;
+  };
+
   return value
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#(\d+);/g, (_, codePoint) => String.fromCodePoint(Number(codePoint)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, codePoint) =>
-      String.fromCodePoint(Number.parseInt(codePoint, 16))
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#39;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#(\d+);/g, (original, codePoint: string) =>
+      decodeCodePoint(codePoint, 10, original)
+    )
+    .replace(/&#x([0-9a-f]+);/gi, (original, codePoint: string) =>
+      decodeCodePoint(codePoint, 16, original)
     );
 }
 
