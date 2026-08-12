@@ -9,6 +9,7 @@ import {
   parseListingFilters,
   serializeFeedListing
 } from "../../../lib/queries";
+import { ZodError } from "zod";
 
 export const dynamic = "force-dynamic";
 
@@ -38,11 +39,22 @@ function readPositiveInteger(value: string | null, fallback: number) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const filters = parseListingFilters(searchParamsToObject(url.searchParams));
+  let filters;
+
+  try {
+    filters = parseListingFilters(searchParamsToObject(url.searchParams));
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: "Invalid listing filters" }, { status: 400 });
+    }
+
+    throw error;
+  }
   const format = url.searchParams.get("format");
+  const session = await getCurrentSession();
 
   if (format === "csv") {
-    const csv = await exportListingsCsv(filters);
+    const csv = await exportListingsCsv(filters, session?.user?.id);
 
     return new NextResponse(csv, {
       headers: {
@@ -52,12 +64,11 @@ export async function GET(request: Request) {
     });
   }
 
-  const listings = await getListings(filters);
+  const listings = await getListings(filters, session?.user?.id);
   const offset = readPositiveInteger(url.searchParams.get("offset"), 0);
-  const limit = Math.min(readPositiveInteger(url.searchParams.get("limit"), 25), 100);
+  const limit = Math.max(1, Math.min(readPositiveInteger(url.searchParams.get("limit"), 25), 100));
   const batch = listings.slice(offset, offset + limit);
   const nextOffset = offset + batch.length;
-  const session = await getCurrentSession();
   const postingIds = batch.map((listing) => listing.id);
   const [favoriteIds, listIds, applicationStateMap] = session?.user?.id
     ? await Promise.all([

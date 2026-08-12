@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@faang-quant/db";
 import { getCurrentSession } from "../../../lib/auth";
+import { postingIdSchema, readJsonObject } from "../../../lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -11,14 +12,14 @@ async function getRequestContext(request: Request) {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const body = await request.json();
-  const postingId = String(body.postingId ?? "");
+  const body = await readJsonObject(request);
+  const postingId = postingIdSchema.safeParse(body?.postingId);
 
-  if (!postingId) {
-    return { error: NextResponse.json({ error: "Posting ID is required" }, { status: 400 }) };
+  if (!body || !postingId.success) {
+    return { error: NextResponse.json({ error: "A valid posting ID is required" }, { status: 400 }) };
   }
 
-  return { userId: session.user.id, postingId, body };
+  return { userId: session.user.id, postingId: postingId.data, body };
 }
 
 export async function POST(request: Request) {
@@ -26,6 +27,15 @@ export async function POST(request: Request) {
 
   if ("error" in context) {
     return context.error;
+  }
+
+  const posting = await prisma.internshipPosting.findUnique({
+    where: { id: context.postingId },
+    select: { id: true }
+  });
+
+  if (!posting) {
+    return NextResponse.json({ error: "Posting not found" }, { status: 404 });
   }
 
   const item = await prisma.userPostingListItem.upsert({
@@ -52,14 +62,26 @@ export async function PATCH(request: Request) {
     return context.error;
   }
 
-  const isCompleted = Boolean(context.body.isCompleted);
-  const item = await prisma.userPostingListItem.update({
+  if (typeof context.body.isCompleted !== "boolean") {
+    return NextResponse.json({ error: "isCompleted must be a boolean" }, { status: 400 });
+  }
+
+  const isCompleted = context.body.isCompleted;
+  const existing = await prisma.userPostingListItem.findUnique({
     where: {
       userId_internshipPostingId: {
         userId: context.userId,
         internshipPostingId: context.postingId
       }
-    },
+    }
+  });
+
+  if (!existing) {
+    return NextResponse.json({ error: "List item not found" }, { status: 404 });
+  }
+
+  const item = await prisma.userPostingListItem.update({
+    where: { id: existing.id },
     data: {
       isCompleted,
       completedAt: isCompleted ? new Date() : null

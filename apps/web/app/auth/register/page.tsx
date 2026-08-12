@@ -21,9 +21,9 @@ export default async function RegisterPage({
       <Card className="max-w-xl">
         <CardContent className="space-y-4">
           <form action={registerUserAction} className="space-y-4">
-            <Input name="name" placeholder="Your name" />
-            <Input name="email" type="email" placeholder="Email address" required />
-            <Input name="password" type="password" placeholder="Password (8+ characters)" required />
+            <Input name="name" placeholder="Your name" maxLength={100} autoComplete="name" />
+            <Input name="email" type="email" placeholder="Email address" maxLength={320} autoComplete="email" required />
+            <Input name="password" type="password" placeholder="Password (8+ characters)" minLength={8} maxLength={128} autoComplete="new-password" required />
             {error ? (
               <p className="text-sm text-rose-600">
                 {error === "email-in-use"

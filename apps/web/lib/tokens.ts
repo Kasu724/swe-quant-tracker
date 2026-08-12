@@ -19,26 +19,41 @@ export async function createVerificationToken(userId: string, email: string) {
 }
 
 export async function consumeVerificationToken(token: string) {
-  const record = await prisma.verificationToken.findUnique({
-    where: { token }
-  });
-
-  if (!record || record.consumedAt || record.expires < new Date()) {
+  if (!/^[a-f0-9]{48}$/.test(token)) {
     return null;
   }
 
-  await prisma.verificationToken.update({
-    where: { id: record.id },
-    data: { consumedAt: new Date() }
-  });
-
-  if (record.userId) {
-    await prisma.user.update({
-      where: { id: record.userId },
-      data: { emailVerified: new Date() }
+  return prisma.$transaction(async (tx) => {
+    const record = await tx.verificationToken.findUnique({
+      where: { token }
     });
-  }
+    const consumedAt = new Date();
 
-  return record;
+    if (!record || record.consumedAt || record.expires <= consumedAt) {
+      return null;
+    }
+
+    const claimed = await tx.verificationToken.updateMany({
+      where: {
+        id: record.id,
+        consumedAt: null,
+        expires: { gt: consumedAt }
+      },
+      data: { consumedAt }
+    });
+
+    if (claimed.count !== 1) {
+      return null;
+    }
+
+    if (record.userId) {
+      await tx.user.update({
+        where: { id: record.userId },
+        data: { emailVerified: consumedAt }
+      });
+    }
+
+    return record;
+  });
 }
 

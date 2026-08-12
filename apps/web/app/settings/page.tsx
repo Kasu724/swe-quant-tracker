@@ -29,7 +29,13 @@ export default async function SettingsPage() {
             </label>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Digest timezone</label>
-              <Input name="digestTimezone" defaultValue={user.digestTimezone} />
+              <Input
+                name="digestTimezone"
+                defaultValue={user.digestTimezone}
+                maxLength={100}
+                autoComplete="off"
+                required
+              />
             </div>
             <Button type="submit">Save settings</Button>
           </form>

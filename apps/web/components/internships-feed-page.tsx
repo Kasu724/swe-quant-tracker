@@ -13,6 +13,7 @@ import {
   parseListingFilters,
   serializeFeedListing
 } from "../lib/queries";
+import type { ListingFilters } from "@faang-quant/shared";
 
 const LISTINGS_PER_PAGE = 25;
 
@@ -43,10 +44,16 @@ export async function InternshipsFeedPage({
   basePath: string;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
-  const filters = parseListingFilters(resolvedSearchParams);
-  const [session, listings, companies] = await Promise.all([
-    getCurrentSession(),
-    getListings(filters),
+  let filters: ListingFilters;
+
+  try {
+    filters = parseListingFilters(resolvedSearchParams);
+  } catch {
+    filters = parseListingFilters({});
+  }
+  const session = await getCurrentSession();
+  const [listings, companies] = await Promise.all([
+    getListings(filters, session?.user?.id),
     getListingFilterMetadata()
   ]);
   const initialListings = listings.slice(0, LISTINGS_PER_PAGE);
@@ -72,7 +79,7 @@ export async function InternshipsFeedPage({
         <PageHeader
           eyebrow="Live Feed"
           title="Internship feed"
-          description="Search and filter normalized internship postings across big tech, quant, and trading employers."
+          description="Search normalized SWE and quant internship postings from technology companies, trading firms, and quantitative employers."
           actions={
             <Button asChild>
               <a href={exportHref}>Export CSV</a>

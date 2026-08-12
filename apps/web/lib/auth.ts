@@ -5,6 +5,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { redirect } from "next/navigation";
 import { ensureRepoEnvLoaded } from "@faang-quant/config";
 import { prisma } from "@faang-quant/db";
+import { accountRegistrationSchema } from "./validation";
 
 ensureRepoEnvLoaded();
 
@@ -21,19 +22,24 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials.password) {
+        const parsed = accountRegistrationSchema.pick({ email: true, password: true }).safeParse({
+          email: credentials?.email,
+          password: credentials?.password
+        });
+
+        if (!parsed.success) {
           return null;
         }
 
         const user = await prisma.user.findUnique({
-          where: { email: credentials.email.toLowerCase() }
+          where: { email: parsed.data.email }
         });
 
         if (!user?.passwordHash || !user.emailVerified) {
           return null;
         }
 
-        const passwordMatches = await compare(credentials.password, user.passwordHash);
+        const passwordMatches = await compare(parsed.data.password, user.passwordHash);
 
         if (!passwordMatches) {
           return null;
@@ -88,13 +94,13 @@ export async function getCurrentUser() {
 }
 
 export async function requireUser() {
-  const session = await getCurrentSession();
+  const user = await getCurrentUser();
 
-  if (!session?.user?.id) {
+  if (!user) {
     redirect("/auth/signin");
   }
 
-  return session.user;
+  return user;
 }
 
 export async function requireAdmin() {

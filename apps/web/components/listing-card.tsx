@@ -8,6 +8,7 @@ import { getPreferredPostingUrl } from "@faang-quant/shared";
 import type { FeedListing } from "../lib/queries";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../lib/actions";
 import { PostingListButton } from "./posting-list-button";
+import { safeExternalUrl } from "../lib/validation";
 
 export function ListingCard({
   posting,
@@ -32,7 +33,7 @@ export function ListingCard({
       : "Pay unknown";
 
   const isNew = Date.now() - discoveredAt.getTime() < 1000 * 60 * 60 * 24 * 7;
-  const outboundUrl = getPreferredPostingUrl(posting);
+  const outboundUrl = safeExternalUrl(getPreferredPostingUrl(posting));
 
   return (
     <Card>
@@ -87,7 +88,7 @@ export function ListingCard({
         <div className="flex flex-wrap gap-3">
           {outboundUrl ? (
             <Button asChild>
-              <a href={outboundUrl} target="_blank" rel="noreferrer">
+              <a href={outboundUrl} target="_blank" rel="noopener noreferrer">
                 Apply
               </a>
             </Button>

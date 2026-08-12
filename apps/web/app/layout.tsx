@@ -18,8 +18,8 @@ const display = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Internship Quant Tracker",
-  description: "Track FAANG, big tech, quant, and trading internships in one place."
+  title: "SWE + Quant Internship Tracker",
+  description: "An open-source tracker for software engineering and quantitative internships."
 };
 
 export const dynamic = "force-dynamic";

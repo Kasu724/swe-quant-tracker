@@ -92,7 +92,7 @@ function readArrayParam(value: string | string[] | undefined): string[] {
 }
 
 function readBooleanParam(value: string | string[] | undefined, defaultValue: boolean): boolean {
-  const first = Array.isArray(value) ? value[0] : value;
+  const first = Array.isArray(value) ? value.at(-1) : value;
 
   if (first === undefined) {
     return defaultValue;
@@ -136,7 +136,9 @@ export function parseListingFilters(searchParams: SearchParams): ListingFilters 
     companyBuckets: readArrayParam(searchParams.bucket),
     roleCategories: readArrayParam(searchParams.category),
     seasons: readArrayParam(searchParams.season),
-    years: readArrayParam(searchParams.year).map(Number),
+    years: readArrayParam(searchParams.year)
+      .map(Number)
+      .filter(Number.isInteger),
     locations: readArrayParam(searchParams.location),
     remoteTypes: readArrayParam(searchParams.remote),
     payKnown: (Array.isArray(searchParams.payKnown) ? searchParams.payKnown[0] : searchParams.payKnown) ?? "all",
@@ -153,7 +155,7 @@ export function parseListingFilters(searchParams: SearchParams): ListingFilters 
 const trackedLocationWhere: Prisma.InternshipPostingWhereInput = {
   OR: [
     { locationCountries: { isEmpty: true } },
-    { locationCountries: { equals: ["US"] } }
+    { locationCountries: { has: "US" } }
   ]
 };
 
@@ -242,7 +244,7 @@ export function serializeFeedListing(listing: ListingRow): FeedListing {
   };
 }
 
-export async function getListings(filters: ListingFilters) {
+export async function getListings(filters: ListingFilters, userId?: string) {
   const broadWhere: Prisma.InternshipPostingWhereInput = {
     internshipFlag: true,
     AND: [
@@ -272,6 +274,16 @@ export async function getListings(filters: ListingFilters) {
     ...(filters.years.length ? { year: { in: filters.years } } : {}),
     ...(filters.remoteTypes.length ? { remoteType: { in: filters.remoteTypes } } : {}),
     ...(filters.activeOnly ? { isActive: true } : {}),
+    ...(userId
+      ? {
+          applicationStates: {
+            none: {
+              userId,
+              state: "HIDDEN"
+            }
+          }
+        }
+      : {}),
     ...(filters.recentlyPostedDays
       ? {
           postingDate: {
@@ -290,7 +302,6 @@ export async function getListings(filters: ListingFilters) {
         : {
             discoveredAt: "desc"
           },
-    take: 500
   });
 
   const filtered = listings.filter((posting) =>
@@ -433,11 +444,47 @@ export async function getCompaniesOverview() {
 export async function getInternshipBySlug(slug: string, userId?: string) {
   const posting = await prisma.internshipPosting.findUnique({
     where: { slug },
-    include: {
-      company: true,
+    select: {
+      id: true,
+      slug: true,
+      companyNameSnapshot: true,
+      title: true,
+      roleCategory: true,
+      season: true,
+      year: true,
+      locationRaw: true,
+      locationCountries: true,
+      remoteType: true,
+      payRaw: true,
+      postingDate: true,
+      discoveredAt: true,
+      applicationUrl: true,
+      sourceUrl: true,
+      sourceName: true,
+      isActive: true,
+      descriptionText: true,
+      company: {
+        select: {
+          slug: true,
+          name: true,
+          companyBucket: true,
+          websiteUrl: true,
+          careersUrl: true
+        }
+      },
       sourceRecords: {
-        include: {
-          companySource: true
+        orderBy: { lastSeenAt: "desc" },
+        select: {
+          id: true,
+          sourceUrl: true,
+          applicationUrl: true,
+          lastSeenAt: true,
+          companySource: {
+            select: {
+              sourceName: true,
+              sourceType: true
+            }
+          }
         }
       }
     }
@@ -675,8 +722,8 @@ export async function getAdminDashboardData() {
   };
 }
 
-export async function exportListingsCsv(filters: ListingFilters) {
-  const listings = await getListings(filters);
+export async function exportListingsCsv(filters: ListingFilters, userId?: string) {
+  const listings = await getListings(filters, userId);
 
   return serializeRowsToCsv(
     listings.map((listing) => ({

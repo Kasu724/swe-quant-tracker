@@ -6,25 +6,37 @@ import { hash } from "bcryptjs";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createMailProvider, renderVerificationEmail } from "@faang-quant/email";
-import { prisma, ApplicationState } from "@faang-quant/db";
+import { prisma } from "@faang-quant/db";
 import { listingFilterSchema } from "@faang-quant/shared";
 import { readBaseEnv } from "@faang-quant/config";
 import { requireAdmin, requireUser } from "./auth";
 import { createVerificationToken } from "./tokens";
+import {
+  accountRegistrationSchema,
+  applicationStateSchema,
+  companySourceInputSchema,
+  isValidTimeZone,
+  isPrismaErrorCode,
+  postingIdSchema,
+  safeInternalPath
+} from "./validation";
 
 function getRedirectPath(formData: FormData, fallback = "/internships") {
-  const redirectTo = formData.get("redirectTo");
-  return typeof redirectTo === "string" && redirectTo ? redirectTo : fallback;
+  return safeInternalPath(formData.get("redirectTo"), fallback);
 }
 
 export async function registerUserAction(formData: FormData) {
-  const name = String(formData.get("name") ?? "").trim();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const password = String(formData.get("password") ?? "");
+  const input = accountRegistrationSchema.safeParse({
+    name: formData.get("name") ?? "",
+    email: formData.get("email"),
+    password: formData.get("password")
+  });
 
-  if (!email || !password || password.length < 8) {
+  if (!input.success) {
     redirect("/auth/register?error=invalid");
   }
+
+  const { name, email, password } = input.data;
 
   const passwordHash = await hash(password, 12);
   const existing = await prisma.user.findUnique({
@@ -106,17 +118,37 @@ export async function saveSearchAction(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const rawFilter = String(formData.get("filterPayload") ?? "{}");
   const cadence = String(formData.get("alertCadence") ?? "IMMEDIATE");
-  const filters = listingFilterSchema.parse(JSON.parse(rawFilter));
+  let parsedPayload: unknown;
 
-  await prisma.savedSearch.create({
-    data: {
-      userId: user.id,
-      name: name || `Search ${new Date().toLocaleString()}`,
-      filterJson: filters,
-      alertsEnabled: true,
-      alertCadence: cadence === "DAILY" ? "DAILY" : "IMMEDIATE"
+  try {
+    parsedPayload = JSON.parse(rawFilter);
+  } catch {
+    return;
+  }
+
+  const parsedFilters = listingFilterSchema.safeParse(parsedPayload);
+
+  if (!parsedFilters.success || name.length > 100) {
+    return;
+  }
+
+  try {
+    await prisma.savedSearch.create({
+      data: {
+        userId: user.id,
+        name: name || `Search ${new Date().toISOString()}`,
+        filterJson: parsedFilters.data,
+        alertsEnabled: true,
+        alertCadence: cadence === "DAILY" ? "DAILY" : "IMMEDIATE"
+      }
+    });
+  } catch (error) {
+    if (isPrismaErrorCode(error, "P2002")) {
+      return;
     }
-  });
+
+    throw error;
+  }
 
   revalidatePath("/saved-searches");
   revalidatePath("/internships");
@@ -125,6 +157,10 @@ export async function saveSearchAction(formData: FormData) {
 export async function deleteSavedSearchAction(formData: FormData) {
   const user = await requireUser();
   const searchId = String(formData.get("savedSearchId") ?? "");
+
+  if (!postingIdSchema.safeParse(searchId).success) {
+    return;
+  }
 
   await prisma.savedSearch.deleteMany({
     where: {
@@ -140,24 +176,34 @@ export async function toggleFavoriteAction(formData: FormData) {
   const user = await requireUser();
   const postingId = String(formData.get("postingId") ?? "");
   const redirectTo = getRedirectPath(formData);
-  const existing = await prisma.userFavorite.findFirst({
-    where: {
+
+  if (!postingIdSchema.safeParse(postingId).success) {
+    return;
+  }
+  const uniqueFavorite = {
+    userId_internshipPostingId: {
       userId: user.id,
       internshipPostingId: postingId
     }
+  };
+  const existing = await prisma.userFavorite.findUnique({
+    where: uniqueFavorite
   });
 
   if (existing) {
-    await prisma.userFavorite.delete({
-      where: { id: existing.id }
+    await prisma.userFavorite.deleteMany({
+      where: uniqueFavorite.userId_internshipPostingId
     });
   } else {
-    await prisma.userFavorite.create({
-      data: {
-        userId: user.id,
-        internshipPostingId: postingId
+    try {
+      await prisma.userFavorite.create({
+        data: uniqueFavorite.userId_internshipPostingId
+      });
+    } catch (error) {
+      if (!isPrismaErrorCode(error, "P2002")) {
+        throw error;
       }
-    });
+    }
   }
 
   revalidatePath("/saved-searches");
@@ -169,24 +215,33 @@ export async function updateApplicationStateAction(formData: FormData) {
   const user = await requireUser();
   const postingId = String(formData.get("postingId") ?? "");
   const redirectTo = getRedirectPath(formData);
-  const state = String(formData.get("state") ?? ApplicationState.NONE);
+  const state = applicationStateSchema.safeParse(formData.get("state"));
 
-  await prisma.userApplicationState.upsert({
-    where: {
-      userId_internshipPostingId: {
-        userId: user.id,
-        internshipPostingId: postingId
-      }
-    },
-    update: {
-      state: state as ApplicationState
-    },
-    create: {
+  if (!postingIdSchema.safeParse(postingId).success || !state.success) {
+    return;
+  }
+
+  const uniquePosting = {
+    userId_internshipPostingId: {
       userId: user.id,
-      internshipPostingId: postingId,
-      state: state as ApplicationState
+      internshipPostingId: postingId
     }
-  });
+  };
+
+  if (state.data === "NONE") {
+    await prisma.userApplicationState.deleteMany({
+      where: uniquePosting.userId_internshipPostingId
+    });
+  } else {
+    await prisma.userApplicationState.upsert({
+      where: uniquePosting,
+      update: { state: state.data },
+      create: {
+        ...uniquePosting.userId_internshipPostingId,
+        state: state.data
+      }
+    });
+  }
 
   revalidatePath("/saved-searches");
   revalidatePath("/internships");
@@ -197,6 +252,10 @@ export async function updateSettingsAction(formData: FormData) {
   const user = await requireUser();
   const alertEmailsEnabled = formData.get("alertEmailsEnabled") === "on";
   const digestTimezone = String(formData.get("digestTimezone") ?? "America/New_York");
+
+  if (!isValidTimeZone(digestTimezone)) {
+    return;
+  }
 
   await prisma.user.update({
     where: { id: user.id },
@@ -212,12 +271,16 @@ export async function updateSettingsAction(formData: FormData) {
 export async function unsubscribeAction(formData: FormData) {
   const token = String(formData.get("token") ?? "");
 
-  await prisma.user.updateMany({
+  if (!postingIdSchema.safeParse(token).success) {
+    redirect("/unsubscribe?error=invalid");
+  }
+
+  const result = await prisma.user.updateMany({
     where: { unsubscribeToken: token },
     data: { alertEmailsEnabled: false }
   });
 
-  redirect("/unsubscribe?success=1");
+  redirect(result.count > 0 ? "/unsubscribe?success=1" : "/unsubscribe?error=invalid");
 }
 
 export async function triggerIngestionAction() {
@@ -240,6 +303,10 @@ export async function toggleCompanyActiveAction(formData: FormData) {
   const companyId = String(formData.get("companyId") ?? "");
   const nextValue = formData.get("isActive") === "true";
 
+  if (!postingIdSchema.safeParse(companyId).success) {
+    return;
+  }
+
   await prisma.company.update({
     where: { id: companyId },
     data: { isActive: nextValue }
@@ -255,6 +322,10 @@ export async function toggleSourceActiveAction(formData: FormData) {
   const isActive = formData.get("isActive") === "true";
   const pollingEnabled = formData.get("pollingEnabled") === "true";
 
+  if (!postingIdSchema.safeParse(sourceId).success) {
+    return;
+  }
+
   await prisma.companySource.update({
     where: { id: sourceId },
     data: {
@@ -268,25 +339,26 @@ export async function toggleSourceActiveAction(formData: FormData) {
 
 export async function createCompanySourceAction(formData: FormData) {
   await requireAdmin();
-  const companyId = String(formData.get("companyId") ?? "");
   const sourceType = String(formData.get("sourceType") ?? "GREENHOUSE");
   const sourceIdentifier = String(formData.get("sourceIdentifier") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
-  const priority = Number(formData.get("priority") ?? 100);
   const sourceName = String(formData.get("sourceName") ?? "").trim() || `Official ${sourceType} Board`;
+  const input = companySourceInputSchema.safeParse({
+    companyId: formData.get("companyId"),
+    sourceType,
+    sourceIdentifier,
+    sourceUrl,
+    priority: formData.get("priority") ?? 100,
+    sourceName
+  });
 
-  if (!companyId || !sourceIdentifier || !sourceUrl) {
+  if (!input.success) {
     return;
   }
 
   await prisma.companySource.create({
     data: {
-      companyId,
-      sourceType: sourceType as never,
-      sourceName,
-      sourceIdentifier,
-      sourceUrl,
-      priority: Number.isFinite(priority) ? priority : 100,
+      ...input.data,
       isActive: true,
       pollingEnabled: true
     }
@@ -301,6 +373,13 @@ export async function mergeDuplicatePostingsAction(formData: FormData) {
   const targetPostingId = String(formData.get("targetPostingId") ?? "");
 
   if (!sourcePostingId || !targetPostingId || sourcePostingId === targetPostingId) {
+    return;
+  }
+
+  if (
+    !postingIdSchema.safeParse(sourcePostingId).success ||
+    !postingIdSchema.safeParse(targetPostingId).success
+  ) {
     return;
   }
 

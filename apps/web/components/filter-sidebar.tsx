@@ -118,10 +118,12 @@ function FilterSidebarForm({
       </div>
       <div className="grid gap-3">
         <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="hidden" name="activeOnly" value="false" />
           <Checkbox name="activeOnly" defaultChecked={filters.activeOnly} />
           Active listings only
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="hidden" name="includeMissingLocation" value="false" />
           <Checkbox
             name="includeMissingLocation"
             defaultChecked={filters.includeMissingLocation}
@@ -129,6 +131,7 @@ function FilterSidebarForm({
           Include missing location
         </label>
         <label className="flex items-center gap-2 text-sm text-slate-700">
+          <input type="hidden" name="includeMissingPay" value="false" />
           <Checkbox name="includeMissingPay" defaultChecked={filters.includeMissingPay} />
           Include missing pay
         </label>

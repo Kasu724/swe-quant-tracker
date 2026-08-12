@@ -14,6 +14,9 @@ export default async function UnsubscribePage({
     (Array.isArray(resolvedSearchParams?.success)
       ? resolvedSearchParams?.success[0]
       : resolvedSearchParams?.success) === "1";
+  const error = Array.isArray(resolvedSearchParams?.error)
+    ? resolvedSearchParams.error[0]
+    : resolvedSearchParams?.error;
 
   return (
     <Container className="space-y-8 py-12">
@@ -33,6 +36,11 @@ export default async function UnsubscribePage({
               <input type="hidden" name="token" value={token} />
               <Button type="submit">Disable alert emails</Button>
             </form>
+          ) : null}
+          {!success && (!token || error) ? (
+            <p className="text-sm text-rose-600">
+              This unsubscribe link is missing or invalid. Use the link from your latest alert email.
+            </p>
           ) : null}
         </CardContent>
       </Card>

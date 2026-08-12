@@ -20,19 +20,25 @@ export function LoginForm({ callbackUrl = "/saved-searches" }: { callbackUrl?: s
             const password = String(formData.get("password") ?? "");
 
             startTransition(async () => {
-              const result = await signIn("credentials", {
-                email,
-                password,
-                redirect: false,
-                callbackUrl
-              });
+              setError(null);
 
-              if (result?.error) {
-                setError("Invalid credentials or email not verified.");
-                return;
+              try {
+                const result = await signIn("credentials", {
+                  email,
+                  password,
+                  redirect: false,
+                  callbackUrl
+                });
+
+                if (!result?.ok || result.error) {
+                  setError("Invalid credentials or email not verified.");
+                  return;
+                }
+
+                window.location.assign(callbackUrl);
+              } catch {
+                setError("Sign in is temporarily unavailable. Please try again.");
               }
-
-              window.location.href = callbackUrl;
             });
           }}
         >
@@ -40,13 +46,13 @@ export function LoginForm({ callbackUrl = "/saved-searches" }: { callbackUrl?: s
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-600">
               Sign In
             </div>
-            <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">
+            <h2 className="font-display text-3xl font-semibold tracking-tight text-ink">
               Access saved searches and alerts
-            </h1>
+            </h2>
           </div>
-          <Input name="email" type="email" placeholder="Email address" required />
-          <Input name="password" type="password" placeholder="Password" required />
-          {error ? <p className="text-sm text-rose-600">{error}</p> : null}
+          <Input name="email" type="email" placeholder="Email address" maxLength={320} autoComplete="email" required />
+          <Input name="password" type="password" placeholder="Password" maxLength={128} autoComplete="current-password" required />
+          {error ? <p role="alert" className="text-sm text-rose-600">{error}</p> : null}
           <Button type="submit" className="w-full" disabled={isPending}>
             {isPending ? "Signing in..." : "Sign in"}
           </Button>

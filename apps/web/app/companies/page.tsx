@@ -1,5 +1,6 @@
 import { Badge, Button, Card, CardContent, Container, EmptyState, PageHeader } from "@faang-quant/ui";
 import { getCompaniesOverview } from "../../lib/queries";
+import { safeExternalUrl } from "../../lib/validation";
 
 export default async function CompaniesPage() {
   const companies = await getCompaniesOverview();
@@ -68,16 +69,16 @@ export default async function CompaniesPage() {
                   <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
                     <div className="font-semibold text-slate-900">Quick links</div>
                     <div className="mt-3 flex flex-wrap gap-3">
-                      {company.careersUrl ? (
+                      {safeExternalUrl(company.careersUrl) ? (
                         <Button asChild>
-                          <a href={company.careersUrl} target="_blank" rel="noreferrer">
+                          <a href={safeExternalUrl(company.careersUrl)!} target="_blank" rel="noopener noreferrer">
                             Careers page
                           </a>
                         </Button>
                       ) : null}
-                      {company.websiteUrl ? (
+                      {safeExternalUrl(company.websiteUrl) ? (
                         <Button asChild variant="secondary">
-                          <a href={company.websiteUrl} target="_blank" rel="noreferrer">
+                          <a href={safeExternalUrl(company.websiteUrl)!} target="_blank" rel="noopener noreferrer">
                             Website
                           </a>
                         </Button>

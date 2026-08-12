@@ -7,12 +7,13 @@ import { CheckCircle2, ExternalLink, Trash2 } from "lucide-react";
 import { Badge, Button, Card, CardContent, Checkbox, cn } from "@faang-quant/ui";
 import { getPreferredPostingUrl } from "@faang-quant/shared";
 import type { PostingListItem } from "../lib/queries";
+import { safeExternalUrl } from "../lib/validation";
 
 export function PostingListCard({ item }: { item: PostingListItem }) {
   const [isCompleted, setIsCompleted] = useState(item.isCompleted);
   const [isRemoved, setIsRemoved] = useState(false);
   const [isPending, setIsPending] = useState(false);
-  const outboundUrl = getPreferredPostingUrl(item.posting);
+  const outboundUrl = safeExternalUrl(getPreferredPostingUrl(item.posting));
 
   async function updateCompleted(nextCompleted: boolean) {
     if (isPending) {
@@ -131,7 +132,7 @@ export function PostingListCard({ item }: { item: PostingListItem }) {
           <div className="flex flex-wrap items-center gap-2">
             {outboundUrl ? (
               <Button asChild>
-                <a href={outboundUrl} target="_blank" rel="noreferrer">
+                <a href={outboundUrl} target="_blank" rel="noopener noreferrer">
                   Apply
                   <ExternalLink className="ml-2 h-4 w-4" aria-hidden="true" />
                 </a>

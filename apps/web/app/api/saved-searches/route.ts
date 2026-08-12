@@ -3,6 +3,11 @@ import { prisma } from "@faang-quant/db";
 import { listingFilterSchema } from "@faang-quant/shared";
 import { getCurrentSession } from "../../../lib/auth";
 import { getUserSavedSearches } from "../../../lib/queries";
+import {
+  isPrismaErrorCode,
+  readJsonObject,
+  savedSearchInputSchema
+} from "../../../lib/validation";
 
 export const dynamic = "force-dynamic";
 
@@ -24,18 +29,55 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = await request.json();
-  const filters = listingFilterSchema.parse(body.filters ?? {});
+  const body = await readJsonObject(request);
 
-  const savedSearch = await prisma.savedSearch.create({
-    data: {
-      userId: session.user.id,
-      name: body.name ?? `API search ${new Date().toLocaleString()}`,
-      filterJson: filters,
-      alertsEnabled: body.alertsEnabled ?? true,
-      alertCadence: body.alertCadence === "DAILY" ? "DAILY" : "IMMEDIATE"
-    }
+  if (!body) {
+    return NextResponse.json({ error: "A JSON object is required" }, { status: 400 });
+  }
+
+  const filters = listingFilterSchema.safeParse(body.filters ?? {});
+  const generatedName = `API search ${new Date().toISOString()}`;
+  const input = savedSearchInputSchema.safeParse({
+    name: body.name ?? generatedName,
+    alertsEnabled: body.alertsEnabled,
+    alertCadence: body.alertCadence
   });
+
+  if (!filters.success || !input.success) {
+    return NextResponse.json({ error: "Invalid saved search" }, { status: 400 });
+  }
+
+  const duplicate = await prisma.savedSearch.findFirst({
+    where: {
+      userId: session.user.id,
+      name: input.data.name
+    },
+    select: { id: true }
+  });
+
+  if (duplicate) {
+    return NextResponse.json({ error: "A saved search with that name already exists" }, { status: 409 });
+  }
+
+  let savedSearch;
+
+  try {
+    savedSearch = await prisma.savedSearch.create({
+      data: {
+        userId: session.user.id,
+        name: input.data.name ?? generatedName,
+        filterJson: filters.data,
+        alertsEnabled: input.data.alertsEnabled ?? true,
+        alertCadence: input.data.alertCadence ?? "IMMEDIATE"
+      }
+    });
+  } catch (error) {
+    if (isPrismaErrorCode(error, "P2002")) {
+      return NextResponse.json({ error: "A saved search with that name already exists" }, { status: 409 });
+    }
+
+    throw error;
+  }
 
   return NextResponse.json({ savedSearch }, { status: 201 });
 }

@@ -19,14 +19,14 @@ export function SiteHeader({ session }: { session: Session | null }) {
       <div className="grid min-h-20 w-full grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-3 justify-self-start">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-sm font-bold text-white">
-            IQ
+            SQ
           </div>
           <div className="hidden min-w-0 sm:block">
             <div className="truncate font-display text-lg font-semibold text-ink">
-              Internship Quant Tracker
+              SWE + Quant Internship Tracker
             </div>
             <div className="truncate text-xs text-slate-500">
-              FAANG, big tech, quant, and trading roles
+              Open-source internship discovery
             </div>
           </div>
         </Link>
@@ -80,6 +80,25 @@ export function SiteHeader({ session }: { session: Session | null }) {
           )}
         </div>
       </div>
+      <nav
+        aria-label="Primary navigation"
+        className="flex gap-5 overflow-x-auto border-t border-slate-100 px-4 py-3 md:hidden"
+      >
+        {navLinks.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className="shrink-0 whitespace-nowrap text-sm font-medium text-slate-600 hover:text-brand-700"
+          >
+            {link.label}
+          </Link>
+        ))}
+        {session?.user.role === "ADMIN" ? (
+          <Link href="/admin" className="shrink-0 text-sm font-medium text-slate-600">
+            Admin
+          </Link>
+        ) : null}
+      </nav>
     </header>
   );
 }

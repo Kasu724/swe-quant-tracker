@@ -45,6 +45,7 @@ export function InfiniteListings({
   const [isLoading, setIsLoading] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingRef = useRef(false);
   const queryKey = useMemo(
     () => `${queryString}|${batchSize}|${total}|${initialListings.map((listing) => listing.id).join(",")}`,
     [batchSize, initialListings, queryString, total]
@@ -58,14 +59,16 @@ export function InfiniteListings({
     setNextOffset(initialListings.length);
     setHasMore(initialListings.length < total);
     setIsLoading(false);
+    loadingRef.current = false;
     setErrorText(null);
   }, [initialApplicationStates, initialFavoriteIds, initialListIds, initialListings, queryKey, total]);
 
   const loadNextBatch = useCallback(async () => {
-    if (!hasMore || isLoading) {
+    if (!hasMore || loadingRef.current) {
       return;
     }
 
+    loadingRef.current = true;
     setIsLoading(true);
     setErrorText(null);
 
@@ -87,7 +90,10 @@ export function InfiniteListings({
 
       const batch = (await response.json()) as ListingsBatchResponse;
 
-      setListings((current) => [...current, ...batch.listings]);
+      setListings((current) => {
+        const knownIds = new Set(current.map((listing) => listing.id));
+        return [...current, ...batch.listings.filter((listing) => !knownIds.has(listing.id))];
+      });
       setNextOffset(batch.nextOffset);
       setHasMore(batch.hasMore);
 
@@ -108,9 +114,10 @@ export function InfiniteListings({
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : "Unable to load more internships.");
     } finally {
+      loadingRef.current = false;
       setIsLoading(false);
     }
-  }, [batchSize, hasMore, isLoading, nextOffset, queryString]);
+  }, [batchSize, hasMore, nextOffset, queryString]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;

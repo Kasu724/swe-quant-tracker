@@ -4,6 +4,7 @@ import { getPreferredPostingUrl } from "@faang-quant/shared";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../../../lib/actions";
 import { getCurrentSession } from "../../../lib/auth";
 import { getInternshipBySlug } from "../../../lib/queries";
+import { safeExternalUrl } from "../../../lib/validation";
 
 export default async function InternshipDetailPage({
   params
@@ -19,7 +20,7 @@ export default async function InternshipDetailPage({
   }
 
   const { posting, favorite, applicationState } = result;
-  const outboundUrl = getPreferredPostingUrl(posting);
+  const outboundUrl = safeExternalUrl(getPreferredPostingUrl(posting));
 
   return (
     <Container className="space-y-8 py-12">
@@ -61,14 +62,9 @@ export default async function InternshipDetailPage({
                   </div>
                 </div>
               </div>
-              {posting.descriptionRaw ? (
-                <div
-                  className="prose prose-slate max-w-none"
-                  dangerouslySetInnerHTML={{ __html: posting.descriptionRaw }}
-                />
-              ) : (
-                <p className="text-sm text-slate-600">{posting.descriptionText ?? "No description provided."}</p>
-              )}
+              <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                {posting.descriptionText ?? "No description provided."}
+              </p>
             </CardContent>
           </Card>
 
@@ -81,7 +77,18 @@ export default async function InternshipDetailPage({
                     <div className="font-semibold text-slate-900">
                       {record.companySource.sourceName} · {record.companySource.sourceType}
                     </div>
-                    <div>{record.sourceUrl ?? record.applicationUrl}</div>
+                    {safeExternalUrl(record.sourceUrl ?? record.applicationUrl) ? (
+                      <a
+                        className="break-all text-brand-700 hover:underline"
+                        href={safeExternalUrl(record.sourceUrl ?? record.applicationUrl)!}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open source posting
+                      </a>
+                    ) : (
+                      <div>Source URL unavailable</div>
+                    )}
                     <div className="mt-2 text-xs text-slate-500">
                       Last seen {record.lastSeenAt.toLocaleString()}
                     </div>

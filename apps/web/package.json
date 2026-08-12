@@ -5,7 +5,8 @@
     "dev": "dotenv -e ../../.env -- next dev",
     "build": "dotenv -e ../../.env -- next build",
     "start": "dotenv -e ../../.env -- next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run ../../apps/web/test"
   },
   "dependencies": {
     "@faang-quant/config": "workspace:*",
@@ -18,8 +19,8 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.503.0",
-    "next": "^15.3.1",
-    "next-auth": "^4.24.11",
+    "next": "^15.5.21",
+    "next-auth": "^4.24.15",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.3.0",
@@ -33,6 +34,7 @@
     "dotenv-cli": "^8.0.0",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }
