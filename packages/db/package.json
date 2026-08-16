@@ -8,12 +8,12 @@
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "generate": "node ../../scripts/prisma-generate.mjs",
-    "migrate": "dotenv -e ../../.env -- prisma migrate deploy --schema prisma/schema.prisma",
-    "migrate:dev": "dotenv -e ../../.env -- prisma migrate dev --schema prisma/schema.prisma",
+    "generate": "node ../../scripts/prisma-command.mjs generate --schema prisma/schema.prisma",
+    "migrate": "node ../../scripts/prisma-command.mjs migrate deploy --schema prisma/schema.prisma",
+    "migrate:dev": "node ../../scripts/prisma-command.mjs migrate dev --schema prisma/schema.prisma",
     "seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
     "check": "dotenv -e ../../.env -- tsx src/check.ts",
-    "studio": "dotenv -e ../../.env -- prisma studio --schema prisma/schema.prisma"
+    "studio": "node ../../scripts/prisma-command.mjs studio --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@faang-quant/config": "workspace:*",

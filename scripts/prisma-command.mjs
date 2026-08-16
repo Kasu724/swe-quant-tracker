@@ -10,13 +10,17 @@ const dbDirectory = path.join(repoRoot, "packages", "db");
 
 loadEnvFile(path.join(repoRoot, ".env"));
 
+// Local PostgreSQL uses one connection URL for both application traffic and
+// migrations. Hosted poolers can still provide an explicit DIRECT_URL.
+process.env.DIRECT_URL ||= process.env.DATABASE_URL;
+
 const prismaCommand = path.join(
   dbDirectory,
   "node_modules",
   ".bin",
   process.platform === "win32" ? "prisma.CMD" : "prisma"
 );
-const result = spawnSync(prismaCommand, ["generate", "--schema", "prisma/schema.prisma"], {
+const result = spawnSync(prismaCommand, process.argv.slice(2), {
   cwd: dbDirectory,
   env: process.env,
   shell: process.platform === "win32",
@@ -24,7 +28,7 @@ const result = spawnSync(prismaCommand, ["generate", "--schema", "prisma/schema.
 });
 
 if (result.error) {
-  console.error(`[prisma-generate] Failed to start Prisma: ${result.error.message}`);
+  console.error(`[prisma-command] Failed to start Prisma: ${result.error.message}`);
 }
 
 process.exit(result.status ?? 1);
