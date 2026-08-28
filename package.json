@@ -15,7 +15,9 @@
     "dev": "turbo run dev --parallel",
     "dev:web": "pnpm --filter @faang-quant/web dev",
     "dev:worker": "pnpm --filter @faang-quant/worker dev",
+    "dev:desktop": "pnpm --filter @faang-quant/desktop dev",
     "build": "turbo run build",
+    "build:desktop": "pnpm --filter @faang-quant/desktop dist:win",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "db:generate": "pnpm --filter @faang-quant/db generate",
@@ -36,6 +38,11 @@
     "vitest": "^3.1.1"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild",
+      "sharp"
+    ],
     "overrides": {
       "nanoid@<3.3.18": "3.3.18",
       "postcss@<8.5.23": "8.5.26",

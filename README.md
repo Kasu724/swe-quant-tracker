@@ -327,7 +327,9 @@ connection-string details. Keep both database URLs server-only.
 pnpm dev
 pnpm dev:web
 pnpm dev:worker
+pnpm dev:desktop
 pnpm build
+pnpm build:desktop
 pnpm test
 pnpm db:generate
 pnpm db:migrate
@@ -338,6 +340,41 @@ pnpm worker:ingest
 pnpm worker:digest
 pnpm worker:discord
 ```
+
+## Windows Desktop App
+
+The Electron desktop client is fully local and does not require Docker, PostgreSQL, Node.js, or a
+hosted deployment. It starts a bundled Next.js server on a random loopback-only port, stores data in
+an embedded PostgreSQL-compatible PGlite database, and runs the ingestion scheduler in the
+background. The database and a locally generated authentication secret persist in the current
+Windows user's application-data directory.
+
+Build the installer and portable executable locally from PowerShell:
+
+```powershell
+pnpm build:desktop
+```
+
+The output is written to `dist/desktop/`:
+
+- `FAANG-Quant-Tracker-Setup-<version>-x64.exe` — standard Windows installer
+- `FAANG-Quant-Tracker-Portable-<version>-x64.exe` — no-install portable app
+
+Run the **Windows desktop release** workflow manually to download its build artifact, or push a
+version tag to create a GitHub Release and attach both executables:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+On first launch, the app creates the schema, seeds the tracked company/source catalog, and starts an
+ingestion pass. Internet access is needed to refresh public job listings, but the server, database,
+accounts, saved searches, and application state all remain on the user's computer. Runtime logs are
+written beside the local database under the app's Windows application-data directory.
+
+Windows may display a SmartScreen warning until the executables are signed with a trusted code-
+signing certificate.
 
 ## Seeded Admin Flow
 

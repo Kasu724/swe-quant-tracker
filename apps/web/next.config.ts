@@ -5,6 +5,7 @@ import type { NextConfig } from "next";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
   async headers() {
     return [
