@@ -1,0 +1,58 @@
+name: Windows desktop release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Match package version to tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        working-directory: apps/desktop
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.Substring(1)
+          npm version $version --no-git-tag-version
+
+      - name: Build Windows executables
+        run: pnpm build:desktop
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: FAANG-Quant-Tracker-Windows
+          path: dist/desktop/*.exe
+          if-no-files-found: error
+
+      - name: Attach executables to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $executables = Get-ChildItem "dist/desktop/*.exe" | Select-Object -ExpandProperty FullName
+          gh release create $env:GITHUB_REF_NAME $executables --verify-tag --generate-notes --title "FAANG Quant Tracker $env:GITHUB_REF_NAME"
