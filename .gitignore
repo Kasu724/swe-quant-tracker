@@ -2,6 +2,8 @@ node_modules
 .next
 .turbo
 dist
+build/
+apps/desktop/build
 coverage
 .env
 .env.local
