@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { Badge, Button, Card, CardContent } from "@faang-quant/ui";
 import type { ApplicationState } from "@faang-quant/db";
@@ -8,6 +7,7 @@ import { getPreferredPostingUrl } from "@faang-quant/shared";
 import type { FeedListing } from "../lib/queries";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../lib/actions";
 import { PostingListButton } from "./posting-list-button";
+import { IntentLink } from "./site-nav-link";
 import { safeExternalUrl } from "../lib/validation";
 
 export function ListingCard({
@@ -47,12 +47,12 @@ export function ListingCard({
               <Badge tone="neutral">{posting.remoteType}</Badge>
               {isNew ? <Badge tone="success">New</Badge> : null}
             </div>
-            <Link
+            <IntentLink
               href={`/internships/${posting.slug}`}
               className="block font-display text-xl font-semibold tracking-tight text-ink hover:text-brand-700"
             >
               {posting.title}
-            </Link>
+            </IntentLink>
             <div className="text-sm text-slate-500">
               {posting.locationRaw ?? "Location not listed"} / {posting.season ?? "Season TBD"}{" "}
               {posting.year ?? ""}

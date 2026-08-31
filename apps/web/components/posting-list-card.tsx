@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { CheckCircle2, ExternalLink, Trash2 } from "lucide-react";
 import { Badge, Button, Card, CardContent, Checkbox, cn } from "@faang-quant/ui";
 import { getPreferredPostingUrl } from "@faang-quant/shared";
 import type { PostingListItem } from "../lib/queries";
 import { safeExternalUrl } from "../lib/validation";
+import { IntentLink } from "./site-nav-link";
 
 export function PostingListCard({ item }: { item: PostingListItem }) {
   const [isCompleted, setIsCompleted] = useState(item.isCompleted);
@@ -109,7 +109,7 @@ export function PostingListCard({ item }: { item: PostingListItem }) {
                   </Badge>
                 ) : null}
               </div>
-              <Link
+              <IntentLink
                 href={`/internships/${item.posting.slug}`}
                 className={cn(
                   "block truncate font-display text-xl font-semibold text-ink hover:text-brand-700",
@@ -117,7 +117,7 @@ export function PostingListCard({ item }: { item: PostingListItem }) {
                 )}
               >
                 {item.posting.title}
-              </Link>
+              </IntentLink>
               <div className="text-sm text-slate-500">
                 {item.posting.locationRaw ?? "Location not listed"} /{" "}
                 {item.posting.remoteType}
@@ -139,7 +139,7 @@ export function PostingListCard({ item }: { item: PostingListItem }) {
               </Button>
             ) : null}
             <Button variant="secondary" asChild>
-              <Link href={`/internships/${item.posting.slug}`}>View details</Link>
+              <IntentLink href={`/internships/${item.posting.slug}`}>View details</IntentLink>
             </Button>
             <Button
               type="button"

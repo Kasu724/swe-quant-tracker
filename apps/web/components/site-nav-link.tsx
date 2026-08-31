@@ -14,7 +14,7 @@ type SiteNavLinkProps = LinkProps &
  * every page load while preserving instant-feeling navigation for mouse and
  * keyboard users.
  */
-export function SiteNavLink({ href, onMouseEnter, onFocus, ...props }: SiteNavLinkProps) {
+export function IntentLink({ href, onMouseEnter, onFocus, ...props }: SiteNavLinkProps) {
   const router = useRouter();
   const prefetched = useRef(false);
 
@@ -47,3 +47,5 @@ export function SiteNavLink({ href, onMouseEnter, onFocus, ...props }: SiteNavLi
     />
   );
 }
+
+export const SiteNavLink = IntentLink;

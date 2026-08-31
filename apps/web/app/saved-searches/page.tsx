@@ -3,6 +3,7 @@ import { Badge, Button, Card, CardContent, Container, EmptyState, PageHeader } f
 import { deleteSavedSearchAction } from "../../lib/actions";
 import { getLocalProfile } from "../../lib/local-profile";
 import { getUserFavorites, getUserSavedSearches } from "../../lib/queries";
+import { IntentLink } from "../../components/site-nav-link";
 
 export default async function SavedSearchesPage() {
   const user = await getLocalProfile();
@@ -68,9 +69,9 @@ export default async function SavedSearchesPage() {
             {favorites.map((favorite) => (
               <Card key={favorite.id}>
                 <CardContent className="space-y-2">
-                  <Link href={`/internships/${favorite.internshipPosting.slug}`} className="font-display text-xl font-semibold hover:text-brand-700">
+                  <IntentLink href={`/internships/${favorite.internshipPosting.slug}`} className="font-display text-xl font-semibold hover:text-brand-700">
                     {favorite.internshipPosting.title}
-                  </Link>
+                  </IntentLink>
                   <div className="text-sm text-slate-600">
                     {favorite.internshipPosting.companyNameSnapshot} · {favorite.internshipPosting.locationRaw ?? "Location not listed"}
                   </div>
