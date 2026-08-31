@@ -408,6 +408,7 @@ See `packages/db/prisma/schema.prisma` for the full schema.
 
 - adapters are defined in `packages/shared/src/adapters`
 - the worker normalizes each fetched record into canonical internship fields
+- independent Workday, Microsoft, and SmartRecruiters detail requests run concurrently within each page; set `detailConcurrency` in a source's request configuration to tune the limit from `1` to `10` (default `5`)
 - duplicate handling first checks source-record identity, then canonical fingerprint, then fuzzy title/location matching
 - source records keep raw payloads for traceability
 - stale postings are marked inactive after they fall past the configured last-seen threshold
@@ -509,6 +510,7 @@ Key variables:
 - `DAILY_DIGEST_CRON`
 - `DISCORD_NOTIFICATION_CRON` (outbox delivery schedule, default every minute)
 - `INGESTION_CONCURRENCY`
+- `INGESTION_URL_VALIDATION_CONCURRENCY` (bounded per-source URL validation concurrency, default `5`, maximum `20`)
 - `INGESTION_REQUEST_TIMEOUT_MS`
 - `INGESTION_SOURCE_TIMEOUT_MS`
 - `DISCORD_WEBHOOK_URL` (optional legacy process-wide webhook fallback; prefer Settings for profile-scoped company selection)

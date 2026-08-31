@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AshbyAdapter } from "../src/adapters/ashby";
-import { FetchTimeoutError, fetchJson } from "../src/adapters/base";
+import { FetchTimeoutError, fetchJson, mapWithConcurrency } from "../src/adapters/base";
 import { CustomApiAdapter } from "../src/adapters/custom-api";
 import { CustomHtmlAdapter } from "../src/adapters/custom-html";
 import { GreenhouseAdapter } from "../src/adapters/greenhouse";
@@ -8,6 +8,45 @@ import { LeverAdapter } from "../src/adapters/lever";
 import { WorkdayAdapter } from "../src/adapters/workday";
 
 describe("structured adapters", () => {
+  it("clamps detail concurrency and preserves mapper output order", async () => {
+    let active = 0;
+    let peakActive = 0;
+
+    const result = await mapWithConcurrency(
+      Array.from({ length: 12 }, (_, index) => index),
+      99,
+      async (value) => {
+        active += 1;
+        peakActive = Math.max(peakActive, active);
+        await new Promise((resolve) => setTimeout(resolve, value === 0 ? 20 : 0));
+        active -= 1;
+        return value * 2;
+      }
+    );
+
+    expect(peakActive).toBe(10);
+    expect(result).toEqual(Array.from({ length: 12 }, (_, index) => index * 2));
+  });
+
+  it("uses a safe default for invalid concurrency limits", async () => {
+    let active = 0;
+    let peakActive = 0;
+
+    await mapWithConcurrency(
+      Array.from({ length: 7 }, (_, index) => index),
+      0,
+      async (value) => {
+        active += 1;
+        peakActive = Math.max(peakActive, active);
+        await new Promise((resolve) => setTimeout(resolve, value === 0 ? 10 : 0));
+        active -= 1;
+        return value;
+      }
+    );
+
+    expect(peakActive).toBe(5);
+  });
+
   it("aborts adapter requests after the configured timeout", async () => {
     let receivedSignal: AbortSignal | undefined;
 
@@ -1626,5 +1665,58 @@ describe("structured adapters", () => {
     );
     expect(postings[0]?.locationRaw).toBe("US, CA, Santa Clara");
     expect(postings[0]?.payRaw).toContain("20 USD - 71 USD");
+  });
+
+  it("bounds Workday detail requests while preserving search order", async () => {
+    const adapter = new WorkdayAdapter();
+    let activeDetails = 0;
+    let peakDetails = 0;
+
+    const postings = await adapter.fetchPostings({
+      company: { name: "Example", slug: "example" },
+      source: {
+        sourceType: "WORKDAY",
+        sourceName: "Example Workday",
+        sourceIdentifier: "example-workday",
+        sourceUrl: "https://example.wd5.myworkdayjobs.com/wday/cxs/example/site/jobs",
+        requestConfigJson: { pageSize: 20, maxPages: 1, detailConcurrency: 2 }
+      },
+      fetchImpl: async (url, init) => {
+        const requestUrl = typeof url === "string" ? url : url.toString();
+
+        if (requestUrl.endsWith("/jobs") && init?.method === "POST") {
+          return new Response(
+            JSON.stringify({
+              total: 3,
+              jobPostings: [
+                { title: "First", externalPath: "/job/first", bulletFields: ["REQ-1"] },
+                { title: "Second", externalPath: "/job/second", bulletFields: ["REQ-2"] },
+                { title: "Third", externalPath: "/job/third", bulletFields: ["REQ-3"] }
+              ]
+            })
+          );
+        }
+
+        const jobId = new URL(requestUrl).pathname.split("/").at(-1) ?? "unknown";
+        const delayMs = jobId === "first" ? 20 : 0;
+        activeDetails += 1;
+        peakDetails = Math.max(peakDetails, activeDetails);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        activeDetails -= 1;
+
+        return new Response(
+          JSON.stringify({
+            jobPostingInfo: {
+              title: jobId,
+              jobReqId: `REQ-${jobId === "first" ? "1" : jobId === "second" ? "2" : "3"}`,
+              externalUrl: `https://example.com/jobs/${jobId}`
+            }
+          })
+        );
+      }
+    });
+
+    expect(peakDetails).toBe(2);
+    expect(postings.map((posting) => posting.externalJobId)).toEqual(["REQ-1", "REQ-2", "REQ-3"]);
   });
 });

@@ -1,6 +1,13 @@
 import { decodeHtmlEntities, normalizeWhitespace, stripHtml, uniqueStrings } from "../normalization/text";
 import type { AdapterFetchContext, AdapterFetchedPosting } from "../types";
-import { fetchJson, fetchJsonRequest, fetchText, type SourceAdapter } from "./base";
+import {
+  DEFAULT_DETAIL_CONCURRENCY,
+  fetchJson,
+  fetchJsonRequest,
+  fetchText,
+  mapWithConcurrency,
+  type SourceAdapter
+} from "./base";
 
 type CustomApiParserId =
   | "amazon-search-json"
@@ -768,6 +775,8 @@ async function fetchMicrosoftPostings(context: AdapterFetchContext): Promise<Ada
   const pageSize = getNumericConfig(context.source.requestConfigJson?.pageSize, 10);
   const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 15);
   const fetchDetails = getBooleanConfig(context.source.requestConfigJson?.fetchDetails, false);
+  const detailConcurrency =
+    context.source.requestConfigJson?.detailConcurrency ?? DEFAULT_DETAIL_CONCURRENCY;
   const postings: AdapterFetchedPosting[] = [];
   const seen = new Set<string>();
   let start = 0;
@@ -787,11 +796,11 @@ async function fetchMicrosoftPostings(context: AdapterFetchContext): Promise<Ada
       break;
     }
 
-    for (const position of positions) {
+    const pagePostings = await mapWithConcurrency(positions, detailConcurrency, async (position) => {
       const positionId = position.id !== undefined && position.id !== null ? String(position.id) : undefined;
 
       if (!positionId) {
-        continue;
+        return undefined;
       }
 
       let detailedPosition: MicrosoftPositionDetail | undefined;
@@ -811,12 +820,16 @@ async function fetchMicrosoftPostings(context: AdapterFetchContext): Promise<Ada
 
       const posting = normalizeMicrosoftPosting(
         {
-        ...position,
-        ...detailedPosition
+          ...position,
+          ...detailedPosition
         },
         context.source.sourceUrl
       );
 
+      return posting;
+    });
+
+    for (const posting of pagePostings) {
       if (!posting || seen.has(posting.externalJobId)) {
         continue;
       }
@@ -1704,6 +1717,8 @@ async function fetchSmartRecruitersPostings(
   const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 100), 100);
   const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 3);
   const fetchDetails = getBooleanConfig(context.source.requestConfigJson?.fetchDetails, true);
+  const detailConcurrency =
+    context.source.requestConfigJson?.detailConcurrency ?? DEFAULT_DETAIL_CONCURRENCY;
   const postings: AdapterFetchedPosting[] = [];
   const seen = new Set<string>();
   let offset = 0;
@@ -1723,7 +1738,7 @@ async function fetchSmartRecruitersPostings(
       break;
     }
 
-    for (const job of jobs) {
+    const pagePostings = await mapWithConcurrency(jobs, detailConcurrency, async (job) => {
       const detail =
         fetchDetails && job.id
           ? await fetchJson<SmartRecruitersJob>(
@@ -1731,8 +1746,10 @@ async function fetchSmartRecruitersPostings(
               buildSmartRecruitersDetailUrl(context.source.sourceUrl, job.id)
             )
           : job;
-      const posting = normalizeSmartRecruitersPosting(context, { ...job, ...detail });
+      return normalizeSmartRecruitersPosting(context, { ...job, ...detail });
+    });
 
+    for (const posting of pagePostings) {
       if (!posting || seen.has(posting.externalJobId)) {
         continue;
       }

@@ -132,6 +132,7 @@ const workerEnvSchema = baseEnvSchema.extend({
   DAILY_DIGEST_CRON: z.string().default("0 8 * * *"),
   DISCORD_NOTIFICATION_CRON: z.string().default("* * * * *"),
   INGESTION_CONCURRENCY: numericString.default(2),
+  INGESTION_URL_VALIDATION_CONCURRENCY: numericString.max(20).default(5),
   INGESTION_REQUEST_TIMEOUT_MS: numericString.default(20_000),
   INGESTION_SOURCE_TIMEOUT_MS: numericString.default(120_000),
   DISCORD_WEBHOOK_URL: discordWebhookUrl,

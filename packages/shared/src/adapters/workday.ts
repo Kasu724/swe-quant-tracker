@@ -1,6 +1,11 @@
 import { normalizeWhitespace, stripHtml } from "../normalization/text";
 import type { AdapterFetchContext, AdapterFetchedPosting } from "../types";
-import { fetchJsonRequest, type SourceAdapter } from "./base";
+import {
+  DEFAULT_DETAIL_CONCURRENCY,
+  fetchJsonRequest,
+  mapWithConcurrency,
+  type SourceAdapter
+} from "./base";
 
 type WorkdaySearchResponse = {
   total?: number;
@@ -207,6 +212,8 @@ export class WorkdayAdapter implements SourceAdapter {
   async fetchPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
     const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 20), 20);
     const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 10);
+    const detailConcurrency =
+      context.source.requestConfigJson?.detailConcurrency ?? DEFAULT_DETAIL_CONCURRENCY;
     const postings: AdapterFetchedPosting[] = [];
     const seen = new Set<string>();
     let offset = 0;
@@ -229,9 +236,9 @@ export class WorkdayAdapter implements SourceAdapter {
         break;
       }
 
-      for (const summary of summaries) {
+      const pagePostings = await mapWithConcurrency(summaries, detailConcurrency, async (summary) => {
         if (!summary.externalPath) {
-          continue;
+          return undefined;
         }
 
         const detailUrl = buildDetailUrl(context.source.sourceUrl, summary.externalPath);
@@ -239,11 +246,13 @@ export class WorkdayAdapter implements SourceAdapter {
         const detail = detailResponse.jobPostingInfo;
 
         if (!detail) {
-          continue;
+          return undefined;
         }
 
-        const posting = normalizeWorkdayPosting(summary, detail, detailUrl);
+        return normalizeWorkdayPosting(summary, detail, detailUrl);
+      });
 
+      for (const posting of pagePostings) {
         if (!posting || seen.has(posting.externalJobId)) {
           continue;
         }

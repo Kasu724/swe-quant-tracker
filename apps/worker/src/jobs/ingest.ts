@@ -12,11 +12,13 @@ import {
   isUsOrUnknownPostingLocation,
   isPotentialDuplicate,
   normalizeFetchedPosting,
+  type AdapterFetchedPosting,
+  type NormalizedPostingRecord,
   type NormalizedLocation
 } from "@faang-quant/shared";
 import { subDays } from "date-fns";
 import { sendImmediateAlertsForPostings } from "../lib/alerts";
-import { runWithConcurrency } from "../lib/concurrency";
+import { mapWithConcurrency, runWithConcurrency } from "../lib/concurrency";
 import { runDiscordNotificationCycle } from "../lib/discord";
 import { resolvePostingUrl } from "../lib/link-health";
 import { logger } from "../lib/logger";
@@ -36,12 +38,38 @@ type PostingWithCanonicalSource = Prisma.InternshipPostingGetPayload<{
 type IngestionTimingOptions = {
   requestTimeoutMs: number;
   sourceTimeoutMs: number;
+  urlValidationConcurrency: number;
 };
 
 type SourceProcessingResult = {
   discoveredPostingIds: string[];
   status: "success" | "partial" | "failed";
 };
+
+type IngestionStats = {
+  fetched: number;
+  skipped: number;
+  normalized: number;
+  discovered: number;
+  updated: number;
+  failed: number;
+  timingsMs: {
+    fetch: number;
+    preparationValidation: number;
+    persistence: number;
+    total: number;
+  };
+};
+
+type PreparedPosting = {
+  posting: AdapterFetchedPosting;
+  normalized: NormalizedPostingRecord;
+};
+
+type ValidatedPosting =
+  | { kind: "accepted"; posting: AdapterFetchedPosting; normalized: NormalizedPostingRecord }
+  | { kind: "skipped"; posting: AdapterFetchedPosting }
+  | { kind: "failed"; posting: AdapterFetchedPosting; error: unknown };
 
 export type IngestionProgress = {
   phase: "running" | "completed";
@@ -400,13 +428,34 @@ async function processSource(
   });
 
   const discoveredPostingIds: string[] = [];
-  const stats = {
+  const totalStartedAt = Date.now();
+  let activePhase: keyof IngestionStats["timingsMs"] | undefined;
+  let activePhaseStartedAt: number | undefined;
+  const stats: IngestionStats = {
     fetched: 0,
     skipped: 0,
     normalized: 0,
     discovered: 0,
     updated: 0,
-    failed: 0
+    failed: 0,
+    timingsMs: {
+      fetch: 0,
+      preparationValidation: 0,
+      persistence: 0,
+      total: 0
+    }
+  };
+  const beginPhase = (phase: keyof IngestionStats["timingsMs"]) => {
+    activePhase = phase;
+    activePhaseStartedAt = Date.now();
+  };
+  const endPhase = () => {
+    if (activePhase && activePhaseStartedAt !== undefined) {
+      stats.timingsMs[activePhase] = Date.now() - activePhaseStartedAt;
+    }
+
+    activePhase = undefined;
+    activePhaseStartedAt = undefined;
   };
 
   try {
@@ -417,11 +466,13 @@ async function processSource(
         company: source.company.name,
         sourceName: source.sourceName,
         requestTimeoutMs,
-        sourceTimeoutMs
+        sourceTimeoutMs,
+        urlValidationConcurrency: options.urlValidationConcurrency
       },
       "Starting source ingestion"
     );
 
+    beginPhase("fetch");
     const postings = await adapter.fetchPostings({
       company: {
         id: source.company.id,
@@ -442,7 +493,11 @@ async function processSource(
     });
 
     throwIfSourceAborted(controller.signal, source);
+    endPhase();
     stats.fetched = postings.length;
+
+    beginPhase("preparationValidation");
+    const preparedPostings: PreparedPosting[] = [];
 
     for (const posting of postings) {
       try {
@@ -475,52 +530,7 @@ async function processSource(
           continue;
         }
 
-        if (readBooleanConfig(requestConfig?.validatePostingUrls, false)) {
-          const resolution = await resolvePostingUrl(
-            {
-              sourceUrl: normalized.sourceUrl,
-              applicationUrl: normalized.applicationUrl
-            },
-            {
-              signal: controller.signal,
-              timeoutMs: requestTimeoutMs
-            }
-          );
-
-          throwIfSourceAborted(controller.signal, source);
-
-          if (!resolution.url && resolution.conclusiveDead) {
-            stats.skipped += 1;
-            continue;
-          }
-
-          if (resolution.url) {
-            normalized.applicationUrl = resolution.url;
-          } else {
-            logger.warn(
-              {
-                sourceId: source.id,
-                company: source.company.name,
-                externalJobId: normalized.externalJobId
-              },
-              "Keeping posting after inconclusive URL validation"
-            );
-          }
-        }
-
-        stats.normalized += 1;
-
-        const result = await persistPosting({
-          source,
-          normalized
-        });
-
-        if (result.discovered) {
-          stats.discovered += 1;
-          discoveredPostingIds.push(result.postingId);
-        } else {
-          stats.updated += 1;
-        }
+        preparedPostings.push({ posting, normalized });
       } catch (error) {
         throwIfSourceAborted(controller.signal, source);
         stats.failed += 1;
@@ -536,12 +546,121 @@ async function processSource(
       }
     }
 
+    const validatedPostings = readBooleanConfig(requestConfig?.validatePostingUrls, false)
+      ? await mapWithConcurrency(
+          preparedPostings,
+          options.urlValidationConcurrency,
+          async ({ posting, normalized }): Promise<ValidatedPosting> => {
+            try {
+              throwIfSourceAborted(controller.signal, source);
+
+              const resolution = await resolvePostingUrl(
+                {
+                  sourceUrl: normalized.sourceUrl,
+                  applicationUrl: normalized.applicationUrl
+                },
+                {
+                  signal: controller.signal,
+                  timeoutMs: requestTimeoutMs
+                }
+              );
+
+              throwIfSourceAborted(controller.signal, source);
+
+              if (!resolution.url && resolution.conclusiveDead) {
+                return { kind: "skipped", posting };
+              }
+
+              if (resolution.url) {
+                normalized.applicationUrl = resolution.url;
+              } else {
+                logger.warn(
+                  {
+                    sourceId: source.id,
+                    company: source.company.name,
+                    externalJobId: normalized.externalJobId
+                  },
+                  "Keeping posting after inconclusive URL validation"
+                );
+              }
+
+              return { kind: "accepted", posting, normalized };
+            } catch (error) {
+              throwIfSourceAborted(controller.signal, source);
+              return { kind: "failed", posting, error };
+            }
+          }
+        )
+      : preparedPostings.map(({ posting, normalized }) => ({
+          kind: "accepted" as const,
+          posting,
+          normalized
+        }));
+
+    throwIfSourceAborted(controller.signal, source);
+    endPhase();
+
+    beginPhase("persistence");
+    for (const result of validatedPostings) {
+      throwIfSourceAborted(controller.signal, source);
+
+      if (result.kind === "skipped") {
+        stats.skipped += 1;
+        continue;
+      }
+
+      if (result.kind === "failed") {
+        stats.failed += 1;
+        logger.error(
+          {
+            error: result.error,
+            sourceId: source.id,
+            company: source.company.name,
+            externalJobId: result.posting.externalJobId
+          },
+          "Skipping a posting that failed normalization or persistence"
+        );
+        continue;
+      }
+
+      stats.normalized += 1;
+
+      try {
+        const persisted = await persistPosting({
+          source,
+          normalized: result.normalized
+        });
+
+        if (persisted.discovered) {
+          stats.discovered += 1;
+          discoveredPostingIds.push(persisted.postingId);
+        } else {
+          stats.updated += 1;
+        }
+      } catch (error) {
+        throwIfSourceAborted(controller.signal, source);
+        stats.failed += 1;
+        logger.error(
+          {
+            error,
+            sourceId: source.id,
+            company: source.company.name,
+            externalJobId: result.posting.externalJobId
+          },
+          "Skipping a posting that failed normalization or persistence"
+        );
+      }
+    }
+    endPhase();
+
     await prisma.companySource.update({
       where: { id: source.id },
       data: {
         lastPolledAt: new Date()
       }
     });
+
+    stats.timingsMs.total = Date.now() - totalStartedAt;
 
     await prisma.ingestionRun.update({
       where: { id: run.id },
@@ -567,12 +686,15 @@ async function processSource(
       status: stats.failed > 0 ? "partial" : "success"
     };
   } catch (error) {
+    endPhase();
+    stats.timingsMs.total = Date.now() - totalStartedAt;
     logger.error(
       {
         error,
         sourceId: source.id,
         company: source.company.name,
-        sourceName: source.sourceName
+        sourceName: source.sourceName,
+        stats
       },
       "Source ingestion failed"
     );
@@ -730,7 +852,8 @@ export async function runIngestionCycle(options?: IngestionCycleOptions) {
       try {
         const result = await processSource(source, {
           requestTimeoutMs: env.INGESTION_REQUEST_TIMEOUT_MS,
-          sourceTimeoutMs: env.INGESTION_SOURCE_TIMEOUT_MS
+          sourceTimeoutMs: env.INGESTION_SOURCE_TIMEOUT_MS,
+          urlValidationConcurrency: env.INGESTION_URL_VALIDATION_CONCURRENCY
         });
         discoveredPostingIds.push(...result.discoveredPostingIds);
 

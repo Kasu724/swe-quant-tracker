@@ -7,6 +7,8 @@ import type {
 import { normalizeCompensationInterval } from "../normalization/compensation";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 20_000;
+export const DEFAULT_DETAIL_CONCURRENCY = 5;
+export const MAX_DETAIL_CONCURRENCY = 10;
 
 export interface SourceAdapter {
   readonly type: SourceTypeValue;
@@ -57,6 +59,52 @@ function abortReasonToError(reason: unknown, fallbackMessage: string): Error {
   }
 
   return new Error(fallbackMessage);
+}
+
+function clampDetailConcurrency(value: unknown): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim()
+        ? Number(value)
+        : Number.NaN;
+
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_DETAIL_CONCURRENCY;
+  }
+
+  return Math.min(Math.max(1, Math.floor(parsed)), MAX_DETAIL_CONCURRENCY);
+}
+
+export async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: unknown,
+  mapper: (item: T, index: number) => Promise<R> | R
+): Promise<R[]> {
+  if (items.length === 0) {
+    return [];
+  }
+
+  const results = new Array<R>(items.length);
+  const nextIndex = { value: 0 };
+  const workerCount = Math.min(clampDetailConcurrency(concurrency), items.length);
+
+  async function runWorker(): Promise<void> {
+    while (true) {
+      const index = nextIndex.value;
+      nextIndex.value += 1;
+
+      if (index >= items.length) {
+        return;
+      }
+
+      results[index] = await mapper(items[index] as T, index);
+    }
+  }
+
+  await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+
+  return results;
 }
 
 async function fetchWithTimeout(
