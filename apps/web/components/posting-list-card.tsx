@@ -79,7 +79,7 @@ export function PostingListCard({ item }: { item: PostingListItem }) {
   return (
     <Card
       className={cn(
-        "transition duration-200",
+        "transition-[border-color,box-shadow,opacity,transform] duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-brand-200 motion-safe:hover:shadow-lg",
         isCompleted && "bg-slate-50 opacity-60 grayscale"
       )}
     >

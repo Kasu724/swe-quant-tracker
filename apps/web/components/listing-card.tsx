@@ -34,7 +34,7 @@ export function ListingCard({
   const outboundUrl = safeExternalUrl(getPreferredPostingUrl(posting));
 
   return (
-    <Card>
+    <Card className="transition-[border-color,box-shadow,transform] duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-brand-200 motion-safe:hover:shadow-lg">
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="space-y-3">

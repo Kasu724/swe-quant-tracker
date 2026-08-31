@@ -245,22 +245,46 @@ export function serializeFeedListing(listing: ListingRow): FeedListing {
 }
 
 export async function getListings(filters: ListingFilters, userId?: string) {
+  // Keep the final shared matcher below for consistent semantics, but push
+  // cheap predicates into Postgres so page navigations and feed batches do not
+  // materialize every posting before filtering in Node.
+  const payKnownWhere: Prisma.InternshipPostingWhereInput =
+    filters.payKnown === "known" || !filters.includeMissingPay
+      ? {
+          OR: [{ compensationMin: { not: null } }, { compensationMax: { not: null } }]
+        }
+      : filters.payKnown === "unknown"
+        ? { compensationMin: null, compensationMax: null }
+        : {};
+  const minimumPayWhere: Prisma.InternshipPostingWhereInput =
+    typeof filters.minimumPay === "number"
+      ? {
+          OR: [
+            { compensationMax: { gte: filters.minimumPay } },
+            { compensationMax: null, compensationMin: { gte: filters.minimumPay } }
+          ]
+        }
+      : {};
+  const queryPredicates: Prisma.InternshipPostingWhereInput[] = [
+    trackedLocationWhere,
+    ...(filters.q
+      ? [
+          {
+            OR: [
+              { title: { contains: filters.q, mode: "insensitive" as const } },
+              { companyNameSnapshot: { contains: filters.q, mode: "insensitive" as const } },
+              { locationRaw: { contains: filters.q, mode: "insensitive" as const } }
+            ]
+          }
+        ]
+      : []),
+    payKnownWhere,
+    minimumPayWhere,
+    ...(filters.includeMissingLocation ? [] : [{ locationRaw: { not: null } }])
+  ];
   const broadWhere: Prisma.InternshipPostingWhereInput = {
     internshipFlag: true,
-    AND: [
-      trackedLocationWhere,
-      ...(filters.q
-        ? [
-            {
-              OR: [
-                { title: { contains: filters.q, mode: "insensitive" as const } },
-                { companyNameSnapshot: { contains: filters.q, mode: "insensitive" as const } },
-                { locationRaw: { contains: filters.q, mode: "insensitive" as const } }
-              ]
-            }
-          ]
-        : [])
-    ],
+    AND: queryPredicates,
     ...(filters.companySlugs.length || filters.companyBuckets.length
       ? {
           company: {

@@ -16,7 +16,7 @@ type ButtonProps = PropsWithChildren<
 
 export function Button({ children, className, variant = "primary", asChild = false, ...props }: ButtonProps) {
   const buttonClassName = cn(
-    "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60",
+    "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0",
     variant === "primary" &&
       "bg-brand-600 text-white shadow-sm hover:bg-brand-700",
     variant === "secondary" &&

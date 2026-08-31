@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Database, ListChecks } from "lucide-react";
 import { Button } from "@faang-quant/ui";
 import { ThemeToggle } from "./theme-toggle";
+import { SiteNavLink } from "./site-nav-link";
 
 const navLinks = [
   { href: "/", label: "Internships" },
@@ -32,13 +33,13 @@ export function SiteHeader() {
 
         <nav className="hidden items-center justify-center gap-5 md:flex">
           {navLinks.map((link) => (
-            <Link
+            <SiteNavLink
               key={link.href}
               href={link.href}
-              className="whitespace-nowrap text-sm font-medium text-slate-600 hover:text-brand-700"
+              className="whitespace-nowrap text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-brand-700"
             >
               {link.label}
-            </Link>
+            </SiteNavLink>
           ))}
         </nav>
 
@@ -66,13 +67,13 @@ export function SiteHeader() {
         className="flex gap-5 overflow-x-auto border-t border-slate-100 px-4 py-3 md:hidden"
       >
         {navLinks.map((link) => (
-          <Link
+          <SiteNavLink
             key={link.href}
             href={link.href}
-            className="shrink-0 whitespace-nowrap text-sm font-medium text-slate-600 hover:text-brand-700"
+            className="shrink-0 whitespace-nowrap text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-brand-700"
           >
             {link.label}
-          </Link>
+          </SiteNavLink>
         ))}
       </nav>
     </header>
