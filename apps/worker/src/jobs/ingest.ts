@@ -700,6 +700,26 @@ export async function runIngestionCycle(options?: IngestionCycleOptions) {
 
   reportProgress("running");
 
+  // Sources are processed concurrently, but Discord drains must be serialized
+  // so that a fast source can notify immediately without racing another
+  // source's outbox claim. Each scheduled drain starts as soon as the prior
+  // one completes; failures are logged and never abort ingestion.
+  let discordDrainChain: Promise<void> = Promise.resolve();
+  const scheduleDiscordDrain = (reason: string) => {
+    discordDrainChain = discordDrainChain.then(async () => {
+      try {
+        await runDiscordNotificationCycle();
+      } catch (error) {
+        logger.error(
+          { error, reason },
+          "Discord notification drain failed; durable outbox delivery will be retried"
+        );
+      }
+    });
+
+    return discordDrainChain;
+  };
+
   await runWithConcurrency(
     sources,
     options?.sourceId ? 1 : env.INGESTION_CONCURRENCY,
@@ -713,6 +733,12 @@ export async function runIngestionCycle(options?: IngestionCycleOptions) {
           sourceTimeoutMs: env.INGESTION_SOURCE_TIMEOUT_MS
         });
         discoveredPostingIds.push(...result.discoveredPostingIds);
+
+        if (result.discoveredPostingIds.length > 0) {
+          // Do not await here: the next source may continue ingesting while
+          // this serialized drain sends the newly committed postings.
+          void scheduleDiscordDrain(`source:${source.id}`);
+        }
 
         if (result.status === "failed") {
           failedSources += 1;
@@ -743,12 +769,17 @@ export async function runIngestionCycle(options?: IngestionCycleOptions) {
     );
   }
 
+  // Always enqueue a final sweep after all source-triggered drains. This
+  // catches rows left by an interrupted source and preserves the cron job as a
+  // later recovery path without delaying ingestion on transient failures.
+  const finalDiscordDrain = scheduleDiscordDrain("cycle-final");
+
   // Drain the durable Discord outbox as soon as this cycle has committed its
   // postings. The cron job remains as a retry/recovery path, while configured
   // destinations receive new postings without waiting for the next minute.
   const notificationResults = await Promise.allSettled([
     sendImmediateAlertsForPostings(discoveredPostingIds),
-    runDiscordNotificationCycle()
+    finalDiscordDrain
   ]);
 
   for (const [index, result] of notificationResults.entries()) {

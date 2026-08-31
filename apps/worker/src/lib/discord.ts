@@ -497,14 +497,26 @@ export async function deliverPendingDiscordNotifications(
   }
 }
 
-export async function runDiscordNotificationCycle(): Promise<void> {
-  try {
-    const env = readWorkerEnv();
-    await deliverPendingDiscordNotifications(env);
-  } catch (error) {
-    logger.error(
-      { error },
-      "Discord notification cycle failed"
-    );
-  }
+let discordCycleChain: Promise<void> = Promise.resolve();
+
+/**
+ * Serialize all cycle entry points (scheduler, CLI, and ingestion-triggered)
+ * within this worker process. Outbox leases still protect against a second
+ * worker process, while this avoids needless concurrent scans and webhook
+ * sends in the common single-worker deployment.
+ */
+export function runDiscordNotificationCycle(): Promise<void> {
+  discordCycleChain = discordCycleChain.then(async () => {
+    try {
+      const env = readWorkerEnv();
+      await deliverPendingDiscordNotifications(env);
+    } catch (error) {
+      logger.error(
+        { error },
+        "Discord notification cycle failed"
+      );
+    }
+  });
+
+  return discordCycleChain;
 }
