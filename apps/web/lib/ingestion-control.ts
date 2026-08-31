@@ -85,15 +85,19 @@ function startDevelopmentIngestion() {
   if (state.child && state.child.exitCode === null) return false;
 
   const workspaceRoot = findWorkspaceRoot(process.cwd());
-  const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const child = spawn(command, ["--filter", "@faang-quant/worker", "ingest"], {
+  const workerArguments = ["--filter", "@faang-quant/worker", "ingest"];
+  // Windows exposes pnpm as a .cmd shim, which Node cannot execute directly.
+  // Launch the shim through cmd.exe explicitly instead of using shell: true;
+  // the latter concatenates spawn arguments and is deprecated by Node.
+  const command = process.platform === "win32" ? process.env.ComSpec || "cmd.exe" : "pnpm";
+  const commandArguments =
+    process.platform === "win32"
+      ? ["/d", "/s", "/c", "pnpm.cmd", ...workerArguments]
+      : workerArguments;
+  const child = spawn(command, commandArguments, {
     cwd: workspaceRoot,
     env: { ...process.env, INGESTION_PROGRESS: "ipc" },
     windowsHide: true,
-    // pnpm is exposed as a .cmd shim on Windows. Node cannot launch that
-    // shim directly with spawn(), which otherwise fails synchronously with
-    // `spawn EINVAL` when the manual-ingestion button is used in dev mode.
-    shell: process.platform === "win32",
     stdio: ["pipe", "pipe", "pipe"]
   });
   state.child = child;
