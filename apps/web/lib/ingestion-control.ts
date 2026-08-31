@@ -90,6 +90,10 @@ function startDevelopmentIngestion() {
     cwd: workspaceRoot,
     env: { ...process.env, INGESTION_PROGRESS: "ipc" },
     windowsHide: true,
+    // pnpm is exposed as a .cmd shim on Windows. Node cannot launch that
+    // shim directly with spawn(), which otherwise fails synchronously with
+    // `spawn EINVAL` when the manual-ingestion button is used in dev mode.
+    shell: process.platform === "win32",
     stdio: ["pipe", "pipe", "pipe"]
   });
   state.child = child;
