@@ -8,6 +8,7 @@ import { getLocalProfile, LOCAL_PROFILE_EMAIL } from "./local-profile";
 import {
   applicationStateSchema,
   companySourceInputSchema,
+  discordWebhookUrlSchema,
   isValidTimeZone,
   isPrismaErrorCode,
   postingIdSchema,
@@ -186,6 +187,173 @@ export async function updateSettingsAction(formData: FormData) {
 
     throw error;
   }
+
+  revalidatePath("/settings");
+}
+
+/**
+ * Save the local profile's Discord destination and the companies it should
+ * announce. The webhook is kept server-side and is never rendered back into
+ * the settings page.
+ */
+export async function saveDiscordSettingsAction(formData: FormData) {
+  const user = await getLocalProfile();
+  const rawWebhookUrl = String(formData.get("discordWebhookUrl") ?? "").trim();
+  const clearWebhook = formData.get("clearDiscordWebhook") === "on";
+  const enabled = formData.get("discordEnabled") === "on";
+  const requestedCompanyIds = Array.from(
+    new Set(
+      formData
+        .getAll("discordCompanyId")
+        .map((value) => String(value).trim())
+        .filter((value) => postingIdSchema.safeParse(value).success)
+    )
+  );
+
+  const parsedWebhook = rawWebhookUrl
+    ? discordWebhookUrlSchema.safeParse(rawWebhookUrl)
+    : { success: true as const, data: undefined };
+
+  if (!parsedWebhook.success || requestedCompanyIds.length > 1_000) {
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.discordDestination.findUnique({
+      where: { userId: user.id },
+      select: { webhookUrl: true }
+    });
+
+    if (clearWebhook || (!existing && !parsedWebhook.data)) {
+      if (existing) {
+        await tx.discordDestination.delete({ where: { userId: user.id } });
+      }
+      return;
+    }
+
+    const companyRows = await tx.company.findMany({
+      where: {
+        id: { in: requestedCompanyIds },
+        isActive: true,
+        sources: {
+          some: {
+            isActive: true,
+            pollingEnabled: true
+          }
+        }
+      },
+      select: { id: true }
+    });
+    const companyIds = companyRows.map((company) => company.id);
+    const webhookUrl = parsedWebhook.data ?? existing?.webhookUrl;
+
+    if (!webhookUrl) {
+      return;
+    }
+
+    await tx.discordDestination.upsert({
+      where: { userId: user.id },
+      update: {
+        enabled,
+        ...(parsedWebhook.data
+          ? {
+              webhookUrl: parsedWebhook.data,
+              lastTestedAt: null,
+              lastTestStatus: null,
+              lastError: null
+            }
+          : {}),
+        companies: {
+          deleteMany: {},
+          create: companyIds.map((companyId) => ({ companyId }))
+        }
+      },
+      create: {
+        userId: user.id,
+        webhookUrl,
+        enabled,
+        companies: {
+          create: companyIds.map((companyId) => ({ companyId }))
+        }
+      }
+    });
+  });
+
+  revalidatePath("/settings");
+}
+
+/** Send a small test message through the saved destination so setup is verifiable. */
+export async function testDiscordDestinationAction() {
+  const user = await getLocalProfile();
+  const destination = await prisma.discordDestination.findUnique({
+    where: { userId: user.id },
+    select: { id: true, webhookUrl: true, enabled: true }
+  });
+
+  if (!destination) {
+    return;
+  }
+
+  if (!discordWebhookUrlSchema.safeParse(destination.webhookUrl).success) {
+    await prisma.discordDestination.update({
+      where: { id: destination.id },
+      data: {
+        lastTestedAt: new Date(),
+        lastTestStatus: false,
+        lastError: "The saved value is not a valid Discord webhook URL"
+      }
+    });
+    revalidatePath("/settings");
+    return;
+  }
+
+  const testedAt = new Date();
+  let lastError: string | null = null;
+  let success = false;
+
+  try {
+    const url = new URL(destination.webhookUrl);
+    url.searchParams.set("wait", "true");
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5_000);
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "faang-quant-tracker/1.0"
+        },
+        body: JSON.stringify({
+          content: "✅ FAANG + Quant Internship Tracker is connected.",
+          allowed_mentions: { parse: [] }
+        })
+      });
+
+      if (!response.ok) {
+        const responseBody = (await response.text()).trim().slice(0, 500);
+        lastError = responseBody
+          ? `Discord webhook returned HTTP ${response.status}: ${responseBody}`
+          : `Discord webhook returned HTTP ${response.status}`;
+      } else {
+        success = true;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (error) {
+    lastError = error instanceof Error ? error.message : "Discord connection test failed";
+  }
+
+  await prisma.discordDestination.update({
+    where: { id: destination.id },
+    data: {
+      lastTestedAt: testedAt,
+      lastTestStatus: success,
+      lastError: success ? null : lastError?.slice(0, 2_000) ?? "Discord connection test failed"
+    }
+  });
 
   revalidatePath("/settings");
 }

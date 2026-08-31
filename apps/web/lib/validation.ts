@@ -13,6 +13,49 @@ const sourceTypes = [
 
 export const postingIdSchema = z.string().trim().min(1).max(64);
 
+/** Discord-generated webhook URLs are the least-privilege way to connect a server. */
+export const discordWebhookUrlSchema = z.preprocess(
+  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+  z
+    .string()
+    .trim()
+    .url()
+    .max(2048)
+    .superRefine((value, context) => {
+      try {
+        const url = new URL(value);
+        const allowedHosts = new Set([
+          "discord.com",
+          "discordapp.com",
+          "canary.discord.com",
+          "ptb.discord.com"
+        ]);
+
+        if (
+          url.protocol !== "https:" ||
+          Boolean(url.username || url.password) ||
+          !allowedHosts.has(url.hostname.toLowerCase()) ||
+          !/^\/api(?:\/v\d+)?\/webhooks\/[^/]+\/[^/]+\/?$/.test(url.pathname)
+        ) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Must be an HTTPS Discord webhook URL"
+          });
+        }
+      } catch {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Must be an HTTPS Discord webhook URL"
+        });
+      }
+    })
+    .optional()
+);
+
+export function isDiscordWebhookUrl(value: string): boolean {
+  return discordWebhookUrlSchema.safeParse(value).success;
+}
+
 export const applicationStateSchema = z.enum(applicationStates);
 
 export const savedSearchInputSchema = z.object({

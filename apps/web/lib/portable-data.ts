@@ -38,6 +38,15 @@ export const portableDataSchema = z.object({
     alertEmailsEnabled: z.boolean(),
     digestTimezone: z.string().min(1).max(100)
   }),
+  // Webhook secrets are intentionally never exported. If a destination exists
+  // on the target machine, its safe preferences can still be restored.
+  discord: z
+    .object({
+      enabled: z.boolean(),
+      companySlugs: z.array(z.string().min(1).max(255)).max(10_000)
+    })
+    .nullable()
+    .optional(),
   savedSearches: z.array(
     z.object({
       name: z.string().min(1).max(100),
@@ -89,7 +98,7 @@ function asInputJson(value: unknown): Prisma.InputJsonValue {
 
 export async function createPortableData(theme: "light" | "dark" | "system"): Promise<PortableData> {
   const user = await getLocalProfile();
-  const [savedSearches, favorites, listItems, applicationStates, companies] = await Promise.all([
+  const [savedSearches, favorites, listItems, applicationStates, companies, discordDestination] = await Promise.all([
     prisma.savedSearch.findMany({ where: { userId: user.id }, orderBy: { createdAt: "asc" } }),
     prisma.userFavorite.findMany({
       where: { userId: user.id },
@@ -106,6 +115,17 @@ export async function createPortableData(theme: "light" | "dark" | "system"): Pr
     prisma.company.findMany({
       orderBy: { slug: "asc" },
       include: { sources: { orderBy: [{ priority: "asc" }, { sourceIdentifier: "asc" }] } }
+    }),
+    prisma.discordDestination.findUnique({
+      where: { userId: user.id },
+      select: {
+        enabled: true,
+        companies: {
+          select: {
+            company: { select: { slug: true } }
+          }
+        }
+      }
     })
   ]);
 
@@ -155,6 +175,12 @@ export async function createPortableData(theme: "light" | "dark" | "system"): Pr
       alertEmailsEnabled: user.alertEmailsEnabled,
       digestTimezone: user.digestTimezone
     },
+    discord: discordDestination
+      ? {
+          enabled: discordDestination.enabled,
+          companySlugs: discordDestination.companies.map((entry) => entry.company.slug)
+        }
+      : null,
     savedSearches: savedSearches.map((search) => ({
       name: search.name,
       filterJson: search.filterJson,
@@ -200,6 +226,40 @@ export async function importPortableData(data: PortableData, replacePersonalData
         digestTimezone: data.settings.digestTimezone
       }
     });
+
+    if (data.discord) {
+      const destination = await tx.discordDestination.findUnique({
+        where: { userId: user.id },
+        select: { id: true }
+      });
+
+      if (destination) {
+        const matchingCompanies = await tx.company.findMany({
+          where: {
+            slug: { in: data.discord.companySlugs },
+            isActive: true,
+            sources: {
+              some: {
+                isActive: true,
+                pollingEnabled: true
+              }
+            }
+          },
+          select: { id: true }
+        });
+
+        await tx.discordDestination.update({
+          where: { id: destination.id },
+          data: {
+            enabled: data.discord.enabled,
+            companies: {
+              deleteMany: {},
+              create: matchingCompanies.map((company) => ({ companyId: company.id }))
+            }
+          }
+        });
+      }
+    }
 
     if (replacePersonalData) {
       await tx.alertDelivery.deleteMany({ where: { userId: user.id } });

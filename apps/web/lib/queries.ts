@@ -549,6 +549,64 @@ export async function getUserSavedSearches(userId: string) {
   });
 }
 
+/**
+ * Return the local profile's Discord destination without ever serializing the
+ * webhook secret into the page. The company IDs are intentionally scoped to
+ * this destination so changing one profile cannot affect another database
+ * user if authentication is added later.
+ */
+export async function getDiscordSettings(userId: string) {
+  const [destination, companies] = await Promise.all([
+    prisma.discordDestination.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        enabled: true,
+        name: true,
+        lastTestedAt: true,
+        lastTestStatus: true,
+        lastError: true,
+        companies: {
+          select: { companyId: true }
+        }
+      }
+    }),
+    prisma.company.findMany({
+      where: {
+        isActive: true,
+        sources: {
+          some: {
+            isActive: true,
+            pollingEnabled: true
+          }
+        }
+      },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        companyBucket: true
+      }
+    })
+  ]);
+
+  return {
+    destination: destination
+      ? {
+          id: destination.id,
+          enabled: destination.enabled,
+          name: destination.name,
+          lastTestedAt: destination.lastTestedAt,
+          lastTestStatus: destination.lastTestStatus,
+          lastError: destination.lastError,
+          selectedCompanyIds: destination.companies.map((entry) => entry.companyId)
+        }
+      : null,
+    companies
+  };
+}
+
 export async function getUserFavorites(userId: string) {
   return prisma.userFavorite.findMany({
     where: { userId },

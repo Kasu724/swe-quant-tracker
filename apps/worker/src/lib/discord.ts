@@ -289,6 +289,63 @@ function leaseDuration(env: WorkerEnv): number {
   return Math.max(60_000, maximumAttemptDuration * (env.DISCORD_MAX_RETRIES + 1) + 30_000);
 }
 
+type DiscordDeliveryConfiguration = {
+  webhookUrl: string;
+  /** null means the legacy environment webhook, which historically announced every company. */
+  companyIds: string[] | null;
+};
+
+async function readDiscordDeliveryConfiguration(
+  env: WorkerEnv
+): Promise<DiscordDeliveryConfiguration | null> {
+  // The destination is stored per local profile. Keeping the secret in the
+  // database means the web settings page can own setup without requiring a
+  // worker restart or a process-wide webhook environment variable.
+  const destinationDelegate = (
+    prisma as typeof prisma & {
+      discordDestination?: {
+        findFirst: (args: unknown) => Promise<{
+          webhookUrl: string;
+          enabled: boolean;
+          companies: Array<{ companyId: string }>;
+        } | null>;
+      };
+    }
+  ).discordDestination;
+
+  if (destinationDelegate) {
+    const destination = await destinationDelegate.findFirst({
+      include: {
+        companies: {
+          select: { companyId: true }
+        }
+      }
+    });
+
+    // An explicitly saved destination, including a paused or unselected one,
+    // takes precedence over the legacy environment fallback.
+    if (destination) {
+      if (!destination.enabled || !destination.webhookUrl || destination.companies.length === 0) {
+        return null;
+      }
+
+      return {
+        webhookUrl: destination.webhookUrl,
+        companyIds: destination.companies.map((company) => company.companyId)
+      };
+    }
+  }
+
+  if (!env.DISCORD_WEBHOOK_URL) {
+    return null;
+  }
+
+  return {
+    webhookUrl: env.DISCORD_WEBHOOK_URL,
+    companyIds: null
+  };
+}
+
 export async function queueDiscordNotifications(postingIds: string[]): Promise<void> {
   const uniquePostingIds = Array.from(new Set(postingIds));
 
@@ -316,13 +373,22 @@ export async function deliverPendingDiscordNotifications(
     now?: () => Date;
   } = {}
 ): Promise<void> {
-  if (!env.DISCORD_WEBHOOK_URL) {
+  const configuration = await readDiscordDeliveryConfiguration(env);
+
+  if (!configuration) {
     return;
   }
 
   const queryTime = options.now?.() ?? new Date();
   const candidates = await prisma.discordNotification.findMany({
     where: {
+      ...(configuration.companyIds
+        ? {
+            internshipPosting: {
+              companyId: { in: configuration.companyIds }
+            }
+          }
+        : {}),
       OR: [
         {
           status: { in: [DiscordNotificationStatus.PENDING, DiscordNotificationStatus.FAILED] },
@@ -348,7 +414,7 @@ export async function deliverPendingDiscordNotifications(
   const client =
     options.client ??
     new DiscordWebhookClient({
-      webhookUrl: env.DISCORD_WEBHOOK_URL,
+      webhookUrl: configuration.webhookUrl,
       timeoutMs: env.DISCORD_WEBHOOK_TIMEOUT_MS,
       maxRetries: env.DISCORD_MAX_RETRIES
     });
@@ -434,12 +500,6 @@ export async function deliverPendingDiscordNotifications(
 export async function runDiscordNotificationCycle(): Promise<void> {
   try {
     const env = readWorkerEnv();
-
-    if (!env.DISCORD_WEBHOOK_URL) {
-      logger.debug("Discord webhook is not configured; notification delivery is disabled");
-      return;
-    }
-
     await deliverPendingDiscordNotifications(env);
   } catch (error) {
     logger.error(

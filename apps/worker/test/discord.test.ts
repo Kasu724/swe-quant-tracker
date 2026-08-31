@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   updateMany: vi.fn(),
   update: vi.fn(),
+  destinationFindFirst: vi.fn(),
   readWorkerEnv: vi.fn(),
   loggerInfo: vi.fn(),
   loggerError: vi.fn(),
@@ -28,6 +29,9 @@ vi.mock("@faang-quant/db", () => ({
       findMany: mocks.findMany,
       updateMany: mocks.updateMany,
       update: mocks.update
+    },
+    discordDestination: {
+      findFirst: mocks.destinationFindFirst
     }
   }
 }));
@@ -230,6 +234,7 @@ describe("Discord notification outbox", () => {
     vi.clearAllMocks();
     mocks.createMany.mockResolvedValue({ count: 0 });
     mocks.findMany.mockResolvedValue([]);
+    mocks.destinationFindFirst.mockResolvedValue(null);
   });
 
   it("queues unique posting IDs without attempting delivery", async () => {
@@ -249,6 +254,52 @@ describe("Discord notification outbox", () => {
     mocks.readWorkerEnv.mockReturnValue({ ...baseEnv, DISCORD_WEBHOOK_URL: undefined });
 
     await expect(runDiscordNotificationCycle()).resolves.toBeUndefined();
+
+    expect(mocks.findMany).not.toHaveBeenCalled();
+  });
+
+  it("uses the saved destination and limits delivery to its selected companies", async () => {
+    mocks.destinationFindFirst.mockResolvedValue({
+      webhookUrl: "https://discord.com/api/webhooks/saved/token",
+      enabled: true,
+      companies: [{ companyId: "company-1" }]
+    });
+    mocks.findMany.mockResolvedValue([
+      {
+        id: "notification-1",
+        internshipPostingId: posting.id,
+        attempts: 0,
+        internshipPosting: posting
+      }
+    ]);
+    mocks.updateMany.mockResolvedValue({ count: 1 });
+    mocks.update.mockResolvedValue({});
+    const client = {
+      send: vi.fn().mockResolvedValue({ providerMessageId: "message-1", attempts: 1 })
+    };
+
+    await deliverPendingDiscordNotifications(baseEnv as never, { client });
+
+    expect(mocks.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          internshipPosting: { companyId: { in: ["company-1"] } }
+        })
+      })
+    );
+    expect(client.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not fall back to the environment webhook when the saved destination is paused", async () => {
+    mocks.destinationFindFirst.mockResolvedValue({
+      webhookUrl: "https://discord.com/api/webhooks/saved/token",
+      enabled: false,
+      companies: [{ companyId: "company-1" }]
+    });
+
+    await deliverPendingDiscordNotifications(baseEnv as never, {
+      client: { send: vi.fn() }
+    });
 
     expect(mocks.findMany).not.toHaveBeenCalled();
   });

@@ -108,6 +108,7 @@ model User {
   postingListItems   UserPostingListItem[]
   applicationStates  UserApplicationState[]
   alertDeliveries    AlertDelivery[]
+  discordDestination DiscordDestination?
 }
 
 model Company {
@@ -124,6 +125,7 @@ model Company {
   updatedAt     DateTime          @updatedAt
   sources       CompanySource[]
   postings      InternshipPosting[]
+  discordSubscriptions DiscordDestinationCompany[]
 
   @@index([companyBucket, isActive])
   @@index([tags], type: Gin)
@@ -273,6 +275,35 @@ model DiscordNotification {
 
   @@index([status, nextAttemptAt])
   @@index([status, leaseExpiresAt])
+}
+
+model DiscordDestination {
+  id             String                       @id @default(cuid())
+  userId         String                       @unique
+  user           User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String                       @default("Discord")
+  webhookUrl     String
+  enabled        Boolean                      @default(true)
+  lastTestedAt   DateTime?
+  lastTestStatus Boolean?
+  lastError      String?
+  companies      DiscordDestinationCompany[]
+  createdAt      DateTime                     @default(now())
+  updatedAt      DateTime                     @updatedAt
+
+  @@index([enabled])
+}
+
+model DiscordDestinationCompany {
+  id            String            @id @default(cuid())
+  destinationId String
+  destination   DiscordDestination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  companyId     String
+  company       Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt     DateTime          @default(now())
+
+  @@unique([destinationId, companyId], map: "discord_destination_company_unique")
+  @@index([companyId])
 }
 
 model UserPostingListItem {

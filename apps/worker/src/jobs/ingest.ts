@@ -17,6 +17,7 @@ import {
 import { subDays } from "date-fns";
 import { sendImmediateAlertsForPostings } from "../lib/alerts";
 import { runWithConcurrency } from "../lib/concurrency";
+import { runDiscordNotificationCycle } from "../lib/discord";
 import { resolvePostingUrl } from "../lib/link-health";
 import { logger } from "../lib/logger";
 
@@ -742,14 +743,22 @@ export async function runIngestionCycle(options?: IngestionCycleOptions) {
     );
   }
 
+  // Drain the durable Discord outbox as soon as this cycle has committed its
+  // postings. The cron job remains as a retry/recovery path, while configured
+  // destinations receive new postings without waiting for the next minute.
   const notificationResults = await Promise.allSettled([
-    sendImmediateAlertsForPostings(discoveredPostingIds)
+    sendImmediateAlertsForPostings(discoveredPostingIds),
+    runDiscordNotificationCycle()
   ]);
 
   for (const [index, result] of notificationResults.entries()) {
     if (result.status === "rejected") {
       logger.error(
-        { error: result.reason, channel: "email", notificationIndex: index },
+        {
+          error: result.reason,
+          channel: index === 0 ? "email" : "discord",
+          notificationIndex: index
+        },
         "Post-ingestion notification dispatch failed"
       );
     }

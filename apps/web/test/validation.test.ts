@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isHttpUrl,
+  isDiscordWebhookUrl,
   isPrismaErrorCode,
   isValidTimeZone,
   readJsonObject,
@@ -15,6 +16,14 @@ describe("web input validation", () => {
     expect(isHttpUrl("javascript:alert(1)")).toBe(false);
     expect(isHttpUrl("data:text/html,bad")).toBe(false);
     expect(safeExternalUrl("javascript:alert(1)")).toBeNull();
+  });
+
+  it("accepts only Discord-owned HTTPS webhook URLs", () => {
+    expect(isDiscordWebhookUrl("https://discord.com/api/webhooks/123/token")).toBe(true);
+    expect(isDiscordWebhookUrl("https://discord.com/api/v10/webhooks/123/token")).toBe(true);
+    expect(isDiscordWebhookUrl("https://example.com/api/webhooks/123/token")).toBe(false);
+    expect(isDiscordWebhookUrl("http://discord.com/api/webhooks/123/token")).toBe(false);
+    expect(isDiscordWebhookUrl("https://discord.com/api/webhooks/123")).toBe(false);
   });
 
   it("allows local redirects and rejects protocol-relative or malformed paths", () => {

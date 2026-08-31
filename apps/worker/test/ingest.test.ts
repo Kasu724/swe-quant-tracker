@@ -58,7 +58,10 @@ vi.mock("@faang-quant/shared", () => ({
 }));
 
 vi.mock("../src/lib/alerts", () => ({ sendImmediateAlertsForPostings: vi.fn() }));
-vi.mock("../src/lib/discord", () => ({ queueDiscordNotifications: vi.fn() }));
+vi.mock("../src/lib/discord", () => ({
+  queueDiscordNotifications: vi.fn(),
+  runDiscordNotificationCycle: vi.fn()
+}));
 vi.mock("../src/lib/link-health", () => ({ resolvePostingUrl: vi.fn() }));
 vi.mock("../src/lib/logger", () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() }
