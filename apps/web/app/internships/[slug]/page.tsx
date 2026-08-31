@@ -25,9 +25,7 @@ export default async function InternshipDetailPage({
   return (
     <Container className="space-y-8 py-12">
       <PageHeader
-        eyebrow="Internship Detail"
         title={posting.title}
-        description={`${posting.companyNameSnapshot} · ${posting.locationRaw ?? "Location not listed"} · ${posting.remoteType}`}
         actions={
           outboundUrl ? (
             <Button asChild>

@@ -75,9 +75,7 @@ export async function InternshipsFeedPage({
     <div className="relative">
       <Container className="space-y-8 py-12 xl:max-w-none xl:pl-[22rem]">
         <PageHeader
-          eyebrow="Live Feed"
           title="Internship feed"
-          description="Search normalized SWE and quant internship postings from technology companies, trading firms, and quantitative employers."
           actions={
             <Button asChild>
               <a href={exportHref}>Export CSV</a>

@@ -14,9 +14,7 @@ export default async function AdminPage() {
   return (
     <Container className="space-y-10 py-12">
       <PageHeader
-        eyebrow="Local Data"
         title="Ingestion and source operations"
-        description="Trigger ingestion, inspect recent runs, review newly discovered internships, and manage company/source coverage."
         actions={<IngestionControl compact={false} />}
       />
 

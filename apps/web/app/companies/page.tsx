@@ -8,9 +8,7 @@ export default async function CompaniesPage() {
   return (
     <Container className="space-y-8 py-12">
       <PageHeader
-        eyebrow="Tracked Coverage"
         title="Tracked companies"
-        description="Only companies with active tracked sources are listed here, matching the current tracked-company set in the README."
       />
 
       {companies.length === 0 ? (

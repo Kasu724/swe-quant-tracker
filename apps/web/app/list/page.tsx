@@ -11,9 +11,7 @@ export default async function ListPage() {
   return (
     <Container className="space-y-8 py-12">
       <PageHeader
-        eyebrow="Your Applications"
         title="List"
-        description="Saved postings appear newest first. Check off applications as you complete them."
         actions={
           <Button asChild>
             <Link href="/">Browse internships</Link>

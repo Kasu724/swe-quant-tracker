@@ -14,9 +14,7 @@ export default async function SavedSearchesPage() {
   return (
     <Container className="space-y-10 py-12">
       <PageHeader
-        eyebrow="Local Library"
         title="Saved searches and favorites"
-        description="Manage alert cadences, inspect the filters you saved, and jump back into roles you’ve bookmarked."
       />
 
       <section className="space-y-4">

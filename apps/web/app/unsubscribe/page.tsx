@@ -21,13 +21,7 @@ export default async function UnsubscribePage({
   return (
     <Container className="space-y-8 py-12">
       <PageHeader
-        eyebrow="Email Preferences"
         title={success ? "Alerts disabled" : "Unsubscribe from email alerts"}
-        description={
-          success
-            ? "You will no longer receive internship alert emails."
-            : "Confirm if you want to disable all future alert emails on this machine."
-        }
       />
       <Card className="max-w-xl">
         <CardContent className="space-y-4">

@@ -49,7 +49,7 @@ export default function RootLayout({
       <head>
         <script id="theme-init" dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${sans.variable} ${display.variable} font-sans antialiased`}>
+      <body suppressHydrationWarning className={`${sans.variable} ${display.variable} font-sans antialiased`}>
         <SiteHeader />
         <main>{children}</main>
       </body>

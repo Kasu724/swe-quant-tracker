@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Database, ListChecks } from "lucide-react";
 import { Button } from "@faang-quant/ui";
-import { IngestionControl } from "./ingestion-control";
 import { ThemeToggle } from "./theme-toggle";
 
 const navLinks = [
@@ -76,7 +75,6 @@ export function SiteHeader() {
           </Link>
         ))}
       </nav>
-      <IngestionControl />
     </header>
   );
 }

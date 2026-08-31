@@ -9,9 +9,7 @@ export default async function SettingsPage() {
   return (
     <Container className="space-y-8 py-12">
       <PageHeader
-        eyebrow="Preferences"
         title="Local settings and backups"
-        description="Manage notifications and move your tracker configuration between machines."
       />
       <Card className="max-w-xl">
         <CardContent className="space-y-4">
