@@ -26,7 +26,7 @@ export default async function UnsubscribePage({
         description={
           success
             ? "You will no longer receive internship alert emails."
-            : "Confirm if you want to disable all future alert emails for this account."
+            : "Confirm if you want to disable all future alert emails on this machine."
         }
       />
       <Card className="max-w-xl">

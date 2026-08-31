@@ -1,6 +1,4 @@
-import { hash } from "bcryptjs";
-import { Prisma, PrismaClient, UserRole } from "@prisma/client";
-import { readSeedEnv } from "@faang-quant/config";
+import { Prisma, PrismaClient } from "@prisma/client";
 import { companySeeds, companySourceSeeds } from "../src/seed-data";
 
 const prisma = new PrismaClient();
@@ -128,35 +126,30 @@ async function seedCompanies() {
   });
 }
 
-async function seedAdminUser() {
-  const env = readSeedEnv();
-
-  if (!env.SEED_ADMIN_EMAIL || !env.SEED_ADMIN_PASSWORD) {
-    return;
-  }
-
-  const passwordHash = await hash(env.SEED_ADMIN_PASSWORD, 12);
-
-  await prisma.user.upsert({
-    where: { email: env.SEED_ADMIN_EMAIL.toLowerCase() },
-    update: {
-      passwordHash,
-      role: UserRole.ADMIN,
-      emailVerified: new Date()
-    },
-    create: {
-      email: env.SEED_ADMIN_EMAIL.toLowerCase(),
-      name: "Admin",
-      passwordHash,
-      role: UserRole.ADMIN,
-      emailVerified: new Date()
-    }
+async function seedLocalProfile() {
+  const existing = await prisma.user.findFirst({
+    orderBy: { createdAt: "asc" }
   });
+
+  if (existing) {
+    await prisma.user.update({
+      where: { id: existing.id },
+      data: { name: existing.name ?? "Local profile" }
+    });
+  } else {
+    await prisma.user.create({
+      data: {
+        email: "local@faang-quant-tracker.invalid",
+        name: "Local profile",
+        alertEmailsEnabled: false
+      }
+    });
+  }
 }
 
 async function main() {
   await seedCompanies();
-  await seedAdminUser();
+  await seedLocalProfile();
 
   console.info(
     `Seeded ${companySeeds.length} companies and ${companySourceSeeds.length} tracked pilot company sources.`

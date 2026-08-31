@@ -55,7 +55,6 @@ const baseEnv = {
   APP_BASE_URL: "http://localhost:3000",
   EMAIL_FROM: "test@example.com",
   EMAIL_PROVIDER: "console",
-  ADMIN_EMAILS: "admin@example.com",
   LISTING_NEW_DAYS: 7,
   POSTING_STALE_DAYS: 7,
   POLL_CRON: "*/30 * * * *",

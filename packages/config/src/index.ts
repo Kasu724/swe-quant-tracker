@@ -121,15 +121,11 @@ const baseEnvSchema = z.object({
   EMAIL_PROVIDER: z.enum(["console", "resend", "smtp"]).default("console"),
   RESEND_API_KEY: z.string().optional(),
   SMTP_URL: z.string().optional(),
-  ADMIN_EMAILS: z.string().default("admin@example.com"),
   LISTING_NEW_DAYS: numericString.default(7),
   POSTING_STALE_DAYS: numericString.default(7)
 });
 
-const webEnvSchema = baseEnvSchema.extend({
-  NEXTAUTH_URL: z.string().url().default("http://localhost:3000"),
-  NEXTAUTH_SECRET: z.string().min(16)
-});
+const webEnvSchema = baseEnvSchema;
 
 const workerEnvSchema = baseEnvSchema.extend({
   POLL_CRON: z.string().default("*/30 * * * *"),
@@ -144,10 +140,7 @@ const workerEnvSchema = baseEnvSchema.extend({
   DISCORD_NOTIFICATION_BATCH_SIZE: numericString.max(100).default(25)
 });
 
-const seedEnvSchema = baseEnvSchema.extend({
-  SEED_ADMIN_EMAIL: z.string().email().optional(),
-  SEED_ADMIN_PASSWORD: z.string().min(8).optional()
-});
+const seedEnvSchema = baseEnvSchema;
 
 export type BaseEnv = z.infer<typeof baseEnvSchema>;
 export type WebEnv = z.infer<typeof webEnvSchema>;
@@ -172,11 +165,4 @@ export function readWorkerEnv(input: NodeJS.ProcessEnv = process.env): WorkerEnv
 export function readSeedEnv(input: NodeJS.ProcessEnv = process.env): SeedEnv {
   ensureRepoEnvLoaded();
   return seedEnvSchema.parse(input);
-}
-
-export function parseAdminEmails(value: string): string[] {
-  return value
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
 }

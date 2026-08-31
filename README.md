@@ -27,7 +27,7 @@ normalization, fix stale links, or make the product easier to use are welcome. S
 - `PostgreSQL`
 - `Prisma`
 - `Tailwind CSS`
-- `NextAuth` credentials auth with email verification
+- automatic single-user local profile with portable JSON backup/restore
 - background worker with recurring polling and digest scheduling
 - durable Discord webhook notifications for newly discovered internships
 - monorepo with `pnpm` workspaces
@@ -36,7 +36,7 @@ normalization, fix stale links, or make the product easier to use are welcome. S
 
 ```text
 apps/
-  web/       Next.js site, auth, pages, APIs, admin UI
+  web/       Next.js site, pages, local APIs, source-management UI
   worker/    polling, normalization, dedupe, alert delivery
 packages/
   config/    env parsing
@@ -52,9 +52,9 @@ packages/
 - internship detail page
 - companies page
 - saved searches page
-- user settings page
-- admin dashboard
-- credentials auth with verification emails
+- local settings and portable backup/import page
+- source and ingestion dashboard
+- site-wide manual ingestion control with live source progress
 - favorites and application state tracking
 - immediate email alerts and daily digests
 - Greenhouse, Lever, and Ashby structured adapters
@@ -278,10 +278,10 @@ cannot slow down or break internship discovery. For one-off/serverless schedulin
 
 ## Supabase Cloud Database
 
-Supabase can host the PostgreSQL database used by Prisma, NextAuth, the web app, and the ingestion
-worker. The existing credentials auth remains in place; user accounts, password hashes,
-verification tokens, saved searches, posting lists, and application state are all stored in the
-cloud database. Supabase Auth and browser-side database access are intentionally not enabled.
+Supabase can host the PostgreSQL database used by Prisma, the web app, and the ingestion worker for
+private development or migration workflows. The application has no authentication and is designed
+as a local, single-user tool, so do not expose a hosted instance publicly. Saved searches, posting
+lists, and application state belong to the database's single local profile.
 
 1. Create a [Supabase project](https://supabase.com/dashboard) and open its **Connect** dialog.
 2. Copy `.env.supabase.example` into the deployment's secret/environment-variable configuration.
@@ -291,7 +291,7 @@ cloud database. Supabase Auth and browser-side database access are intentionally
    - persistent web/worker servers: direct connection or Supavisor session pooler on port `5432`
 4. Set `DIRECT_URL` to the direct connection, or the Supavisor session pooler on port `5432` when
    the machine is IPv4-only. Prisma migrations and database-copy tools use this URL.
-5. Set production `NEXTAUTH_URL`, `APP_BASE_URL`, `NEXTAUTH_SECRET`, and email-provider secrets.
+5. Set `APP_BASE_URL` and any email-provider secrets used for alerts.
 
 For a fresh cloud database with no local data to preserve:
 
@@ -314,8 +314,8 @@ pnpm db:cloud:copy
 On macOS or Linux, export the same two variables before running `pnpm db:cloud:copy`.
 
 The copy command refuses to run when the destination already contains public tables. It applies
-the committed Prisma migrations first, then copies all application data, including users and
-postings. After copying, set the deployment's pooled `DATABASE_URL` and run `pnpm db:check`.
+the committed Prisma migrations first, then copies all application data, including local profile
+state and postings. After copying, set the deployment's pooled `DATABASE_URL` and run `pnpm db:check`.
 
 See the official [Supabase Prisma guide](https://supabase.com/docs/guides/database/prisma) and
 [database connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres) for
@@ -341,13 +341,14 @@ pnpm worker:digest
 pnpm worker:discord
 ```
 
-## Windows Desktop App
+## Windows Tray Service
 
-The Electron desktop client is fully local and does not require Docker, PostgreSQL, Node.js, or a
-hosted deployment. It starts a bundled Next.js server on a random loopback-only port, stores data in
-an embedded PostgreSQL-compatible PGlite database, and runs the ingestion scheduler in the
-background. The database and a locally generated authentication secret persist in the current
-Windows user's application-data directory.
+The lightweight Windows launcher is fully local and does not require Docker, PostgreSQL, Node.js,
+or a hosted deployment. It starts a bundled Next.js server on a random loopback-only port, opens the
+dashboard in the user's default browser, stores data in an embedded PostgreSQL-compatible PGlite
+database, and runs the ingestion scheduler in the background. Closing the browser does not stop the
+service; use the system-tray menu to reopen the dashboard, run ingestion immediately, view logs, or
+exit cleanly. The database persists in the current Windows user's application-data directory.
 
 Build the installer and portable executable locally from PowerShell:
 
@@ -358,10 +359,10 @@ pnpm build:desktop
 The output is written to `dist/desktop/`:
 
 - `FAANG-Quant-Tracker-Setup-<version>-x64.exe` — standard Windows installer
-- `FAANG-Quant-Tracker-Portable-<version>-x64.exe` — no-install portable app
+- `FAANG-Quant-Tracker-Portable-<version>-x64.zip` — no-install portable tray service
 
 Run the **Windows desktop release** workflow manually to download its build artifact, or push a
-version tag to create a GitHub Release and attach both executables:
+version tag to create a GitHub Release and attach the installer and portable archive:
 
 ```bash
 git tag v1.0.0
@@ -370,18 +371,18 @@ git push origin v1.0.0
 
 On first launch, the app creates the schema, seeds the tracked company/source catalog, and starts an
 ingestion pass. Internet access is needed to refresh public job listings, but the server, database,
-accounts, saved searches, and application state all remain on the user's computer. Runtime logs are
+settings, saved searches, and application state all remain on the user's computer. Runtime logs are
 written beside the local database under the app's Windows application-data directory.
 
 Windows may display a SmartScreen warning until the executables are signed with a trusted code-
 signing certificate.
 
-## Seeded Admin Flow
+## Local Profile and Portability
 
-- the seed script creates an admin user from `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD`
-- default local values are in `.env.example`
-- verify local login at `/auth/signin`
-- admin tools live at `/admin`
+- the seed script creates one automatic local profile; there is no sign-in or account creation
+- favorites, saved jobs, saved searches, application state, and notification preferences attach to that profile
+- Settings exports this state plus company/source configuration as versioned JSON and can merge or replace it on another machine
+- source-management tools live at `/admin` and are labeled **Sources** in the site navigation
 
 ## Data Model Highlights
 
@@ -396,7 +397,6 @@ signing certificate.
 - `DiscordNotification`
 - `IngestionRun`
 - `User`
-- `VerificationToken`
 
 See `packages/db/prisma/schema.prisma` for the full schema.
 
@@ -438,7 +438,7 @@ workflow, source-quality expectations, test commands, and guidelines for handlin
 - newly created postings atomically create a `DiscordNotification` outbox row in the same database transaction
 - the independent Discord schedule drains that outbox with leases, bounded retries, rate-limit handling, and durable failure state
 - run `pnpm worker:discord` to process the outbox manually; webhook failures never roll back or block ingestion
-- unsubscribe links disable all future alert emails for the associated user
+- unsubscribe links disable all future alert emails for the local profile
 
 ## Internal APIs / Server Actions
 
@@ -451,16 +451,18 @@ Implemented route handlers:
 - `POST /api/saved-searches`
 - `POST /api/favorites`
 - `POST /api/application-state`
+- `GET|POST /api/ingestion`
+- `GET /api/portable-data/export`
+- `POST /api/portable-data/import`
 
 Implemented server actions include:
 
-- registration and verification-email dispatch
 - saved search creation and deletion
 - favorite toggling
 - application state updates
 - settings updates
 - unsubscribe handling
-- admin ingestion trigger
+- local settings and portable data import/export
 - company/source toggles
 - duplicate merge action
 
@@ -492,15 +494,11 @@ Key variables:
 
 - `DATABASE_URL`
 - `DIRECT_URL`
-- `NEXTAUTH_URL`
-- `NEXTAUTH_SECRET`
 - `APP_BASE_URL`
 - `EMAIL_PROVIDER`
 - `EMAIL_FROM`
 - `RESEND_API_KEY`
 - `SMTP_URL`
-- `SEED_ADMIN_EMAIL`
-- `SEED_ADMIN_PASSWORD`
 - `POLL_CRON`
 - `DAILY_DIGEST_CRON`
 - `DISCORD_NOTIFICATION_CRON` (outbox delivery schedule, default every minute)
@@ -516,10 +514,10 @@ Key variables:
 
 See `.env.example` for defaults.
 
-`EMAIL_PROVIDER=console` is intended for local development and logs email content to the web
-server instead of delivering it. Account registration shows a local verification button in this
-mode. Configure `EMAIL_PROVIDER=resend` with `RESEND_API_KEY`, or `EMAIL_PROVIDER=smtp` with
-`SMTP_URL`, to deliver verification emails to real inboxes.
+`EMAIL_PROVIDER=console` is intended for local development and logs alert email content to the web
+server instead of delivering it. Configure `EMAIL_PROVIDER=resend` with `RESEND_API_KEY`, or
+`EMAIL_PROVIDER=smtp` with `SMTP_URL`, to deliver alerts to the optional notification address in
+Settings.
 
 `DISCORD_WEBHOOK_URL` must be an HTTPS URL generated by Discord on a Discord-owned webhook host.
 Leave it empty to disable delivery without disabling ingestion. Never commit a real webhook URL.

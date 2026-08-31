@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { Badge, Button, Card, CardContent, Container, PageHeader } from "@faang-quant/ui";
 import { getPreferredPostingUrl } from "@faang-quant/shared";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../../../lib/actions";
-import { getCurrentSession } from "../../../lib/auth";
+import { getLocalProfile } from "../../../lib/local-profile";
 import { getInternshipBySlug } from "../../../lib/queries";
 import { safeExternalUrl } from "../../../lib/validation";
 
@@ -12,8 +12,8 @@ export default async function InternshipDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const session = await getCurrentSession();
-  const result = await getInternshipBySlug(slug, session?.user?.id);
+  const user = await getLocalProfile();
+  const result = await getInternshipBySlug(slug, user.id);
 
   if (!result) {
     notFound();

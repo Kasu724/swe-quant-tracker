@@ -21,7 +21,6 @@ export function InfiniteListings({
   batchSize,
   queryString,
   listHref,
-  showPersonalActions,
   favoriteIds: initialFavoriteIds,
   listIds: initialListIds,
   applicationStates: initialApplicationStates
@@ -31,7 +30,6 @@ export function InfiniteListings({
   batchSize: number;
   queryString: string;
   listHref: string;
-  showPersonalActions: boolean;
   favoriteIds: string[];
   listIds: string[];
   applicationStates: Record<string, ApplicationState>;
@@ -155,7 +153,6 @@ export function InfiniteListings({
             isFavorite={favoriteIds.has(listing.id)}
             isListed={listIds.has(listing.id)}
             applicationState={applicationStates[listing.id] as ApplicationState | undefined}
-            showPersonalActions={showPersonalActions}
             redirectTo={listHref}
           />
         ))}

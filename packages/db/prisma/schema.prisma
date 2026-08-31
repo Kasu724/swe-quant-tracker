@@ -93,23 +93,11 @@ enum IngestionRunStatus {
   PARTIAL
 }
 
-enum UserRole {
-  USER
-  ADMIN
-}
-
-enum VerificationPurpose {
-  EMAIL_VERIFY
-}
-
 model User {
   id                 String                 @id @default(cuid())
   email              String                 @unique
   name               String?
   image              String?
-  passwordHash       String?
-  emailVerified      DateTime?
-  role               UserRole               @default(USER)
   alertEmailsEnabled Boolean                @default(true)
   digestTimezone     String                 @default("America/New_York")
   unsubscribeToken   String                 @unique @default(cuid())
@@ -120,22 +108,6 @@ model User {
   postingListItems   UserPostingListItem[]
   applicationStates  UserApplicationState[]
   alertDeliveries    AlertDelivery[]
-  verificationTokens VerificationToken[]
-}
-
-model VerificationToken {
-  id         String              @id @default(cuid())
-  userId     String?
-  user       User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  identifier String
-  token      String              @unique
-  purpose    VerificationPurpose @default(EMAIL_VERIFY)
-  expires    DateTime
-  consumedAt DateTime?
-  createdAt  DateTime            @default(now())
-
-  @@index([identifier, purpose])
-  @@index([expires])
 }
 
 model Company {

@@ -87,7 +87,6 @@ export async function sendImmediateAlertsForPostings(postingIds: string[]) {
         alertsEnabled: true,
         alertCadence: AlertCadence.IMMEDIATE,
         user: {
-          emailVerified: { not: null },
           alertEmailsEnabled: true
         }
       },
@@ -182,7 +181,6 @@ export async function sendDailyDigests() {
       alertsEnabled: true,
       alertCadence: AlertCadence.DAILY,
       user: {
-        emailVerified: { not: null },
         alertEmailsEnabled: true
       }
     },

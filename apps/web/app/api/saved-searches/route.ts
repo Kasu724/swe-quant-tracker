@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@faang-quant/db";
 import { listingFilterSchema } from "@faang-quant/shared";
-import { getCurrentSession } from "../../../lib/auth";
+import { getLocalProfile } from "../../../lib/local-profile";
 import { getUserSavedSearches } from "../../../lib/queries";
 import {
   isPrismaErrorCode,
@@ -12,22 +12,13 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const session = await getCurrentSession();
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const savedSearches = await getUserSavedSearches(session.user.id);
+  const user = await getLocalProfile();
+  const savedSearches = await getUserSavedSearches(user.id);
   return NextResponse.json({ savedSearches });
 }
 
 export async function POST(request: Request) {
-  const session = await getCurrentSession();
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await getLocalProfile();
 
   const body = await readJsonObject(request);
 
@@ -49,7 +40,7 @@ export async function POST(request: Request) {
 
   const duplicate = await prisma.savedSearch.findFirst({
     where: {
-      userId: session.user.id,
+      userId: user.id,
       name: input.data.name
     },
     select: { id: true }
@@ -64,7 +55,7 @@ export async function POST(request: Request) {
   try {
     savedSearch = await prisma.savedSearch.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         name: input.data.name ?? generatedName,
         filterJson: filters.data,
         alertsEnabled: input.data.alertsEnabled ?? true,

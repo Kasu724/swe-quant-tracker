@@ -11,7 +11,6 @@ export * from "./providers/console";
 export * from "./providers/resend";
 export * from "./providers/smtp";
 export * from "./templates/alerts";
-export * from "./templates/verification";
 
 export function createMailProvider(): MailProvider {
   const env = readBaseEnv();

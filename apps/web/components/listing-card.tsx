@@ -15,14 +15,12 @@ export function ListingCard({
   isFavorite,
   isListed,
   applicationState,
-  showPersonalActions,
   redirectTo
 }: {
   posting: FeedListing;
   isFavorite: boolean;
   isListed: boolean;
   applicationState?: ApplicationState | null;
-  showPersonalActions: boolean;
   redirectTo: string;
 }) {
   const discoveredAt = new Date(posting.discoveredAt);
@@ -67,7 +65,6 @@ export function ListingCard({
             <PostingListButton
               postingId={posting.id}
               initialListed={isListed}
-              isAuthenticated={showPersonalActions}
             />
           </div>
         </div>
@@ -93,8 +90,7 @@ export function ListingCard({
               </a>
             </Button>
           ) : null}
-          {showPersonalActions ? (
-            <>
+          <>
               <form action={toggleFavoriteAction}>
                 <input type="hidden" name="postingId" value={posting.id} />
                 <input type="hidden" name="redirectTo" value={redirectTo} />
@@ -126,8 +122,7 @@ export function ListingCard({
                   {applicationState === "HIDDEN" ? "Unhide" : "Hide"}
                 </Button>
               </form>
-            </>
-          ) : null}
+          </>
         </div>
       </CardContent>
     </Card>

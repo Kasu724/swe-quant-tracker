@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@faang-quant/db";
-import { getCurrentSession } from "../../../lib/auth";
+import { getLocalProfile } from "../../../lib/local-profile";
 import { postingIdSchema, readJsonObject } from "../../../lib/validation";
 
 export const dynamic = "force-dynamic";
 
 async function getRequestContext(request: Request) {
-  const session = await getCurrentSession();
-
-  if (!session?.user?.id) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
-  }
+  const user = await getLocalProfile();
 
   const body = await readJsonObject(request);
   const postingId = postingIdSchema.safeParse(body?.postingId);
@@ -19,7 +15,7 @@ async function getRequestContext(request: Request) {
     return { error: NextResponse.json({ error: "A valid posting ID is required" }, { status: 400 }) };
   }
 
-  return { userId: session.user.id, postingId: postingId.data, body };
+  return { userId: user.id, postingId: postingId.data, body };
 }
 
 export async function POST(request: Request) {

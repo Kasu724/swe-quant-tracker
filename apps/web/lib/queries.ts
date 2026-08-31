@@ -663,8 +663,7 @@ export async function getAdminDashboardData() {
       where: {
         alertsEnabled: true,
         user: {
-          alertEmailsEnabled: true,
-          emailVerified: { not: null }
+          alertEmailsEnabled: true
         }
       },
       include: {

@@ -6,24 +6,16 @@ import { Button } from "@faang-quant/ui";
 
 export function PostingListButton({
   postingId,
-  initialListed,
-  isAuthenticated
+  initialListed
 }: {
   postingId: string;
   initialListed: boolean;
-  isAuthenticated: boolean;
 }) {
   const [isListed, setIsListed] = useState(initialListed);
   const [isPending, setIsPending] = useState(false);
 
   async function toggleList() {
     if (isPending) {
-      return;
-    }
-
-    if (!isAuthenticated) {
-      const callbackUrl = `${window.location.pathname}${window.location.search}`;
-      window.location.href = `/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`;
       return;
     }
 

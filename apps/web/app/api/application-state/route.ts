@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@faang-quant/db";
-import { getCurrentSession } from "../../../lib/auth";
+import { getLocalProfile } from "../../../lib/local-profile";
 import {
   applicationStateSchema,
   postingIdSchema,
@@ -10,11 +10,7 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const session = await getCurrentSession();
-
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const user = await getLocalProfile();
 
   const body = await readJsonObject(request);
   const postingId = postingIdSchema.safeParse(body?.postingId);
@@ -35,7 +31,7 @@ export async function POST(request: Request) {
 
   const uniquePosting = {
     userId_internshipPostingId: {
-      userId: session.user.id,
+      userId: user.id,
       internshipPostingId: postingId.data
     }
   };

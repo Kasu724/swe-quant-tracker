@@ -1,19 +1,19 @@
 import Link from "next/link";
-import { ListChecks } from "lucide-react";
+import { Database, ListChecks } from "lucide-react";
 import { Button } from "@faang-quant/ui";
-import type { Session } from "next-auth";
-import { LogoutButton } from "./logout-button";
+import { IngestionControl } from "./ingestion-control";
 import { ThemeToggle } from "./theme-toggle";
 
 const navLinks = [
   { href: "/", label: "Internships" },
   { href: "/list", label: "List" },
   { href: "/companies", label: "Companies" },
-  { href: "/saved-searches", label: "Saved Searches" },
+  { href: "/saved-searches", label: "Saved" },
+  { href: "/admin", label: "Sources" },
   { href: "/settings", label: "Settings" }
 ];
 
-export function SiteHeader({ session }: { session: Session | null }) {
+export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-white/60 bg-white/80 backdrop-blur-xl">
       <div className="grid min-h-20 w-full grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:px-8">
@@ -41,14 +41,6 @@ export function SiteHeader({ session }: { session: Session | null }) {
               {link.label}
             </Link>
           ))}
-          {session?.user.role === "ADMIN" ? (
-            <Link
-              href="/admin"
-              className="whitespace-nowrap text-sm font-medium text-slate-600 hover:text-brand-700"
-            >
-              Admin
-            </Link>
-          ) : null}
         </nav>
 
         <div className="flex items-center justify-self-end gap-3">
@@ -63,21 +55,11 @@ export function SiteHeader({ session }: { session: Session | null }) {
             </Link>
           </Button>
           <ThemeToggle />
-          {session ? (
-            <>
-              <span className="hidden text-sm text-slate-600 lg:inline">{session.user.email}</span>
-              <LogoutButton />
-            </>
-          ) : (
-            <>
-              <Button variant="ghost" asChild>
-                <Link href="/auth/signin">Sign in</Link>
-              </Button>
-              <Button asChild>
-                <Link href="/auth/register">Create account</Link>
-              </Button>
-            </>
-          )}
+          <Button variant="ghost" asChild className="hidden h-10 w-10 p-0 sm:inline-flex" title="Manage data sources">
+            <Link href="/admin" aria-label="Manage data sources">
+              <Database className="h-5 w-5" aria-hidden="true" />
+            </Link>
+          </Button>
         </div>
       </div>
       <nav
@@ -93,12 +75,8 @@ export function SiteHeader({ session }: { session: Session | null }) {
             {link.label}
           </Link>
         ))}
-        {session?.user.role === "ADMIN" ? (
-          <Link href="/admin" className="shrink-0 text-sm font-medium text-slate-600">
-            Admin
-          </Link>
-        ) : null}
       </nav>
+      <IngestionControl />
     </header>
   );
 }

@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "dotenv -e ../../.env -- next dev",
-    "build": "dotenv -e ../../.env -- next build",
+    "build": "node scripts/build.cjs",
     "start": "dotenv -e ../../.env -- next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run ../../apps/web/test"
@@ -15,12 +15,10 @@
     "@faang-quant/shared": "workspace:*",
     "@faang-quant/ui": "workspace:*",
     "@prisma/client": "^6.6.0",
-    "bcryptjs": "^3.0.2",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.503.0",
     "next": "^15.5.21",
-    "next-auth": "^4.24.15",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "tailwind-merge": "^3.3.0",

@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Badge, Button, Card, CardContent, Container, EmptyState, PageHeader } from "@faang-quant/ui";
 import { deleteSavedSearchAction } from "../../lib/actions";
-import { requireUser } from "../../lib/auth";
+import { getLocalProfile } from "../../lib/local-profile";
 import { getUserFavorites, getUserSavedSearches } from "../../lib/queries";
 
 export default async function SavedSearchesPage() {
-  const user = await requireUser();
+  const user = await getLocalProfile();
   const [savedSearches, favorites] = await Promise.all([
     getUserSavedSearches(user.id),
     getUserFavorites(user.id)
@@ -14,7 +14,7 @@ export default async function SavedSearchesPage() {
   return (
     <Container className="space-y-10 py-12">
       <PageHeader
-        eyebrow="Your Account"
+        eyebrow="Local Library"
         title="Saved searches and favorites"
         description="Manage alert cadences, inspect the filters you saved, and jump back into roles you’ve bookmarked."
       />
@@ -85,4 +85,3 @@ export default async function SavedSearchesPage() {
     </Container>
   );
 }
-

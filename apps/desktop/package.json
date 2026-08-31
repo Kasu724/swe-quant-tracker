@@ -1,11 +1,10 @@
 {
   "name": "@faang-quant/desktop",
   "version": "1.0.0",
-  "description": "Windows desktop client for the SWE + Quant Internship Tracker",
+  "description": "Windows tray service for the SWE + Quant Internship Tracker",
   "author": "Kasu724",
   "license": "MIT",
   "private": true,
-  "main": "main.cjs",
   "dependencies": {
     "@electric-sql/pglite": "0.5.5",
     "@electric-sql/pglite-socket": "0.2.8",
@@ -15,67 +14,12 @@
     "build:runtime": "node scripts/build-next.cjs && node scripts/prepare-runtime.cjs",
     "test:database": "node scripts/test-embedded-database.cjs",
     "test:packaged": "node scripts/test-packaged-runtime.cjs",
-    "dev": "pnpm build:runtime && electron .",
-    "dist:win": "pnpm build:runtime && electron-builder --win nsis portable --x64"
+    "dev": "pnpm build:runtime && node scripts/build-windows.cjs --dir --launch",
+    "dist:win": "pnpm build:runtime && node scripts/build-windows.cjs"
   },
   "devDependencies": {
-    "electron": "43.4.0",
-    "electron-builder": "26.15.3",
+    "app-builder-lib": "26.15.3",
     "esbuild": "0.27.7",
     "sharp": "0.35.3"
-  },
-  "build": {
-    "appId": "com.kasu724.faangquanttracker",
-    "productName": "FAANG Quant Tracker",
-    "copyright": "Copyright © 2026 Kasu724",
-    "asar": true,
-    "directories": {
-      "output": "../../dist/desktop"
-    },
-    "files": [
-      "main.cjs",
-      "runtime/**/*",
-      "package.json"
-    ],
-    "asarUnpack": [
-      "node_modules/@electric-sql/pglite/**/*"
-    ],
-    "extraResources": [
-      {
-        "from": "../web/.next/standalone",
-        "to": "server"
-      },
-      {
-        "from": "../../packages/db/prisma/migrations",
-        "to": "migrations"
-      },
-      {
-        "from": "build/seed.cjs",
-        "to": "runtime/seed.cjs"
-      },
-      {
-        "from": "build/worker.cjs",
-        "to": "runtime/worker.cjs"
-      },
-      {
-        "from": "build/worker-cli.cjs",
-        "to": "runtime/worker-cli.cjs"
-      }
-    ],
-    "win": {
-      "executableName": "FAANGQuantTracker",
-      "icon": "build/icon.png"
-    },
-    "nsis": {
-      "artifactName": "FAANG-Quant-Tracker-Setup-${version}-${arch}.${ext}",
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "FAANG Quant Tracker"
-    },
-    "portable": {
-      "artifactName": "FAANG-Quant-Tracker-Portable-${version}-${arch}.${ext}"
-    }
   }
 }

@@ -17,8 +17,7 @@
   },
   "dependencies": {
     "@faang-quant/config": "workspace:*",
-    "@prisma/client": "^6.6.0",
-    "bcryptjs": "^3.0.2"
+    "@prisma/client": "^6.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.2",

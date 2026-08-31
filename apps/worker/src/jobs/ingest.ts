@@ -42,6 +42,21 @@ type SourceProcessingResult = {
   status: "success" | "partial" | "failed";
 };
 
+export type IngestionProgress = {
+  phase: "running" | "completed";
+  totalSources: number;
+  completedSources: number;
+  activeSources: string[];
+  discovered: number;
+  failedSources: number;
+  partialSources: number;
+};
+
+type IngestionCycleOptions = {
+  sourceId?: string;
+  onProgress?: (progress: IngestionProgress) => void;
+};
+
 function toObject(value: Prisma.JsonValue | null): Record<string, unknown> | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
@@ -623,7 +638,7 @@ async function markAbandonedIngestionRuns(sourceTimeoutMs: number) {
   }
 }
 
-export async function runIngestionCycle(options?: { sourceId?: string }) {
+export async function runIngestionCycle(options?: IngestionCycleOptions) {
   const env = readWorkerEnv();
   await markAbandonedIngestionRuns(env.INGESTION_SOURCE_TIMEOUT_MS);
 
@@ -647,6 +662,15 @@ export async function runIngestionCycle(options?: { sourceId?: string }) {
 
   if (sources.length === 0) {
     logger.info("No active sources available for ingestion");
+    options?.onProgress?.({
+      phase: "completed",
+      totalSources: 0,
+      completedSources: 0,
+      activeSources: [],
+      discovered: 0,
+      failedSources: 0,
+      partialSources: 0
+    });
     return {
       sourcesProcessed: 0,
       discovered: 0,
@@ -659,11 +683,29 @@ export async function runIngestionCycle(options?: { sourceId?: string }) {
   const discoveredPostingIds: string[] = [];
   let failedSources = 0;
   let partialSources = 0;
+  let completedSources = 0;
+  const activeSources = new Set<string>();
+  const reportProgress = (phase: IngestionProgress["phase"]) => {
+    options?.onProgress?.({
+      phase,
+      totalSources: sources.length,
+      completedSources,
+      activeSources: Array.from(activeSources),
+      discovered: discoveredPostingIds.length,
+      failedSources,
+      partialSources
+    });
+  };
+
+  reportProgress("running");
 
   await runWithConcurrency(
     sources,
     options?.sourceId ? 1 : env.INGESTION_CONCURRENCY,
     async (source) => {
+      const sourceLabel = `${source.company.name} · ${source.sourceName}`;
+      activeSources.add(sourceLabel);
+      reportProgress("running");
       try {
         const result = await processSource(source, {
           requestTimeoutMs: env.INGESTION_REQUEST_TIMEOUT_MS,
@@ -682,6 +724,10 @@ export async function runIngestionCycle(options?: { sourceId?: string }) {
           { error, sourceId: source.id, company: source.company.name },
           "Source ingestion could not be started"
         );
+      } finally {
+        activeSources.delete(sourceLabel);
+        completedSources += 1;
+        reportProgress("running");
       }
     }
   );
@@ -719,6 +765,7 @@ export async function runIngestionCycle(options?: { sourceId?: string }) {
     },
     "Ingestion cycle completed"
   );
+  reportProgress("completed");
 
   return {
     sourcesProcessed: sources.length,

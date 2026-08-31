@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseAdminEmails, readBaseEnv, readWorkerEnv } from "../src";
+import { readBaseEnv, readWorkerEnv } from "../src";
 
 const minimumEnv = {
   DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/tracker"
@@ -23,12 +23,5 @@ describe("environment configuration", () => {
     expect(() =>
       readWorkerEnv({ ...minimumEnv, INGESTION_CONCURRENCY: "0" })
     ).toThrow();
-  });
-
-  it("normalizes configured administrator emails", () => {
-    expect(parseAdminEmails(" ADMIN@EXAMPLE.COM, second@example.com ,, ")).toEqual([
-      "admin@example.com",
-      "second@example.com"
-    ]);
   });
 });

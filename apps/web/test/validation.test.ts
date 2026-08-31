@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  accountRegistrationSchema,
   isHttpUrl,
   isPrismaErrorCode,
   isValidTimeZone,
@@ -10,33 +9,6 @@ import {
 } from "../lib/validation";
 
 describe("web input validation", () => {
-  it("normalizes compatibility characters and casing in email addresses", () => {
-    const result = accountRegistrationSchema.parse({
-      name: "User",
-      email: "  ＫＥＶＩＮ@Example.COM ",
-      password: "password123"
-    });
-
-    expect(result.email).toBe("kevin@example.com");
-  });
-
-  it("enforces registration field limits", () => {
-    expect(
-      accountRegistrationSchema.safeParse({
-        name: "x".repeat(101),
-        email: "user@example.com",
-        password: "password123"
-      }).success
-    ).toBe(false);
-    expect(
-      accountRegistrationSchema.safeParse({
-        name: "User",
-        email: "user@example.com",
-        password: "x".repeat(129)
-      }).success
-    ).toBe(false);
-  });
-
   it("allows only HTTP(S) external URLs", () => {
     expect(isHttpUrl("https://example.com/job")).toBe(true);
     expect(isHttpUrl("http://example.com/job")).toBe(true);

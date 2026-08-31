@@ -3,27 +3,21 @@ import {
   createCompanySourceAction,
   mergeDuplicatePostingsAction,
   toggleCompanyActiveAction,
-  toggleSourceActiveAction,
-  triggerIngestionAction
+  toggleSourceActiveAction
 } from "../../lib/actions";
-import { requireAdmin } from "../../lib/auth";
+import { IngestionControl } from "../../components/ingestion-control";
 import { getAdminDashboardData } from "../../lib/queries";
 
 export default async function AdminPage() {
-  await requireAdmin();
   const data = await getAdminDashboardData();
 
   return (
     <Container className="space-y-10 py-12">
       <PageHeader
-        eyebrow="Admin"
-        title="Ingestion and alert operations"
+        eyebrow="Local Data"
+        title="Ingestion and source operations"
         description="Trigger ingestion, inspect recent runs, review newly discovered internships, and manage company/source coverage."
-        actions={
-          <form action={triggerIngestionAction}>
-            <Button type="submit">Trigger ingestion</Button>
-          </form>
-        }
+        actions={<IngestionControl compact={false} />}
       />
 
       <section className="grid gap-4 xl:grid-cols-4">

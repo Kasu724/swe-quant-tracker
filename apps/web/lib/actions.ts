@@ -1,18 +1,11 @@
 "use server";
 
-import { spawn } from "node:child_process";
-import { resolve } from "node:path";
-import { hash } from "bcryptjs";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createMailProvider, renderVerificationEmail } from "@faang-quant/email";
 import { prisma } from "@faang-quant/db";
 import { listingFilterSchema } from "@faang-quant/shared";
-import { readBaseEnv } from "@faang-quant/config";
-import { requireAdmin, requireUser } from "./auth";
-import { createVerificationToken } from "./tokens";
+import { getLocalProfile, LOCAL_PROFILE_EMAIL } from "./local-profile";
 import {
-  accountRegistrationSchema,
   applicationStateSchema,
   companySourceInputSchema,
   isValidTimeZone,
@@ -25,96 +18,8 @@ function getRedirectPath(formData: FormData, fallback = "/internships") {
   return safeInternalPath(formData.get("redirectTo"), fallback);
 }
 
-export async function registerUserAction(formData: FormData) {
-  const input = accountRegistrationSchema.safeParse({
-    name: formData.get("name") ?? "",
-    email: formData.get("email"),
-    password: formData.get("password")
-  });
-
-  if (!input.success) {
-    redirect("/auth/register?error=invalid");
-  }
-
-  const { name, email, password } = input.data;
-
-  const passwordHash = await hash(password, 12);
-  const existing = await prisma.user.findUnique({
-    where: { email }
-  });
-
-  let userId = existing?.id;
-
-  if (existing?.emailVerified) {
-    redirect("/auth/register?error=email-in-use");
-  }
-
-  if (existing) {
-    await prisma.user.update({
-      where: { id: existing.id },
-      data: {
-        name,
-        passwordHash
-      }
-    });
-  } else {
-    const created = await prisma.user.create({
-      data: {
-        name,
-        email,
-        passwordHash
-      }
-    });
-
-    userId = created.id;
-  }
-
-  if (!userId) {
-    redirect("/auth/register?error=failed");
-  }
-
-  await prisma.verificationToken.deleteMany({
-    where: {
-      userId,
-      consumedAt: null
-    }
-  });
-
-  const token = await createVerificationToken(userId, email);
-  const env = readBaseEnv();
-  const verificationUrl = `${env.APP_BASE_URL}/auth/verify?token=${token}`;
-  const emailContent = renderVerificationEmail({
-    name,
-    verifyUrl: verificationUrl
-  });
-
-  try {
-    await createMailProvider().send({
-      to: email,
-      subject: emailContent.subject,
-      html: emailContent.html,
-      text: emailContent.text
-    });
-  } catch (error) {
-    console.error("[verification-email]", error);
-    redirect("/auth/register?error=email-delivery");
-  }
-
-  const verificationParams = new URLSearchParams({
-    sent: "1",
-    email
-  });
-
-  if (env.EMAIL_PROVIDER === "console") {
-    verificationParams.set("delivery", "console");
-    verificationParams.set("localToken", token);
-  }
-
-  redirect(`/auth/verify?${verificationParams.toString()}`);
-}
-
 export async function saveSearchAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await getLocalProfile();
   const name = String(formData.get("name") ?? "").trim();
   const rawFilter = String(formData.get("filterPayload") ?? "{}");
   const cadence = String(formData.get("alertCadence") ?? "IMMEDIATE");
@@ -155,7 +60,7 @@ export async function saveSearchAction(formData: FormData) {
 }
 
 export async function deleteSavedSearchAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await getLocalProfile();
   const searchId = String(formData.get("savedSearchId") ?? "");
 
   if (!postingIdSchema.safeParse(searchId).success) {
@@ -173,7 +78,7 @@ export async function deleteSavedSearchAction(formData: FormData) {
 }
 
 export async function toggleFavoriteAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await getLocalProfile();
   const postingId = String(formData.get("postingId") ?? "");
   const redirectTo = getRedirectPath(formData);
 
@@ -212,7 +117,7 @@ export async function toggleFavoriteAction(formData: FormData) {
 }
 
 export async function updateApplicationStateAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await getLocalProfile();
   const postingId = String(formData.get("postingId") ?? "");
   const redirectTo = getRedirectPath(formData);
   const state = applicationStateSchema.safeParse(formData.get("state"));
@@ -249,21 +154,38 @@ export async function updateApplicationStateAction(formData: FormData) {
 }
 
 export async function updateSettingsAction(formData: FormData) {
-  const user = await requireUser();
+  const user = await getLocalProfile();
   const alertEmailsEnabled = formData.get("alertEmailsEnabled") === "on";
   const digestTimezone = String(formData.get("digestTimezone") ?? "America/New_York");
+  const notificationEmail = String(formData.get("notificationEmail") ?? "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase();
 
-  if (!isValidTimeZone(digestTimezone)) {
+  if (
+    !isValidTimeZone(digestTimezone) ||
+    (notificationEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(notificationEmail)) ||
+    notificationEmail.length > 320
+  ) {
     return;
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      alertEmailsEnabled,
-      digestTimezone
+  try {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        email: notificationEmail || LOCAL_PROFILE_EMAIL,
+        alertEmailsEnabled: Boolean(notificationEmail) && alertEmailsEnabled,
+        digestTimezone
+      }
+    });
+  } catch (error) {
+    if (isPrismaErrorCode(error, "P2002")) {
+      return;
     }
-  });
+
+    throw error;
+  }
 
   revalidatePath("/settings");
 }
@@ -283,23 +205,7 @@ export async function unsubscribeAction(formData: FormData) {
   redirect(result.count > 0 ? "/unsubscribe?success=1" : "/unsubscribe?error=invalid");
 }
 
-export async function triggerIngestionAction() {
-  await requireAdmin();
-
-  const repoRoot = resolve(process.cwd(), "../..");
-  const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-  const child = spawn(command, ["--filter", "@faang-quant/worker", "ingest"], {
-    cwd: repoRoot,
-    detached: true,
-    stdio: "ignore"
-  });
-
-  child.unref();
-  revalidatePath("/admin");
-}
-
 export async function toggleCompanyActiveAction(formData: FormData) {
-  await requireAdmin();
   const companyId = String(formData.get("companyId") ?? "");
   const nextValue = formData.get("isActive") === "true";
 
@@ -317,7 +223,6 @@ export async function toggleCompanyActiveAction(formData: FormData) {
 }
 
 export async function toggleSourceActiveAction(formData: FormData) {
-  await requireAdmin();
   const sourceId = String(formData.get("sourceId") ?? "");
   const isActive = formData.get("isActive") === "true";
   const pollingEnabled = formData.get("pollingEnabled") === "true";
@@ -338,7 +243,6 @@ export async function toggleSourceActiveAction(formData: FormData) {
 }
 
 export async function createCompanySourceAction(formData: FormData) {
-  await requireAdmin();
   const sourceType = String(formData.get("sourceType") ?? "GREENHOUSE");
   const sourceIdentifier = String(formData.get("sourceIdentifier") ?? "").trim();
   const sourceUrl = String(formData.get("sourceUrl") ?? "").trim();
@@ -368,7 +272,6 @@ export async function createCompanySourceAction(formData: FormData) {
 }
 
 export async function mergeDuplicatePostingsAction(formData: FormData) {
-  await requireAdmin();
   const sourcePostingId = String(formData.get("sourcePostingId") ?? "");
   const targetPostingId = String(formData.get("targetPostingId") ?? "");
 

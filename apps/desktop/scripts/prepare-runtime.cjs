@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const { isBuiltin } = require("node:module");
 const path = require("node:path");
 const esbuild = require("esbuild");
 const sharp = require("sharp");
@@ -94,13 +95,48 @@ function assertRequiredModules(standaloneWebDirectory) {
   }
 }
 
+const nodeModulesResolver = {
+  name: "node-modules-resolver",
+  setup(build) {
+    // esbuild searches parent directories for Yarn PnP manifests. Resolve bare
+    // imports with Node so an unrelated home-directory manifest cannot override
+    // this pnpm workspace's node_modules links.
+    build.onResolve({ filter: /^[^./]|^\.[^./]|^\.\.[^/]/ }, (args) => {
+      if (isBuiltin(args.path)) return { path: args.path, external: true };
+      if (args.path === "@prisma/client") return { path: args.path, external: true };
+
+      try {
+        return { path: require.resolve(args.path, { paths: [args.resolveDir] }) };
+      } catch {
+        return undefined;
+      }
+    });
+  }
+};
+
 async function main() {
   fs.mkdirSync(outputDirectory, { recursive: true });
 
-  await sharp(path.join(desktopDirectory, "resources", "icon.svg"))
+  const iconPng = await sharp(path.join(desktopDirectory, "resources", "icon.svg"))
     .resize(512, 512)
     .png()
-    .toFile(path.join(outputDirectory, "icon.png"));
+    .toBuffer();
+  fs.writeFileSync(path.join(outputDirectory, "icon.png"), iconPng);
+
+  // ICO supports PNG-compressed image entries on modern Windows.
+  const iconHeader = Buffer.alloc(22);
+  iconHeader.writeUInt16LE(0, 0);
+  iconHeader.writeUInt16LE(1, 2);
+  iconHeader.writeUInt16LE(1, 4);
+  iconHeader.writeUInt8(0, 6);
+  iconHeader.writeUInt8(0, 7);
+  iconHeader.writeUInt8(0, 8);
+  iconHeader.writeUInt8(0, 9);
+  iconHeader.writeUInt16LE(1, 10);
+  iconHeader.writeUInt16LE(32, 12);
+  iconHeader.writeUInt32LE(iconPng.length, 14);
+  iconHeader.writeUInt32LE(iconHeader.length, 18);
+  fs.writeFileSync(path.join(outputDirectory, "icon.ico"), Buffer.concat([iconHeader, iconPng]));
 
   fs.cpSync(
     path.join(webDirectory, ".next", "static"),
@@ -133,6 +169,7 @@ async function main() {
     format: "cjs",
     target: "node22",
     external: ["@prisma/client"],
+    plugins: [nodeModulesResolver],
     logLevel: "info"
   };
 

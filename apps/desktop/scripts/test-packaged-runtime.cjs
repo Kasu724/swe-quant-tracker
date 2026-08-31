@@ -23,11 +23,66 @@ function get(url) {
   return new Promise((resolve) => {
     const request = http.get(url, (response) => {
       response.resume();
-      resolve(response.statusCode >= 200 && response.statusCode < 500);
+      resolve(response.statusCode >= 200 && response.statusCode < 300);
     });
     request.setTimeout(1_000, () => request.destroy());
     request.once("error", () => resolve(false));
   });
+}
+
+function request(url, options = {}) {
+  return new Promise((resolve, reject) => {
+    const body = options.body ? JSON.stringify(options.body) : undefined;
+    const request = http.request(url, {
+      method: options.method || "GET",
+      headers: body ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(body) } : undefined
+    }, (response) => {
+      let responseBody = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => { responseBody += chunk; });
+      response.on("end", () => resolve({ status: response.statusCode, body: responseBody }));
+    });
+    request.setTimeout(5_000, () => request.destroy(new Error(`Timed out requesting ${url}`)));
+    request.once("error", reject);
+    if (body) request.write(body);
+    request.end();
+  });
+}
+
+async function verifyLocalFeatures(origin) {
+  const ingestion = await request(`${origin}/api/ingestion`);
+  if (ingestion.status !== 200 || typeof JSON.parse(ingestion.body).running !== "boolean") {
+    throw new Error(`Ingestion status endpoint failed (${ingestion.status}): ${ingestion.body}`);
+  }
+
+  const trigger = await request(`${origin}/api/ingestion`, { method: "POST" });
+  if (trigger.status !== 202 && trigger.status !== 409) {
+    throw new Error(`Ingestion trigger endpoint failed (${trigger.status}): ${trigger.body}`);
+  }
+
+  const backup = await request(`${origin}/api/portable-data/export?theme=dark`);
+  const backupData = JSON.parse(backup.body);
+  if (
+    backup.status !== 200 ||
+    backupData.format !== "faang-quant-tracker-backup" ||
+    backupData.version !== 1 ||
+    backupData.settings?.theme !== "dark"
+  ) {
+    throw new Error(`Portable backup endpoint returned an invalid document (${backup.status}).`);
+  }
+
+  const imported = await request(`${origin}/api/portable-data/import`, {
+    method: "POST",
+    body: { data: backupData, replacePersonalData: false }
+  });
+  if (imported.status !== 200 || !JSON.parse(imported.body).result) {
+    throw new Error(`Portable backup import failed (${imported.status}): ${imported.body}`);
+  }
+
+  const removedAuthPage = await request(`${origin}/auth/signin`);
+  if (removedAuthPage.status !== 404) {
+    throw new Error(`Removed sign-in page unexpectedly returned ${removedAuthPage.status}.`);
+  }
 }
 
 function readLog(logPath) {
@@ -43,7 +98,7 @@ async function main() {
   const baselinePorts = listeningPorts();
   const userData = fs.mkdtempSync(path.join(os.tmpdir(), "faang-quant-desktop-smoke-"));
   const logPath = path.join(userData, "desktop-runtime.log");
-  const child = spawn(executable, [`--user-data-dir=${userData}`], { windowsHide: true, stdio: "ignore" });
+  const child = spawn(executable, [`--user-data-dir=${userData}`, "--no-open-browser", "--allow-multiple"], { windowsHide: true, stdio: "ignore" });
   let success = false;
   let failure;
   try {
@@ -56,9 +111,11 @@ async function main() {
       if (child.exitCode !== null) throw new Error(`Packaged executable exited with code ${child.exitCode}.\n${log.slice(-4_000)}`);
       const candidates = [...listeningPorts()].filter((port) => !baselinePorts.has(port));
       for (const port of candidates) {
-        if (await get(`http://127.0.0.1:${port}/`)) {
+        const origin = `http://127.0.0.1:${port}`;
+        if (await get(`${origin}/`)) {
+          await verifyLocalFeatures(origin);
           success = true;
-          console.log(`Packaged desktop runtime is healthy on http://127.0.0.1:${port} (pid ${child.pid}).`);
+          console.log(`Packaged desktop runtime and local APIs are healthy on ${origin} (pid ${child.pid}).`);
           break;
         }
       }

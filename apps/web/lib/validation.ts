@@ -11,15 +11,6 @@ const sourceTypes = [
   "BROWSER_AUTOMATION"
 ] as const;
 
-export const accountRegistrationSchema = z.object({
-  name: z.string().trim().max(100),
-  email: z
-    .string()
-    .transform((value) => value.normalize("NFKC").trim().toLowerCase())
-    .pipe(z.string().email().max(320)),
-  password: z.string().min(8).max(128)
-});
-
 export const postingIdSchema = z.string().trim().min(1).max(64);
 
 export const applicationStateSchema = z.enum(applicationStates);

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentSession } from "../../../lib/auth";
+import { getLocalProfile } from "../../../lib/local-profile";
 import {
   exportListingsCsv,
   getApplicationStateMap,
@@ -51,10 +51,10 @@ export async function GET(request: Request) {
     throw error;
   }
   const format = url.searchParams.get("format");
-  const session = await getCurrentSession();
+  const user = await getLocalProfile();
 
   if (format === "csv") {
-    const csv = await exportListingsCsv(filters, session?.user?.id);
+    const csv = await exportListingsCsv(filters, user.id);
 
     return new NextResponse(csv, {
       headers: {
@@ -64,19 +64,17 @@ export async function GET(request: Request) {
     });
   }
 
-  const listings = await getListings(filters, session?.user?.id);
+  const listings = await getListings(filters, user.id);
   const offset = readPositiveInteger(url.searchParams.get("offset"), 0);
   const limit = Math.max(1, Math.min(readPositiveInteger(url.searchParams.get("limit"), 25), 100));
   const batch = listings.slice(offset, offset + limit);
   const nextOffset = offset + batch.length;
   const postingIds = batch.map((listing) => listing.id);
-  const [favoriteIds, listIds, applicationStateMap] = session?.user?.id
-    ? await Promise.all([
-        getFavoritePostingIds(session.user.id, postingIds),
-        getPostingListIds(session.user.id, postingIds),
-        getApplicationStateMap(session.user.id, postingIds)
-      ])
-    : [new Set<string>(), new Set<string>(), new Map<string, string>()];
+  const [favoriteIds, listIds, applicationStateMap] = await Promise.all([
+    getFavoritePostingIds(user.id, postingIds),
+    getPostingListIds(user.id, postingIds),
+    getApplicationStateMap(user.id, postingIds)
+  ]);
 
   return NextResponse.json({
     listings: batch.map(serializeFeedListing),

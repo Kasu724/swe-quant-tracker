@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { Button, Container, EmptyState, PageHeader } from "@faang-quant/ui";
 import { PostingListCard } from "../../components/posting-list-card";
-import { requireUser } from "../../lib/auth";
+import { getLocalProfile } from "../../lib/local-profile";
 import { getUserPostingList } from "../../lib/queries";
 
 export default async function ListPage() {
-  const user = await requireUser();
+  const user = await getLocalProfile();
   const items = await getUserPostingList(user.id);
 
   return (

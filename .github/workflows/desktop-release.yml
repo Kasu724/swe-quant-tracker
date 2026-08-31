@@ -38,14 +38,16 @@ jobs:
           $version = $env:GITHUB_REF_NAME.Substring(1)
           npm version $version --no-git-tag-version
 
-      - name: Build Windows executables
+      - name: Build Windows tray service
         run: pnpm build:desktop
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: FAANG-Quant-Tracker-Windows
-          path: dist/desktop/*.exe
+          path: |
+            dist/desktop/*.exe
+            dist/desktop/*.zip
           if-no-files-found: error
 
       - name: Attach executables to GitHub Release
@@ -54,5 +56,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $executables = Get-ChildItem "dist/desktop/*.exe" | Select-Object -ExpandProperty FullName
-          gh release create $env:GITHUB_REF_NAME $executables --verify-tag --generate-notes --title "FAANG Quant Tracker $env:GITHUB_REF_NAME"
+          $artifacts = Get-ChildItem "dist/desktop/*.exe", "dist/desktop/*.zip" | Select-Object -ExpandProperty FullName
+          gh release create $env:GITHUB_REF_NAME $artifacts --verify-tag --generate-notes --title "FAANG Quant Tracker $env:GITHUB_REF_NAME"

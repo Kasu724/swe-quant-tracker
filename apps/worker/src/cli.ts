@@ -9,7 +9,13 @@ async function main() {
   const command = process.argv[2];
 
   if (command === "ingest") {
-    await runIngestionCycle();
+    const reportProgress = process.env.INGESTION_PROGRESS === "ipc"
+      ? (progress: unknown) => {
+          const encoded = Buffer.from(JSON.stringify(progress), "utf8").toString("base64");
+          process.stdout.write(`INGESTION_PROGRESS\t${encoded}\n`);
+        }
+      : undefined;
+    await runIngestionCycle({ onProgress: reportProgress });
     return;
   }
 

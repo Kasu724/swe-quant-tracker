@@ -3,7 +3,7 @@ import type { ApplicationState } from "@faang-quant/db";
 import { FilterSidebar } from "./filter-sidebar";
 import { InfiniteListings } from "./infinite-listings";
 import { saveSearchAction } from "../lib/actions";
-import { getCurrentSession } from "../lib/auth";
+import { getLocalProfile } from "../lib/local-profile";
 import {
   getApplicationStateMap,
   getFavoritePostingIds,
@@ -51,20 +51,18 @@ export async function InternshipsFeedPage({
   } catch {
     filters = parseListingFilters({});
   }
-  const session = await getCurrentSession();
+  const user = await getLocalProfile();
   const [listings, companies] = await Promise.all([
-    getListings(filters, session?.user?.id),
+    getListings(filters, user.id),
     getListingFilterMetadata()
   ]);
   const initialListings = listings.slice(0, LISTINGS_PER_PAGE);
   const postingIds = initialListings.map((listing) => listing.id);
-  const [favoriteIds, listIds, applicationStateMap] = session?.user?.id
-    ? await Promise.all([
-        getFavoritePostingIds(session.user.id, postingIds),
-        getPostingListIds(session.user.id, postingIds),
-        getApplicationStateMap(session.user.id, postingIds)
-      ])
-    : [new Set<string>(), new Set<string>(), new Map<string, string>()];
+  const [favoriteIds, listIds, applicationStateMap] = await Promise.all([
+    getFavoritePostingIds(user.id, postingIds),
+    getPostingListIds(user.id, postingIds),
+    getApplicationStateMap(user.id, postingIds)
+  ]);
   const queryString = buildSearchQuery(resolvedSearchParams);
   const listHref = queryString ? `${basePath}?${queryString}` : basePath;
   const exportHref = `/api/internships${queryString ? `?${queryString}&` : "?"}format=csv`;
@@ -87,11 +85,10 @@ export async function InternshipsFeedPage({
           }
         />
 
-        {session ? (
-          <form
-            action={saveSearchAction}
-            className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-panel md:grid-cols-[1.4fr_0.8fr_0.6fr_auto]"
-          >
+        <form
+          action={saveSearchAction}
+          className="grid gap-3 rounded-3xl border border-slate-200 bg-white p-5 shadow-panel md:grid-cols-[1.4fr_0.8fr_0.6fr_auto]"
+        >
             <Input name="name" placeholder="Saved search name" />
             <input type="hidden" name="filterPayload" value={JSON.stringify(filters)} />
             <Select name="alertCadence" defaultValue="IMMEDIATE">
@@ -102,8 +99,7 @@ export async function InternshipsFeedPage({
               Save the current filter set and receive email alerts for new matches.
             </div>
             <Button type="submit">Save search</Button>
-          </form>
-        ) : null}
+        </form>
 
         <div className="space-y-8">
           <aside className="xl:fixed xl:bottom-0 xl:left-0 xl:top-20 xl:z-20 xl:w-80 xl:overflow-hidden">
@@ -129,7 +125,6 @@ export async function InternshipsFeedPage({
                 batchSize={LISTINGS_PER_PAGE}
                 queryString={queryString}
                 listHref={listHref}
-                showPersonalActions={Boolean(session)}
                 favoriteIds={Array.from(favoriteIds)}
                 listIds={Array.from(listIds)}
                 applicationStates={applicationStates}
