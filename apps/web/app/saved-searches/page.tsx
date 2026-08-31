@@ -26,7 +26,7 @@ export default async function SavedSearchesPage() {
             description="Run a search from the internships page and save it for immediate or daily alerts."
           >
             <Button asChild>
-              <Link href="/internships">Browse internships</Link>
+              <Link href="/">Browse internships</Link>
             </Button>
           </EmptyState>
         ) : (

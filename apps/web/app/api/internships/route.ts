@@ -5,7 +5,7 @@ import {
   getApplicationStateMap,
   getFavoritePostingIds,
   getPostingListIds,
-  getListings,
+  getListingsPage,
   parseListingFilters,
   serializeFeedListing
 } from "../../../lib/queries";
@@ -64,10 +64,9 @@ export async function GET(request: Request) {
     });
   }
 
-  const listings = await getListings(filters, user.id);
   const offset = readPositiveInteger(url.searchParams.get("offset"), 0);
   const limit = Math.max(1, Math.min(readPositiveInteger(url.searchParams.get("limit"), 25), 100));
-  const batch = listings.slice(offset, offset + limit);
+  const { listings: batch, total } = await getListingsPage(filters, user.id, { offset, limit });
   const nextOffset = offset + batch.length;
   const postingIds = batch.map((listing) => listing.id);
   const [favoriteIds, listIds, applicationStateMap] = await Promise.all([
@@ -78,9 +77,9 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     listings: batch.map(serializeFeedListing),
-    total: listings.length,
+    total,
     nextOffset,
-    hasMore: nextOffset < listings.length,
+    hasMore: nextOffset < total,
     favoriteIds: Array.from(favoriteIds),
     listIds: Array.from(listIds),
     applicationStates: Object.fromEntries(applicationStateMap.entries())

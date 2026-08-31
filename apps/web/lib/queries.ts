@@ -1,4 +1,5 @@
 import { subDays } from "date-fns";
+import { unstable_cache } from "next/cache";
 import { prisma, type ApplicationState, type Prisma } from "@faang-quant/db";
 import {
   getPreferredPostingUrl,
@@ -244,10 +245,14 @@ export function serializeFeedListing(listing: ListingRow): FeedListing {
   };
 }
 
-export async function getListings(filters: ListingFilters, userId?: string) {
-  // Keep the final shared matcher below for consistent semantics, but push
-  // cheap predicates into Postgres so page navigations and feed batches do not
-  // materialize every posting before filtering in Node.
+type ListingPageOptions = {
+  offset: number;
+  limit: number;
+};
+
+function buildListingsWhere(filters: ListingFilters, userId?: string): Prisma.InternshipPostingWhereInput {
+  // These predicates are deliberately shared by the paginated and fallback
+  // paths so their totals and row membership cannot drift apart.
   const payKnownWhere: Prisma.InternshipPostingWhereInput =
     filters.payKnown === "known" || !filters.includeMissingPay
       ? {
@@ -282,7 +287,8 @@ export async function getListings(filters: ListingFilters, userId?: string) {
     minimumPayWhere,
     ...(filters.includeMissingLocation ? [] : [{ locationRaw: { not: null } }])
   ];
-  const broadWhere: Prisma.InternshipPostingWhereInput = {
+
+  return {
     internshipFlag: true,
     AND: queryPredicates,
     ...(filters.companySlugs.length || filters.companyBuckets.length
@@ -316,6 +322,66 @@ export async function getListings(filters: ListingFilters, userId?: string) {
         }
       : {})
   };
+}
+
+/**
+ * Free-text query and location filters use the shared canonicalized matcher,
+ * which cannot be represented exactly by Prisma. Keep those cases on the
+ * existing full-materialization path. Scalar filters with a matching database
+ * sort can be counted and paged in Postgres without changing row semantics.
+ */
+function canUsePaginatedListings(filters: ListingFilters): boolean {
+  return (
+    !filters.q &&
+    filters.locations.length === 0 &&
+    !filters.recentlyPostedDays &&
+    filters.includeMissingLocation &&
+    (filters.sort === "postingDate" ||
+      filters.sort === "newest" ||
+      filters.sort === "discoveredDate")
+  );
+}
+
+const getCachedListingFilterMetadata = unstable_cache(
+  async () => {
+    return prisma.company.findMany({
+      where: {
+        isActive: true,
+        postings: {
+          some: {
+            internshipFlag: true,
+            ...trackedLocationWhere
+          }
+        }
+      },
+      orderBy: {
+        name: "asc"
+      },
+      select: {
+        slug: true,
+        name: true,
+        _count: {
+          select: {
+            postings: {
+              where: {
+                internshipFlag: true,
+                ...trackedLocationWhere
+              }
+            }
+          }
+        }
+      }
+    });
+  },
+  ["listing-filter-metadata"],
+  { revalidate: 30 }
+);
+
+export async function getListings(filters: ListingFilters, userId?: string) {
+  // Keep the final shared matcher below for consistent semantics, but push
+  // cheap predicates into Postgres so page navigations and feed batches do not
+  // materialize every posting before filtering in Node.
+  const broadWhere = buildListingsWhere(filters, userId);
 
   const listings = await prisma.internshipPosting.findMany({
     where: broadWhere,
@@ -335,37 +401,89 @@ export async function getListings(filters: ListingFilters, userId?: string) {
   return sortListings(filtered, filters.sort);
 }
 
-export async function getListingFilterMetadata() {
-  const companies = await prisma.company.findMany({
-    where: {
-      isActive: true,
-      postings: {
-        some: {
-          internshipFlag: true,
-          ...trackedLocationWhere
-        }
-      }
-    },
-    orderBy: {
-      name: "asc"
-    },
-    select: {
-      slug: true,
-      name: true,
-      _count: {
-        select: {
-          postings: {
-            where: {
-              internshipFlag: true,
-              ...trackedLocationWhere
-            }
-          }
-        }
-      }
-    }
-  });
+export async function getListingsPage(
+  filters: ListingFilters,
+  userId: string | undefined,
+  { offset, limit }: ListingPageOptions
+) {
+  if (!canUsePaginatedListings(filters)) {
+    const listings = await getListings(filters, userId);
 
-  return companies;
+    return {
+      listings: listings.slice(offset, offset + limit),
+      total: listings.length
+    };
+  }
+
+  const where = buildListingsWhere(filters, userId);
+  const orderBy =
+    filters.sort === "discoveredDate"
+      ? { discoveredAt: "desc" as const }
+      : [
+          { postingDate: { sort: "desc" as const, nulls: "last" as const } },
+          { discoveredAt: "desc" as const }
+        ];
+  // Rows with a US country code are guaranteed to pass the shared location
+  // matcher. Empty country arrays need a small, bounded fallback because the
+  // matcher also infers countries from raw text (e.g. "Mexico, Guadalajara").
+  // Fetching only those unknown-location rows preserves exact offsets while
+  // avoiding materialization of the complete feed on every batch.
+  if (filters.usOnly) {
+    const knownWhere: Prisma.InternshipPostingWhereInput = {
+      ...where,
+      AND: [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { locationCountries: { has: "US" } }
+      ]
+    };
+    const unknownWhere: Prisma.InternshipPostingWhereInput = {
+      ...where,
+      AND: [
+        ...(Array.isArray(where.AND) ? where.AND : []),
+        { locationCountries: { isEmpty: true } }
+      ]
+    };
+    const [knownTotal, knownListings, unknownCandidates] = await Promise.all([
+      prisma.internshipPosting.count({ where: knownWhere }),
+      prisma.internshipPosting.findMany({
+        where: knownWhere,
+        select: listingSelect,
+        orderBy,
+        take: offset + limit
+      }),
+      prisma.internshipPosting.findMany({
+        where: unknownWhere,
+        select: listingSelect,
+        orderBy
+      })
+    ]);
+    const unknownListings = unknownCandidates.filter((posting) =>
+      matchesListingFilters(toListingRecord(posting), filters)
+    );
+    const merged = sortListings([...knownListings, ...unknownListings], filters.sort);
+
+    return {
+      listings: merged.slice(offset, offset + limit),
+      total: knownTotal + unknownListings.length
+    };
+  }
+
+  const [total, listings] = await Promise.all([
+    prisma.internshipPosting.count({ where }),
+    prisma.internshipPosting.findMany({
+      where,
+      select: listingSelect,
+      orderBy,
+      skip: offset,
+      take: limit
+    })
+  ]);
+
+  return { listings, total };
+}
+
+export async function getListingFilterMetadata() {
+  return getCachedListingFilterMetadata();
 }
 
 export async function getHomeStats() {

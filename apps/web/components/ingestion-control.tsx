@@ -75,7 +75,13 @@ export function IngestionControl({ compact = true }: { compact?: boolean }) {
         : "Ready to refresh internship data";
 
   return (
-    <div className={compact ? "border-t border-slate-100 bg-white/88 px-4 py-2 sm:px-6 lg:px-8" : "min-w-[19rem] rounded-2xl border border-slate-200 bg-white p-4 shadow-panel"}>
+    <div
+      className={
+        compact
+          ? "border-t border-slate-100 bg-white/88 px-4 py-2 sm:px-6 lg:px-8"
+          : "h-[6.5rem] w-[24rem] max-w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-panel"
+      }
+    >
       <div className="flex items-center gap-3">
         <Button
           type="button"
@@ -99,7 +105,9 @@ export function IngestionControl({ compact = true }: { compact?: boolean }) {
             />
           </div>
           {!compact && status.activeSources.length > 0 ? (
-            <p className="mt-2 truncate text-xs text-slate-500">Working on {status.activeSources.join(", ")}</p>
+            <p className="mt-2 min-w-0 truncate text-xs text-slate-500">
+              Working on {status.activeSources.join(", ")}
+            </p>
           ) : null}
         </div>
       </div>

@@ -43,7 +43,9 @@ export function ListingCard({
                 {posting.companyNameSnapshot}
               </div>
               <Badge tone="neutral">{posting.company.companyBucket.replaceAll("_", " ")}</Badge>
-              <Badge tone="brand">{posting.roleCategory.replaceAll("_", " ")}</Badge>
+              <Badge tone="brand" className="dark:bg-brand-900 dark:text-brand-100">
+                {posting.roleCategory.replaceAll("_", " ")}
+              </Badge>
               <Badge tone="neutral">{posting.remoteType}</Badge>
               {isNew ? <Badge tone="success">New</Badge> : null}
             </div>
@@ -68,61 +70,59 @@ export function ListingCard({
             />
           </div>
         </div>
-        <div className="grid gap-3 md:grid-cols-3">
-          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <div className="font-semibold text-slate-900">Compensation</div>
-            <div>{compensation}</div>
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0 flex-1 space-y-1 text-sm text-slate-600">
+            <div>
+              <span className="font-semibold text-slate-900">Compensation:</span> {compensation}
+            </div>
+            <div>
+              <span className="font-semibold text-slate-900">Posting Date:</span>{" "}
+              {postingDate ? postingDate.toLocaleDateString() : "Unknown"}
+            </div>
+            <div>
+              <span className="font-semibold text-slate-900">Source:</span> {posting.sourceName}
+            </div>
           </div>
-          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <div className="font-semibold text-slate-900">Posting Date</div>
-            <div>{postingDate ? postingDate.toLocaleDateString() : "Unknown"}</div>
+          <div className="flex shrink-0 flex-wrap gap-3 md:justify-end">
+            {outboundUrl ? (
+              <Button asChild>
+                <a href={outboundUrl} target="_blank" rel="noopener noreferrer">
+                  Apply
+                </a>
+              </Button>
+            ) : null}
+            <form action={toggleFavoriteAction}>
+              <input type="hidden" name="postingId" value={posting.id} />
+              <input type="hidden" name="redirectTo" value={redirectTo} />
+              <Button variant="secondary" type="submit">
+                {isFavorite ? "Remove favorite" : "Favorite"}
+              </Button>
+            </form>
+            <form action={updateApplicationStateAction}>
+              <input type="hidden" name="postingId" value={posting.id} />
+              <input type="hidden" name="redirectTo" value={redirectTo} />
+              <input
+                type="hidden"
+                name="state"
+                value={applicationState === "APPLIED" ? "NONE" : "APPLIED"}
+              />
+              <Button variant="secondary" type="submit">
+                {applicationState === "APPLIED" ? "Mark unapplied" : "Mark applied"}
+              </Button>
+            </form>
+            <form action={updateApplicationStateAction}>
+              <input type="hidden" name="postingId" value={posting.id} />
+              <input type="hidden" name="redirectTo" value={redirectTo} />
+              <input
+                type="hidden"
+                name="state"
+                value={applicationState === "HIDDEN" ? "NONE" : "HIDDEN"}
+              />
+              <Button variant="ghost" type="submit">
+                {applicationState === "HIDDEN" ? "Unhide" : "Hide"}
+              </Button>
+            </form>
           </div>
-          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <div className="font-semibold text-slate-900">Source</div>
-            <div>{posting.sourceName}</div>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-3">
-          {outboundUrl ? (
-            <Button asChild>
-              <a href={outboundUrl} target="_blank" rel="noopener noreferrer">
-                Apply
-              </a>
-            </Button>
-          ) : null}
-          <>
-              <form action={toggleFavoriteAction}>
-                <input type="hidden" name="postingId" value={posting.id} />
-                <input type="hidden" name="redirectTo" value={redirectTo} />
-                <Button variant="secondary" type="submit">
-                  {isFavorite ? "Remove favorite" : "Favorite"}
-                </Button>
-              </form>
-              <form action={updateApplicationStateAction}>
-                <input type="hidden" name="postingId" value={posting.id} />
-                <input type="hidden" name="redirectTo" value={redirectTo} />
-                <input
-                  type="hidden"
-                  name="state"
-                  value={applicationState === "APPLIED" ? "NONE" : "APPLIED"}
-                />
-                <Button variant="secondary" type="submit">
-                  {applicationState === "APPLIED" ? "Mark unapplied" : "Mark applied"}
-                </Button>
-              </form>
-              <form action={updateApplicationStateAction}>
-                <input type="hidden" name="postingId" value={posting.id} />
-                <input type="hidden" name="redirectTo" value={redirectTo} />
-                <input
-                  type="hidden"
-                  name="state"
-                  value={applicationState === "HIDDEN" ? "NONE" : "HIDDEN"}
-                />
-                <Button variant="ghost" type="submit">
-                  {applicationState === "HIDDEN" ? "Unhide" : "Hide"}
-                </Button>
-              </form>
-          </>
         </div>
       </CardContent>
     </Card>

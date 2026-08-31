@@ -9,7 +9,7 @@ import {
   getFavoritePostingIds,
   getPostingListIds,
   getListingFilterMetadata,
-  getListings,
+  getListingsPage,
   parseListingFilters,
   serializeFeedListing
 } from "../lib/queries";
@@ -52,11 +52,11 @@ export async function InternshipsFeedPage({
     filters = parseListingFilters({});
   }
   const user = await getLocalProfile();
-  const [listings, companies] = await Promise.all([
-    getListings(filters, user.id),
+  const [{ listings, total }, companies] = await Promise.all([
+    getListingsPage(filters, user.id, { offset: 0, limit: LISTINGS_PER_PAGE }),
     getListingFilterMetadata()
   ]);
-  const initialListings = listings.slice(0, LISTINGS_PER_PAGE);
+  const initialListings = listings;
   const postingIds = initialListings.map((listing) => listing.id);
   const [favoriteIds, listIds, applicationStateMap] = await Promise.all([
     getFavoritePostingIds(user.id, postingIds),
@@ -111,7 +111,7 @@ export async function InternshipsFeedPage({
             </div>
           </aside>
           <div className="space-y-4">
-            {listings.length === 0 ? (
+            {total === 0 ? (
               <EmptyState
                 title="No internships matched"
                 description="Adjust season, location, pay, or company filters to widen the search."
@@ -119,7 +119,7 @@ export async function InternshipsFeedPage({
             ) : (
               <InfiniteListings
                 initialListings={initialListings.map(serializeFeedListing)}
-                total={listings.length}
+                total={total}
                 batchSize={LISTINGS_PER_PAGE}
                 queryString={queryString}
                 listHref={listHref}

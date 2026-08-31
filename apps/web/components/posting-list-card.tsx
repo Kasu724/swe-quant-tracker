@@ -101,7 +101,9 @@ export function PostingListCard({ item }: { item: PostingListItem }) {
                 <span className="font-display text-lg font-semibold text-brand-700">
                   {item.posting.companyNameSnapshot}
                 </span>
-                <Badge tone="brand">{item.posting.roleCategory.replaceAll("_", " ")}</Badge>
+                <Badge tone="brand" className="dark:bg-brand-900 dark:text-brand-100">
+                  {item.posting.roleCategory.replaceAll("_", " ")}
+                </Badge>
                 {isCompleted ? (
                   <Badge tone="success">
                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
