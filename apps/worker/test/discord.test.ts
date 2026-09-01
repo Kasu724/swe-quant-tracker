@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  createMany: vi.fn(),
   findMany: vi.fn(),
   updateMany: vi.fn(),
   update: vi.fn(),
@@ -50,7 +49,6 @@ import {
   DiscordWebhookClient,
   DiscordWebhookError,
   outboxRetryDelay,
-  queueDiscordNotifications,
   runDiscordNotificationCycle
 } from "../src/lib/discord";
 
@@ -232,22 +230,8 @@ describe("Discord payload", () => {
 describe("Discord notification outbox", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.createMany.mockResolvedValue({ count: 0 });
     mocks.findMany.mockResolvedValue([]);
     mocks.destinationFindFirst.mockResolvedValue(null);
-  });
-
-  it("queues unique posting IDs without attempting delivery", async () => {
-    await expect(queueDiscordNotifications(["posting-1", "posting-1", "posting-2"])).resolves.toBeUndefined();
-
-    expect(mocks.createMany).toHaveBeenCalledWith({
-      data: [
-        { internshipPostingId: "posting-1" },
-        { internshipPostingId: "posting-2" }
-      ],
-      skipDuplicates: true
-    });
-    expect(mocks.findMany).not.toHaveBeenCalled();
   });
 
   it("does not inspect the outbox when delivery is unconfigured", async () => {

@@ -79,10 +79,10 @@ export function IngestionControl({ compact = true }: { compact?: boolean }) {
       className={
         compact
           ? "border-t border-slate-100 bg-white/88 px-4 py-2 sm:px-6 lg:px-8"
-          : "h-[6.5rem] w-[24rem] max-w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-panel"
+          : "flex w-[28rem] max-w-full items-center"
       }
     >
-      <div className="flex items-center gap-3">
+      <div className="flex w-full items-center gap-3">
         <Button
           type="button"
           variant={compact ? "secondary" : "primary"}

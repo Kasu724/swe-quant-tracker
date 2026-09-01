@@ -346,26 +346,6 @@ async function readDiscordDeliveryConfiguration(
   };
 }
 
-export async function queueDiscordNotifications(postingIds: string[]): Promise<void> {
-  const uniquePostingIds = Array.from(new Set(postingIds));
-
-  if (uniquePostingIds.length === 0) {
-    return;
-  }
-
-  try {
-    await prisma.discordNotification.createMany({
-      data: uniquePostingIds.map((internshipPostingId) => ({ internshipPostingId })),
-      skipDuplicates: true
-    });
-  } catch (error) {
-    logger.error(
-      { error, postingCount: uniquePostingIds.length },
-      "Could not create fallback Discord notification intents"
-    );
-  }
-}
-
 export async function deliverPendingDiscordNotifications(
   env: WorkerEnv,
   options: {

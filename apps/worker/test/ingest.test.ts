@@ -59,7 +59,6 @@ vi.mock("@faang-quant/shared", () => ({
 
 vi.mock("../src/lib/alerts", () => ({ sendImmediateAlertsForPostings: vi.fn() }));
 vi.mock("../src/lib/discord", () => ({
-  queueDiscordNotifications: vi.fn(),
   runDiscordNotificationCycle: vi.fn()
 }));
 vi.mock("../src/lib/link-health", () => ({ resolvePostingUrl: vi.fn() }));
@@ -158,5 +157,25 @@ describe("persistPosting", () => {
       persistPosting({ source: source as never, normalized: normalized as never })
     ).rejects.toThrow("outbox insert failed");
     expect(mocks.events).not.toContain("transaction:commit");
+  });
+
+  it("does not create a Discord intent when polling finds an existing posting", async () => {
+    mocks.transactionClient.postingSourceRecord.findUnique.mockResolvedValue({
+      id: "source-record-1",
+      internshipPostingId: "posting-1",
+      internshipPosting: {
+        id: "posting-1",
+        canonicalSourceId: source.id,
+        canonicalSource: source
+      }
+    });
+    mocks.transactionClient.postingSourceRecord.update.mockResolvedValue({});
+    mocks.transactionClient.internshipPosting.update.mockResolvedValue({});
+
+    await expect(
+      persistPosting({ source: source as never, normalized: normalized as never })
+    ).resolves.toEqual({ postingId: "posting-1", discovered: false });
+
+    expect(mocks.transactionClient.discordNotification.create).not.toHaveBeenCalled();
   });
 });

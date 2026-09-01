@@ -384,6 +384,8 @@ export async function persistPosting(input: {
       }
     });
 
+    // A notification intent is created only with a brand-new canonical posting.
+    // Repeat polls update the posting above and must never enqueue another send.
     await tx.discordNotification.create({
       data: {
         internshipPostingId: created.id
