@@ -3,6 +3,7 @@ import { Database, ListChecks } from "lucide-react";
 import { Button } from "@faang-quant/ui";
 import { ThemeToggle } from "./theme-toggle";
 import { SiteNavLink } from "./site-nav-link";
+import { NavigationProgress } from "./navigation-progress";
 
 const navLinks = [
   { href: "/", label: "Internships" },
@@ -15,7 +16,7 @@ const navLinks = [
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-white/60 bg-white/80 backdrop-blur-xl">
+    <header className="relative sticky top-0 z-40 border-b border-white/60 bg-white/80 backdrop-blur-xl">
       <div className="grid min-h-20 w-full grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-3 justify-self-start">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-sm font-bold text-white">
@@ -76,6 +77,7 @@ export function SiteHeader() {
           </SiteNavLink>
         ))}
       </nav>
+      <NavigationProgress />
     </header>
   );
 }

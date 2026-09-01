@@ -17,6 +17,9 @@
   --text-primary: 16 24 40;
   --text-secondary: 71 85 105;
   --text-muted: 100 116 139;
+  --control-bg: 255 255 255;
+  --control-bg-hover: 248 250 252;
+  --control-border: 226 232 240;
 }
 
 .dark {
@@ -29,6 +32,99 @@
   --text-primary: 244 244 245;
   --text-secondary: 212 212 216;
   --text-muted: 161 161 170;
+  --control-bg: 18 18 20;
+  --control-bg-hover: 39 39 42;
+  --control-border: 63 63 70;
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+.navigation-progress {
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 10;
+  height: 2px;
+  overflow: hidden;
+  opacity: 1;
+  transition: opacity 180ms ease-out;
+}
+
+.navigation-progress[data-state="idle"] {
+  opacity: 0;
+}
+
+.navigation-progress__bar {
+  height: 100%;
+  width: 38%;
+  background: rgb(var(--brand-600) / 1);
+  box-shadow: 0 0 10px rgb(var(--brand-300) / 0.9);
+  transform: translateX(-120%);
+}
+
+.navigation-progress[data-state="loading"] .navigation-progress__bar {
+  animation: navigation-progress 1.1s ease-in-out infinite;
+}
+
+.navigation-progress[data-state="complete"] .navigation-progress__bar {
+  width: 100%;
+  transform: translateX(0);
+  transition: width 220ms ease-out, transform 220ms ease-out;
+}
+
+@keyframes navigation-progress {
+  0% {
+    transform: translateX(-120%);
+  }
+
+  50% {
+    transform: translateX(115%);
+  }
+
+  100% {
+    transform: translateX(280%);
+  }
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: rgb(var(--brand-600) / 1);
+  color-scheme: inherit;
+}
+
+input[type="file"] {
+  color: rgb(var(--text-secondary) / 1);
+  color-scheme: inherit;
+}
+
+input[type="file"]::file-selector-button {
+  margin-inline-end: 0.75rem;
+  border: 1px solid rgb(var(--control-border) / 1);
+  border-radius: 0.75rem;
+  background-color: rgb(var(--control-bg) / 1);
+  color: rgb(var(--text-primary) / 1);
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 200ms, border-color 200ms;
+}
+
+input[type="file"]:hover::file-selector-button {
+  background-color: rgb(var(--control-bg-hover) / 1);
+  border-color: rgb(var(--brand-200) / 1);
+}
+
+input[type="file"]:focus-visible {
+  outline: 2px solid rgb(var(--brand-300) / 1);
+  outline-offset: 2px;
 }
 
 html {
