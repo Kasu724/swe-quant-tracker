@@ -19,7 +19,10 @@ import {
 import { subDays } from "date-fns";
 import { sendImmediateAlertsForPostings } from "../lib/alerts";
 import { mapWithConcurrency, runWithConcurrency } from "../lib/concurrency";
-import { runDiscordNotificationCycle } from "../lib/discord";
+import {
+  readDiscordDeliveryConfiguration,
+  runDiscordNotificationCycle
+} from "../lib/discord";
 import { resolvePostingUrl } from "../lib/link-health";
 import { logger } from "../lib/logger";
 
@@ -39,6 +42,7 @@ type IngestionTimingOptions = {
   requestTimeoutMs: number;
   sourceTimeoutMs: number;
   urlValidationConcurrency: number;
+  discordNotificationEligible: boolean;
 };
 
 type SourceProcessingResult = {
@@ -175,6 +179,37 @@ function shouldPromoteCanonical(existing: PostingWithCanonicalSource, incomingSo
   return incomingSource.priority <= existing.canonicalSource.priority;
 }
 
+function stablePostingDate(
+  existing: Pick<InternshipPosting, "postingDate" | "discoveredAt">,
+  incoming?: Date
+): Date | undefined {
+  const knownPostingDates = [existing.postingDate, incoming].filter(
+    (date): date is Date => Boolean(date)
+  );
+
+  if (knownPostingDates.length === 0) {
+    return undefined;
+  }
+
+  // Some ATS feeds expose a mutable "updated" timestamp as their only date.
+  // Keep the earliest value ever observed and never allow a posting date after
+  // the time the tracker had already discovered the job.
+  return new Date(
+    Math.min(
+      existing.discoveredAt.getTime(),
+      ...knownPostingDates.map((date) => date.getTime())
+    )
+  );
+}
+
+function postingDateAtDiscovery(incoming: Date | undefined, discoveredAt: Date): Date | undefined {
+  if (!incoming) {
+    return undefined;
+  }
+
+  return incoming.getTime() <= discoveredAt.getTime() ? incoming : discoveredAt;
+}
+
 function buildCanonicalData(input: {
   normalized: ReturnType<typeof normalizeFetchedPosting>;
   companyId: string;
@@ -228,6 +263,7 @@ function buildCanonicalData(input: {
 export async function persistPosting(input: {
   source: SourceWithCompany;
   normalized: ReturnType<typeof normalizeFetchedPosting>;
+  discordNotificationEligible: boolean;
 }): Promise<{ postingId: string; discovered: boolean }> {
   const { source, normalized } = input;
   const canonicalData = buildCanonicalData({
@@ -261,6 +297,11 @@ export async function persistPosting(input: {
     if (existingSourceRecord) {
       const promote = shouldPromoteCanonical(existingSourceRecord.internshipPosting, source);
       const { slug: _ignoredSlug, ...canonicalUpdate } = canonicalData;
+
+      canonicalUpdate.postingDate = stablePostingDate(
+        existingSourceRecord.internshipPosting,
+        normalized.postingDate
+      );
 
       await tx.postingSourceRecord.update({
         where: { id: existingSourceRecord.id },
@@ -336,6 +377,8 @@ export async function persistPosting(input: {
       const promote = shouldPromoteCanonical(duplicate, source);
       const { slug: _ignoredSlug, ...canonicalUpdate } = canonicalData;
 
+      canonicalUpdate.postingDate = stablePostingDate(duplicate, normalized.postingDate);
+
       await tx.postingSourceRecord.create({
         data: {
           internshipPostingId: duplicate.id,
@@ -366,10 +409,12 @@ export async function persistPosting(input: {
       };
     }
 
+    const discoveredAt = new Date();
     const created = await tx.internshipPosting.create({
       data: {
         ...canonicalData,
-        discoveredAt: new Date()
+        postingDate: postingDateAtDiscovery(normalized.postingDate, discoveredAt),
+        discoveredAt
       }
     });
 
@@ -388,7 +433,8 @@ export async function persistPosting(input: {
     // Repeat polls update the posting above and must never enqueue another send.
     await tx.discordNotification.create({
       data: {
-        internshipPostingId: created.id
+        internshipPostingId: created.id,
+        eligibleForDelivery: input.discordNotificationEligible
       }
     });
 
@@ -630,7 +676,8 @@ async function processSource(
       try {
         const persisted = await persistPosting({
           source,
-          normalized: result.normalized
+          normalized: result.normalized,
+          discordNotificationEligible: options.discordNotificationEligible
         });
 
         if (persisted.discovered) {
@@ -767,6 +814,11 @@ export async function runIngestionCycle(options?: IngestionCycleOptions) {
   const env = readWorkerEnv();
   await markAbandonedIngestionRuns(env.INGESTION_SOURCE_TIMEOUT_MS);
 
+  // Snapshot Discord eligibility at the beginning of the cycle. A posting is
+  // only deliverable when Discord is active for its company at first ingest;
+  // enabling Discord later must not release a historical backlog.
+  const discordConfiguration = await readDiscordDeliveryConfiguration(env);
+
   const sources = await prisma.companySource.findMany({
     where: {
       isActive: true,
@@ -855,7 +907,12 @@ export async function runIngestionCycle(options?: IngestionCycleOptions) {
         const result = await processSource(source, {
           requestTimeoutMs: env.INGESTION_REQUEST_TIMEOUT_MS,
           sourceTimeoutMs: env.INGESTION_SOURCE_TIMEOUT_MS,
-          urlValidationConcurrency: env.INGESTION_URL_VALIDATION_CONCURRENCY
+          urlValidationConcurrency: env.INGESTION_URL_VALIDATION_CONCURRENCY,
+          discordNotificationEligible: Boolean(
+            discordConfiguration &&
+              (discordConfiguration.companyIds === null ||
+                discordConfiguration.companyIds.includes(source.companyId))
+          )
         });
         discoveredPostingIds.push(...result.discoveredPostingIds);
 

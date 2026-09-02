@@ -289,13 +289,13 @@ function leaseDuration(env: WorkerEnv): number {
   return Math.max(60_000, maximumAttemptDuration * (env.DISCORD_MAX_RETRIES + 1) + 30_000);
 }
 
-type DiscordDeliveryConfiguration = {
+export type DiscordDeliveryConfiguration = {
   webhookUrl: string;
   /** null means the legacy environment webhook, which historically announced every company. */
   companyIds: string[] | null;
 };
 
-async function readDiscordDeliveryConfiguration(
+export async function readDiscordDeliveryConfiguration(
   env: WorkerEnv
 ): Promise<DiscordDeliveryConfiguration | null> {
   // The destination is stored per local profile. Keeping the secret in the
@@ -362,6 +362,7 @@ export async function deliverPendingDiscordNotifications(
   const queryTime = options.now?.() ?? new Date();
   const candidates = await prisma.discordNotification.findMany({
     where: {
+      eligibleForDelivery: true,
       ...(configuration.companyIds
         ? {
             internshipPosting: {

@@ -267,6 +267,7 @@ describe("Discord notification outbox", () => {
     expect(mocks.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
+          eligibleForDelivery: true,
           internshipPosting: { companyId: { in: ["company-1"] } }
         })
       })

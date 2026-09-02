@@ -62,7 +62,7 @@ export function ListingCard({
           </div>
           <div className="flex items-center gap-2">
             <div className="text-sm text-slate-500">
-              Seen {formatDistanceToNow(discoveredAt, { addSuffix: true })}
+              First seen {formatDistanceToNow(discoveredAt, { addSuffix: true })}
             </div>
             <PostingListButton
               postingId={posting.id}

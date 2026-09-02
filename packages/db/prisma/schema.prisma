@@ -263,6 +263,7 @@ model DiscordNotification {
   id                  String                    @id @default(cuid())
   internshipPostingId String                    @unique
   internshipPosting   InternshipPosting         @relation(fields: [internshipPostingId], references: [id], onDelete: Cascade)
+  eligibleForDelivery Boolean                   @default(true)
   status              DiscordNotificationStatus @default(PENDING)
   attempts            Int                       @default(0)
   nextAttemptAt       DateTime                  @default(now())
@@ -275,6 +276,7 @@ model DiscordNotification {
 
   @@index([status, nextAttemptAt])
   @@index([status, leaseExpiresAt])
+  @@index([eligibleForDelivery, status, nextAttemptAt], map: "discord_notification_eligible_status_next_idx")
 }
 
 model DiscordDestination {
