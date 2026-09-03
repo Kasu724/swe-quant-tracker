@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve the SWE + Quant Internship Tracker. Contributions of code,
+Thanks for helping improve SWE-Quant Tracker. Contributions of code,
 documentation, source coverage, test fixtures, and bug reports are welcome.
 
 ## Project scope
@@ -52,6 +52,12 @@ contributions are licensed under the repository's [MIT License](LICENSE).
 
 ## Reporting security issues
 
-Do not open a public issue for a vulnerability or exposed secret. Contact the repository maintainer
-privately through the security-reporting channel listed on the repository host. If no private channel
-is configured, open a minimal issue asking for a secure contact method without disclosing details.
+Please do not open a public GitHub issue for a suspected vulnerability or exposed secret. Follow the
+instructions in [SECURITY.md](SECURITY.md) and use GitHub's private vulnerability reporting feature
+from this repository's **Security** tab by selecting **Report a vulnerability**. Do not include
+passwords, tokens, API keys, personal data, or other secrets in the report. Include the affected
+component or version, reproduction steps or a minimal proof of concept, relevant sanitized logs or
+links, and the potential impact.
+
+If the private-reporting button is unavailable, do not disclose vulnerability details publicly. Open a
+minimal public issue asking the maintainers for a secure reporting channel instead.

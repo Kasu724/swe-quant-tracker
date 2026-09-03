@@ -1,0 +1,34 @@
+name: Feature request
+description: Suggest an improvement to internship discovery or application tracking
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What task is difficult today, and who would benefit from improving it?
+      placeholder: As a ..., I want to ... because ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the smallest useful behavior or outcome. Include examples if helpful.
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and considerations
+      description: Note the affected component, sources, migrations, notifications, or alternatives that should be considered.
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add mockups, links, or related issues. Please remove secrets and personal data.

@@ -1,0 +1,85 @@
+name: Bug report
+description: Report a reproducible problem with the internship tracker
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Provide the release version, commit SHA, or branch you are using.
+      placeholder: v0.1.0 or abc1234
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-mode
+    attributes:
+      label: Install mode
+      options:
+        - Windows desktop app
+        - From source (web)
+        - From source (worker)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      options:
+        - Web app
+        - Worker or ingestion adapter
+        - Database or migrations
+        - Alerts or notifications
+        - Windows desktop app
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the smallest set of steps that reliably reproduces the problem.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Redact passwords, API keys, tokens, cookies, database URLs, personal data, and other secrets before posting. Paste relevant logs or drag in screenshots.
+      render: text
+
+  - type: input
+    id: source-url
+    attributes:
+      label: Company or source URL (if relevant)
+      description: Include the official careers/source URL for stale, missing, or incorrectly parsed listings.
+      placeholder: https://careers.example.com/...
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include OS, browser/version, Node/pnpm versions, and any other relevant details.
