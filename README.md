@@ -535,5 +535,4 @@ without disabling ingestion. Never commit a real webhook URL.
 
 ## License
 
-Licensed under the [MIT License](LICENSE). Copyright belongs to the SWE + Quant Internship Tracker
-contributors.
+Licensed under the [MIT License](LICENSE)
