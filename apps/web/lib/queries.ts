@@ -1,6 +1,6 @@
 import { subDays } from "date-fns";
 import { unstable_cache } from "next/cache";
-import { prisma, type ApplicationState, type Prisma } from "@faang-quant/db";
+import { prisma, type ApplicationState, type Prisma } from "@swe-quant/db";
 import {
   getPreferredPostingUrl,
   isUsOrUnknownPostingLocation,
@@ -9,7 +9,7 @@ import {
   serializeRowsToCsv,
   type ListingFilters,
   type ListingSearchRecord
-} from "@faang-quant/shared";
+} from "@swe-quant/shared";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 

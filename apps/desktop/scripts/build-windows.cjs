@@ -54,8 +54,8 @@ function removeObsoleteArtifacts() {
   const obsoleteNames = [
     ".icon-ico",
     "builder-debug.yml",
-    `FAANG-Quant-Tracker-Portable-${version}-x64.exe`,
-    `FAANG-Quant-Tracker-Setup-${version}-x64.exe.blockmap`
+    `SWE-Quant-Tracker-Portable-${version}-x64.exe`,
+    `SWE-Quant-Tracker-Setup-${version}-x64.exe.blockmap`
   ];
   for (const name of obsoleteNames) {
     fs.rmSync(verifiedOutputPath(path.join(outputDirectory, name)), { recursive: true, force: true });
@@ -127,7 +127,7 @@ function compileLauncher() {
     "/optimize+",
     `/win32manifest:${path.join(desktopDirectory, "launcher", "app.manifest")}`,
     `/win32icon:${path.join(desktopDirectory, "build", "icon.ico")}`,
-    `/out:${path.join(stageDirectory, "FAANGQuantTracker.exe")}`,
+    `/out:${path.join(stageDirectory, "SWEQuantTracker.exe")}`,
     "/reference:System.dll",
     "/reference:System.Core.dll",
     "/reference:System.Drawing.dll",
@@ -137,7 +137,7 @@ function compileLauncher() {
 }
 
 async function buildInstaller() {
-  const installerPath = path.join(outputDirectory, `FAANG-Quant-Tracker-Setup-${version}-x64.exe`);
+  const installerPath = path.join(outputDirectory, `SWE-Quant-Tracker-Setup-${version}-x64.exe`);
   fs.rmSync(verifiedOutputPath(installerPath), { force: true });
   const makensis = await getMakeNsisPath();
   run(makensis.path, [
@@ -152,7 +152,7 @@ async function buildInstaller() {
 }
 
 function buildPortableArchive() {
-  const archivePath = path.join(outputDirectory, `FAANG-Quant-Tracker-Portable-${version}-x64.zip`);
+  const archivePath = path.join(outputDirectory, `SWE-Quant-Tracker-Portable-${version}-x64.zip`);
   fs.rmSync(verifiedOutputPath(archivePath), { force: true });
   run("tar.exe", ["-a", "-c", "-f", archivePath, "-C", stageDirectory, "."]);
 }
@@ -167,7 +167,7 @@ async function main() {
   }
 
   if (launchAfterBuild) {
-    const child = require("node:child_process").spawn(path.join(stageDirectory, "FAANGQuantTracker.exe"), [], {
+    const child = require("node:child_process").spawn(path.join(stageDirectory, "SWEQuantTracker.exe"), [], {
       detached: true,
       stdio: "ignore",
       windowsHide: true

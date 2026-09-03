@@ -1,6 +1,6 @@
 import { Resend } from "resend";
-import { readBaseEnv } from "@faang-quant/config";
-import type { AlertProvider, AlertSendRequest, AlertSendResult } from "@faang-quant/shared";
+import { readBaseEnv } from "@swe-quant/config";
+import type { AlertProvider, AlertSendRequest, AlertSendResult } from "@swe-quant/shared";
 import { ConsoleMailProvider } from "./providers/console";
 import type { MailProvider } from "./providers/base";
 import { ResendMailProvider } from "./providers/resend";

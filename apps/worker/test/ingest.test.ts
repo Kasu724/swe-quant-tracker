@@ -31,12 +31,12 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock("@faang-quant/config", () => ({
+vi.mock("@swe-quant/config", () => ({
   readBaseEnv: vi.fn(),
   readWorkerEnv: vi.fn()
 }));
 
-vi.mock("@faang-quant/db", () => ({
+vi.mock("@swe-quant/db", () => ({
   IngestionRunStatus: {
     RUNNING: "RUNNING",
     SUCCESS: "SUCCESS",
@@ -48,7 +48,7 @@ vi.mock("@faang-quant/db", () => ({
   }
 }));
 
-vi.mock("@faang-quant/shared", () => ({
+vi.mock("@swe-quant/shared", () => ({
   getPreferredPostingUrl: (posting: { sourceUrl?: string; applicationUrl?: string }) =>
     posting.sourceUrl ?? posting.applicationUrl,
   getAdapter: vi.fn(),

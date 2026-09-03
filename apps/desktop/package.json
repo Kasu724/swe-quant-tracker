@@ -1,7 +1,7 @@
 {
-  "name": "@faang-quant/desktop",
+  "name": "@swe-quant/desktop",
   "version": "1.0.0",
-  "description": "Windows tray service for the SWE + Quant Internship Tracker",
+  "description": "Windows tray service for the SWE-Quant Tracker",
   "author": "Kasu724",
   "license": "MIT",
   "private": true,

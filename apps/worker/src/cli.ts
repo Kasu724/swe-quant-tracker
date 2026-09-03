@@ -3,7 +3,7 @@ import { runIngestionCycle } from "./jobs/ingest";
 import { runPostingLinkCheck } from "./jobs/link-check";
 import { runInternshipReclassification } from "./jobs/reclassify";
 import { runDiscordNotifications } from "./jobs/discord";
-import { prisma } from "@faang-quant/db";
+import { prisma } from "@swe-quant/db";
 
 async function main() {
   const command = process.argv[2];

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Database, ListChecks } from "lucide-react";
-import { Button } from "@faang-quant/ui";
+import { Button } from "@swe-quant/ui";
 import { ThemeToggle } from "./theme-toggle";
 import { SiteNavLink } from "./site-nav-link";
 import { NavigationProgress } from "./navigation-progress";
@@ -24,7 +24,7 @@ export function SiteHeader() {
           </div>
           <div className="hidden min-w-0 sm:block">
             <div className="truncate font-display text-lg font-semibold text-ink">
-              SWE + Quant Internship Tracker
+              SWE-Quant Tracker
             </div>
             <div className="truncate text-xs text-slate-500">
               Open-source internship discovery

@@ -4,7 +4,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { execFileSync, spawn } = require("node:child_process");
 
-const executable = path.resolve(process.argv[2] || path.join(__dirname, "..", "..", "..", "dist", "desktop", "win-unpacked", "FAANGQuantTracker.exe"));
+const executable = path.resolve(process.argv[2] || path.join(__dirname, "..", "..", "..", "dist", "desktop", "win-unpacked", "SWEQuantTracker.exe"));
 const timeoutMs = Number(process.env.DESKTOP_SMOKE_TIMEOUT_MS || 90_000);
 if (process.platform !== "win32") throw new Error("The packaged desktop smoke test currently requires Windows.");
 if (!fs.existsSync(executable)) throw new Error(`Packaged executable not found: ${executable}`);
@@ -64,7 +64,7 @@ async function verifyLocalFeatures(origin) {
   const backupData = JSON.parse(backup.body);
   if (
     backup.status !== 200 ||
-    backupData.format !== "faang-quant-tracker-backup" ||
+    backupData.format !== "swe-quant-tracker-backup" ||
     backupData.version !== 1 ||
     backupData.settings?.theme !== "dark"
   ) {

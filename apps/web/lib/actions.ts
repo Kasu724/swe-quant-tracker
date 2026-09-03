@@ -2,8 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@faang-quant/db";
-import { listingFilterSchema } from "@faang-quant/shared";
+import { prisma } from "@swe-quant/db";
+import { listingFilterSchema } from "@swe-quant/shared";
 import { getLocalProfile, LOCAL_PROFILE_EMAIL } from "./local-profile";
 import {
   applicationStateSchema,
@@ -323,10 +323,10 @@ export async function testDiscordDestinationAction() {
         signal: controller.signal,
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "faang-quant-tracker/1.0"
+          "User-Agent": "swe-quant-tracker/1.0"
         },
         body: JSON.stringify({
-          content: "✅ FAANG + Quant Internship Tracker is connected.",
+          content: "✅ SWE-Quant Tracker is connected.",
           allowed_mentions: { parse: [] }
         })
       });

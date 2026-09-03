@@ -1,4 +1,4 @@
-import { Button, Card, CardContent, Container, PageHeader } from "@faang-quant/ui";
+import { Button, Card, CardContent, Container, PageHeader } from "@swe-quant/ui";
 import { unsubscribeAction } from "../../lib/actions";
 
 export default async function UnsubscribePage({

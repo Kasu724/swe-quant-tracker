@@ -184,7 +184,7 @@ export async function fetchJson<T>(context: AdapterFetchContext, url: string): P
   const response = await fetchWithTimeout(context, url, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "faang-quant-tracker/1.0"
+      "User-Agent": "swe-quant-tracker/1.0"
     }
   });
 
@@ -205,7 +205,7 @@ export async function fetchJsonRequest<T>(
     headers: mergeHeaders(
       {
         Accept: "application/json",
-        "User-Agent": "faang-quant-tracker/1.0"
+        "User-Agent": "swe-quant-tracker/1.0"
       },
       init?.headers
     )
@@ -222,7 +222,7 @@ export async function fetchText(context: AdapterFetchContext, url: string): Prom
   const response = await fetchWithTimeout(context, url, {
     headers: {
       Accept: "text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8",
-      "User-Agent": "faang-quant-tracker/1.0"
+      "User-Agent": "swe-quant-tracker/1.0"
     }
   });
 

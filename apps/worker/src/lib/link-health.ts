@@ -1,4 +1,4 @@
-import { getPostingUrlCandidates, getPreferredPostingUrl } from "@faang-quant/shared";
+import { getPostingUrlCandidates, getPreferredPostingUrl } from "@swe-quant/shared";
 
 const DEAD_STATUSES = new Set([404, 410, 451]);
 const RESTRICTED_BUT_POSSIBLY_LIVE_STATUSES = new Set([401, 403, 405, 429]);

@@ -1,10 +1,10 @@
-import { readWorkerEnv, type WorkerEnv } from "@faang-quant/config";
+import { readWorkerEnv, type WorkerEnv } from "@swe-quant/config";
 import {
   DiscordNotificationStatus,
   prisma,
   type InternshipPosting
-} from "@faang-quant/db";
-import { getPostingUrlCandidates } from "@faang-quant/shared";
+} from "@swe-quant/db";
+import { getPostingUrlCandidates } from "@swe-quant/shared";
 import { logger } from "./logger";
 
 const MAX_DISCORD_RETRY_DELAY_MS = 30_000;
@@ -229,7 +229,7 @@ export class DiscordWebhookClient {
           signal: controller.signal,
           headers: {
             "Content-Type": "application/json",
-            "User-Agent": "faang-quant-tracker/1.0"
+            "User-Agent": "swe-quant-tracker/1.0"
           },
           body: JSON.stringify(payload)
         });

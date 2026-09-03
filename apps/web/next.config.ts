@@ -21,11 +21,11 @@ const nextConfig: NextConfig = {
     ];
   },
   transpilePackages: [
-    "@faang-quant/config",
-    "@faang-quant/db",
-    "@faang-quant/email",
-    "@faang-quant/shared",
-    "@faang-quant/ui"
+    "@swe-quant/config",
+    "@swe-quant/db",
+    "@swe-quant/email",
+    "@swe-quant/shared",
+    "@swe-quant/ui"
   ]
 };
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Badge, Button, Card, CardContent, Container, EmptyState, PageHeader } from "@faang-quant/ui";
+import { Badge, Button, Card, CardContent, Container, EmptyState, PageHeader } from "@swe-quant/ui";
 import { deleteSavedSearchAction } from "../../lib/actions";
 import { getLocalProfile } from "../../lib/local-profile";
 import { getUserFavorites, getUserSavedSearches } from "../../lib/queries";

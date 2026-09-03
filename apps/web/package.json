@@ -1,5 +1,5 @@
 {
-  "name": "@faang-quant/web",
+  "name": "@swe-quant/web",
   "private": true,
   "scripts": {
     "dev": "dotenv -e ../../.env -- next dev",
@@ -9,11 +9,11 @@
     "test": "vitest run ../../apps/web/test"
   },
   "dependencies": {
-    "@faang-quant/config": "workspace:*",
-    "@faang-quant/db": "workspace:*",
-    "@faang-quant/email": "workspace:*",
-    "@faang-quant/shared": "workspace:*",
-    "@faang-quant/ui": "workspace:*",
+    "@swe-quant/config": "workspace:*",
+    "@swe-quant/db": "workspace:*",
+    "@swe-quant/email": "workspace:*",
+    "@swe-quant/shared": "workspace:*",
+    "@swe-quant/ui": "workspace:*",
     "@prisma/client": "^6.6.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",

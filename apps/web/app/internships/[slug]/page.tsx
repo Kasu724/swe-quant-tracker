@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { Badge, Button, Card, CardContent, Container, PageHeader } from "@faang-quant/ui";
-import { getPreferredPostingUrl } from "@faang-quant/shared";
+import { Badge, Button, Card, CardContent, Container, PageHeader } from "@swe-quant/ui";
+import { getPreferredPostingUrl } from "@swe-quant/shared";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../../../lib/actions";
 import { getLocalProfile } from "../../../lib/local-profile";
 import { getInternshipBySlug } from "../../../lib/queries";

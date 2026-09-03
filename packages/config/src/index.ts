@@ -117,7 +117,7 @@ export function ensureRepoEnvLoaded() {
 const baseEnvSchema = z.object({
   DATABASE_URL: z.string().min(1),
   APP_BASE_URL: z.string().url().default("http://localhost:3000"),
-  EMAIL_FROM: z.string().min(1).default("Internship Tracker <noreply@example.com>"),
+  EMAIL_FROM: z.string().min(1).default("SWE-Quant Tracker <noreply@example.com>"),
   EMAIL_PROVIDER: z.enum(["console", "resend", "smtp"]).default("console"),
   RESEND_API_KEY: z.string().optional(),
   SMTP_URL: z.string().optional(),

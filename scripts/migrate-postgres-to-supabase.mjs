@@ -26,7 +26,7 @@ const commands = {
   pnpm: isWindows ? "pnpm.cmd" : "pnpm",
   psql: isWindows ? "psql.exe" : "psql"
 };
-const dumpFileName = `faang-quant-tracker-${randomUUID()}.sql`;
+const dumpFileName = `swe-quant-tracker-${randomUUID()}.sql`;
 const dumpPath = path.join(os.tmpdir(), dumpFileName);
 const containerDumpPath = `/work/${dumpFileName}`;
 const hasNativePostgresTools =

@@ -1,4 +1,4 @@
-import { Container } from "@faang-quant/ui";
+import { Container } from "@swe-quant/ui";
 
 function Skeleton({ className }: { className: string }) {
   return <div aria-hidden="true" className={`rounded-xl bg-slate-200/70 motion-safe:animate-pulse ${className}`} />;

@@ -1,5 +1,5 @@
 import cron from "node-cron";
-import { readWorkerEnv } from "@faang-quant/config";
+import { readWorkerEnv } from "@swe-quant/config";
 import { runDailyDigestCycle } from "./jobs/digest";
 import { runDiscordNotifications } from "./jobs/discord";
 import { runIngestionCycle } from "./jobs/ingest";

@@ -1,4 +1,4 @@
-import { prisma } from "@faang-quant/db";
+import { prisma } from "@swe-quant/db";
 import { logger } from "../lib/logger";
 import { runWithConcurrency } from "../lib/concurrency";
 import { resolvePostingUrl } from "../lib/link-health";

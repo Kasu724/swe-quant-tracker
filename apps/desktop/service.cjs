@@ -6,7 +6,7 @@ const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { startEmbeddedDatabase } = require("./database.cjs");
 
-const PRODUCT_NAME = "FAANG Quant Tracker";
+const PRODUCT_NAME = "SWE-Quant Tracker";
 const distributionDirectory = path.join(__dirname, "..");
 let database;
 let serverProcess;
@@ -310,7 +310,7 @@ async function startLocalService() {
     DESKTOP_CONTROL_URL: controlOrigin,
     DESKTOP_CONTROL_TOKEN: controlToken,
     EMAIL_PROVIDER: "console",
-    EMAIL_FROM: "FAANG Quant Tracker <local@localhost>",
+    EMAIL_FROM: "SWE-Quant Tracker <local@localhost>",
     HOSTNAME: "127.0.0.1",
     NODE_PATH: path.join(path.dirname(runtime.server), "node_modules"),
     PORT: String(webPort)

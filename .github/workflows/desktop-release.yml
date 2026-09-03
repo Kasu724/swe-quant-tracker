@@ -44,7 +44,7 @@ jobs:
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: FAANG-Quant-Tracker-Windows
+          name: SWE-Quant-Tracker-Windows
           path: |
             dist/desktop/*.exe
             dist/desktop/*.zip
@@ -57,4 +57,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $artifacts = Get-ChildItem "dist/desktop/*.exe", "dist/desktop/*.zip" | Select-Object -ExpandProperty FullName
-          gh release create $env:GITHUB_REF_NAME $artifacts --verify-tag --generate-notes --title "FAANG Quant Tracker $env:GITHUB_REF_NAME"
+          gh release create $env:GITHUB_REF_NAME $artifacts --verify-tag --generate-notes --title "SWE-Quant Tracker $env:GITHUB_REF_NAME"

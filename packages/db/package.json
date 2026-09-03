@@ -1,5 +1,5 @@
 {
-  "name": "@faang-quant/db",
+  "name": "@swe-quant/db",
   "version": "0.0.0",
   "private": true,
   "main": "./src/index.ts",
@@ -16,7 +16,7 @@
     "studio": "node ../../scripts/prisma-command.mjs studio --schema prisma/schema.prisma"
   },
   "dependencies": {
-    "@faang-quant/config": "workspace:*",
+    "@swe-quant/config": "workspace:*",
     "@prisma/client": "^6.6.0"
   },
   "devDependencies": {

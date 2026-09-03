@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readWorkerEnv } from "@faang-quant/config";
+import { readWorkerEnv } from "@swe-quant/config";
 
 const requiredEnv = {
   DATABASE_URL: "postgresql://localhost/test"

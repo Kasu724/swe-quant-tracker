@@ -1,4 +1,4 @@
-import { Badge, Button, Card, CardContent, Container, Input, PageHeader, Select } from "@faang-quant/ui";
+import { Badge, Button, Card, CardContent, Container, Input, PageHeader, Select } from "@swe-quant/ui";
 import {
   createCompanySourceAction,
   mergeDuplicatePostingsAction,

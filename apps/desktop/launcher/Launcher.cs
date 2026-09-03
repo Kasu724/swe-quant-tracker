@@ -9,12 +9,12 @@ using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 
-namespace FAANGQuantTracker
+namespace SWEQuantTracker
 {
     internal static class Program
     {
-        private const string InstanceName = "Local\\FAANGQuantTracker.Tray.Instance";
-        private const string PipeName = "FAANGQuantTracker.Tray.Control";
+        private const string InstanceName = "Local\\SWEQuantTracker.Tray.Instance";
+        private const string PipeName = "SWEQuantTracker.Tray.Control";
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool SetProcessDpiAwarenessContext(IntPtr value);
@@ -83,7 +83,7 @@ namespace FAANGQuantTracker
             }
             catch
             {
-                MessageBox.Show("FAANG Quant Tracker is already running in the system tray.", "FAANG Quant Tracker", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("SWE-Quant Tracker is already running in the system tray.", "SWE-Quant Tracker", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -92,7 +92,7 @@ namespace FAANGQuantTracker
 
     internal sealed class TrayContext : ApplicationContext
     {
-        private const string ProductName = "FAANG Quant Tracker";
+        private const string ProductName = "SWE-Quant Tracker";
         private readonly ConcurrentQueue<string> events = new ConcurrentQueue<string>();
         private readonly NotifyIcon trayIcon;
         private readonly ToolStripMenuItem openItem;
@@ -229,7 +229,7 @@ namespace FAANGQuantTracker
                 }
             });
             thread.IsBackground = true;
-            thread.Name = "FAANG Quant Tracker control pipe";
+            thread.Name = "SWE-Quant Tracker control pipe";
             thread.Start();
         }
 

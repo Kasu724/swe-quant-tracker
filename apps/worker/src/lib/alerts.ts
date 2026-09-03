@@ -1,17 +1,17 @@
-import { readBaseEnv } from "@faang-quant/config";
-import { prisma, AlertCadence, AlertDeliveryStatus, AlertChannel } from "@faang-quant/db";
+import { readBaseEnv } from "@swe-quant/config";
+import { prisma, AlertCadence, AlertDeliveryStatus, AlertChannel } from "@swe-quant/db";
 import {
   getPreferredPostingUrl,
   listingFilterSchema,
   matchesListingFilters,
   type ListingFilters,
   type ListingSearchRecord
-} from "@faang-quant/shared";
+} from "@swe-quant/shared";
 import {
   EmailAlertProvider,
   renderDailyDigestEmail,
   renderImmediateAlertEmail
-} from "@faang-quant/email";
+} from "@swe-quant/email";
 import { subDays } from "date-fns";
 import { logger } from "./logger";
 

@@ -1,5 +1,5 @@
-import { Container, EmptyState, PageHeader, Button, Input, Select } from "@faang-quant/ui";
-import type { ApplicationState } from "@faang-quant/db";
+import { Container, EmptyState, PageHeader, Button, Input, Select } from "@swe-quant/ui";
+import type { ApplicationState } from "@swe-quant/db";
 import { FilterSidebar } from "./filter-sidebar";
 import { InfiniteListings } from "./infinite-listings";
 import { saveSearchAction } from "../lib/actions";
@@ -13,7 +13,7 @@ import {
   parseListingFilters,
   serializeFeedListing
 } from "../lib/queries";
-import type { ListingFilters } from "@faang-quant/shared";
+import type { ListingFilters } from "@swe-quant/shared";
 
 const LISTINGS_PER_PAGE = 25;
 

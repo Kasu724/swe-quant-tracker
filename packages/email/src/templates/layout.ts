@@ -15,7 +15,7 @@ export function renderEmailLayout(input: {
   bodyText: string;
   footerText?: string;
 }): { html: string; text: string } {
-  const footerText = input.footerText ?? "SWE + Quant Internship Tracker";
+  const footerText = input.footerText ?? "SWE-Quant Tracker";
   const text = [
     input.eyebrow,
     input.title,

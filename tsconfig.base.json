@@ -10,11 +10,11 @@
     "forceConsistentCasingInFileNames": true,
     "baseUrl": ".",
     "paths": {
-      "@faang-quant/config": ["packages/config/src/index.ts"],
-      "@faang-quant/db": ["packages/db/src/index.ts"],
-      "@faang-quant/email": ["packages/email/src/index.ts"],
-      "@faang-quant/shared": ["packages/shared/src/index.ts"],
-      "@faang-quant/ui": ["packages/ui/src/index.ts"]
+      "@swe-quant/config": ["packages/config/src/index.ts"],
+      "@swe-quant/db": ["packages/db/src/index.ts"],
+      "@swe-quant/email": ["packages/email/src/index.ts"],
+      "@swe-quant/shared": ["packages/shared/src/index.ts"],
+      "@swe-quant/ui": ["packages/ui/src/index.ts"]
     }
   }
 }

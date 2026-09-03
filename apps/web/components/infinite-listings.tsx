@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ApplicationState } from "@faang-quant/db";
+import type { ApplicationState } from "@swe-quant/db";
 import type { FeedListing } from "../lib/queries";
 import { ListingCard } from "./listing-card";
 

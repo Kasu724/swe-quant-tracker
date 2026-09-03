@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Download, Upload } from "lucide-react";
-import { Button } from "@faang-quant/ui";
+import { Button } from "@swe-quant/ui";
 import { useRouter } from "next/navigation";
 
 type ImportResponse = {
@@ -32,7 +32,7 @@ export function PortableDataManager() {
       if (!response.ok) throw new Error("Could not create the backup.");
       const blob = await response.blob();
       const disposition = response.headers.get("content-disposition") ?? "";
-      const fileName = disposition.match(/filename="([^"]+)"/)?.[1] ?? "faang-quant-tracker-backup.json";
+      const fileName = disposition.match(/filename="([^"]+)"/)?.[1] ?? "swe-quant-tracker-backup.json";
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;

@@ -1,9 +1,9 @@
 "use client";
 
 import { formatDistanceToNow } from "date-fns";
-import { Badge, Button, Card, CardContent } from "@faang-quant/ui";
-import type { ApplicationState } from "@faang-quant/db";
-import { getPreferredPostingUrl } from "@faang-quant/shared";
+import { Badge, Button, Card, CardContent } from "@swe-quant/ui";
+import type { ApplicationState } from "@swe-quant/db";
+import { getPreferredPostingUrl } from "@swe-quant/shared";
 import type { FeedListing } from "../lib/queries";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../lib/actions";
 import { PostingListButton } from "./posting-list-button";

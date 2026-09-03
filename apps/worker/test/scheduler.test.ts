@@ -20,7 +20,7 @@ vi.mock("node-cron", () => ({
   }
 }));
 
-vi.mock("@faang-quant/config", () => ({
+vi.mock("@swe-quant/config", () => ({
   readWorkerEnv: () => ({
     POLL_CRON: "*/30 * * * *",
     DAILY_DIGEST_CRON: "0 8 * * *",

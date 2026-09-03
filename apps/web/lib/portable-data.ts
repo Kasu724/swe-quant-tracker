@@ -1,8 +1,8 @@
-import { Prisma, prisma } from "@faang-quant/db";
+import { Prisma, prisma } from "@swe-quant/db";
 import { z } from "zod";
 import { getLocalProfile, isPlaceholderLocalEmail } from "./local-profile";
 
-export const PORTABLE_DATA_FORMAT = "faang-quant-tracker-backup";
+export const PORTABLE_DATA_FORMAT = "swe-quant-tracker-backup";
 export const PORTABLE_DATA_VERSION = 1;
 
 const sourceTypeSchema = z.enum([
@@ -221,7 +221,7 @@ export async function importPortableData(data: PortableData, replacePersonalData
     await tx.user.update({
       where: { id: user.id },
       data: {
-        email: data.settings.notificationEmail ?? "local@faang-quant-tracker.invalid",
+        email: data.settings.notificationEmail ?? "local@swe-quant-tracker.invalid",
         alertEmailsEnabled: Boolean(data.settings.notificationEmail) && data.settings.alertEmailsEnabled,
         digestTimezone: data.settings.digestTimezone
       }

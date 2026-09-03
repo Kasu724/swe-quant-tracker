@@ -1,7 +1,7 @@
 import pino from "pino";
 
 export const logger = pino({
-  name: "faang-quant-worker",
+  name: "swe-quant-worker",
   level: process.env.LOG_LEVEL ?? "info"
 });
 

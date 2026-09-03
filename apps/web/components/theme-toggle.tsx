@@ -2,7 +2,7 @@
 
 import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "@faang-quant/ui";
+import { Button } from "@swe-quant/ui";
 
 type ThemeMode = "light" | "dark";
 

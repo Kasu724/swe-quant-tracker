@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Check, Plus } from "lucide-react";
-import { Button } from "@faang-quant/ui";
+import { Button } from "@swe-quant/ui";
 
 export function PostingListButton({
   postingId,

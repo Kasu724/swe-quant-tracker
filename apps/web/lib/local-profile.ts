@@ -1,6 +1,6 @@
-import { prisma } from "@faang-quant/db";
+import { prisma } from "@swe-quant/db";
 
-export const LOCAL_PROFILE_EMAIL = "local@faang-quant-tracker.invalid";
+export const LOCAL_PROFILE_EMAIL = "local@swe-quant-tracker.invalid";
 
 /**
  * The desktop app has one implicit local profile. The existing User row is kept

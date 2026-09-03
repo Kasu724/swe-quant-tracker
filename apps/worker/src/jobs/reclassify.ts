@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@faang-quant/db";
+import { prisma, type Prisma } from "@swe-quant/db";
 import {
   extractLocationCountries,
   isInternshipPosting,
@@ -6,7 +6,7 @@ import {
   normalizeLocations,
   stripHtml,
   type NormalizedLocation
-} from "@faang-quant/shared";
+} from "@swe-quant/shared";
 import { logger } from "../lib/logger";
 
 function toMetadataRecord(value: Prisma.JsonValue | null): Record<string, unknown> | undefined {

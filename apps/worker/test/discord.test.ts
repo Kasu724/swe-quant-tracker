@@ -11,11 +11,11 @@ const mocks = vi.hoisted(() => ({
   loggerDebug: vi.fn()
 }));
 
-vi.mock("@faang-quant/config", () => ({
+vi.mock("@swe-quant/config", () => ({
   readWorkerEnv: mocks.readWorkerEnv
 }));
 
-vi.mock("@faang-quant/db", () => ({
+vi.mock("@swe-quant/db", () => ({
   DiscordNotificationStatus: {
     PENDING: "PENDING",
     PROCESSING: "PROCESSING",

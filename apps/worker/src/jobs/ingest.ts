@@ -1,11 +1,11 @@
-import { readBaseEnv, readWorkerEnv } from "@faang-quant/config";
+import { readBaseEnv, readWorkerEnv } from "@swe-quant/config";
 import {
   prisma,
   IngestionRunStatus,
   type CompanySource,
   type InternshipPosting,
   type Prisma
-} from "@faang-quant/db";
+} from "@swe-quant/db";
 import {
   getPreferredPostingUrl,
   getAdapter,
@@ -15,7 +15,7 @@ import {
   type AdapterFetchedPosting,
   type NormalizedPostingRecord,
   type NormalizedLocation
-} from "@faang-quant/shared";
+} from "@swe-quant/shared";
 import { subDays } from "date-fns";
 import { sendImmediateAlertsForPostings } from "../lib/alerts";
 import { mapWithConcurrency, runWithConcurrency } from "../lib/concurrency";

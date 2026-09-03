@@ -1,4 +1,4 @@
-import { prisma, type Prisma } from "@faang-quant/db";
+import { prisma, type Prisma } from "@swe-quant/db";
 
 export const COMPANIES_PAGE_SIZE = 24;
 

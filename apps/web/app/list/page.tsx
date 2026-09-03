@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Button, Container, EmptyState, PageHeader } from "@faang-quant/ui";
+import { Button, Container, EmptyState, PageHeader } from "@swe-quant/ui";
 import { PostingListCard } from "../../components/posting-list-card";
 import { getLocalProfile } from "../../lib/local-profile";
 import { getUserPostingList } from "../../lib/queries";

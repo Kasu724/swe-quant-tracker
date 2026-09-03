@@ -1,4 +1,4 @@
-import { Button, Card, CardContent, Container, Input, PageHeader } from "@faang-quant/ui";
+import { Button, Card, CardContent, Container, Input, PageHeader } from "@swe-quant/ui";
 import { PortableDataManager } from "../../components/portable-data-manager";
 import {
   saveDiscordSettingsAction,

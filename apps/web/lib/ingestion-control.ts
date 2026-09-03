@@ -22,7 +22,7 @@ type DevelopmentIngestionState = {
 };
 
 declare global {
-  var __faangQuantIngestion__: DevelopmentIngestionState | undefined;
+  var __sweQuantIngestion__: DevelopmentIngestionState | undefined;
 }
 
 const idleStatus: IngestionStatus = {
@@ -40,8 +40,8 @@ const idleStatus: IngestionStatus = {
 };
 
 function developmentState() {
-  global.__faangQuantIngestion__ ??= { status: { ...idleStatus } };
-  return global.__faangQuantIngestion__;
+  global.__sweQuantIngestion__ ??= { status: { ...idleStatus } };
+  return global.__sweQuantIngestion__;
 }
 
 async function desktopRequest(method: "GET" | "POST") {
@@ -85,7 +85,7 @@ function startDevelopmentIngestion() {
   if (state.child && state.child.exitCode === null) return false;
 
   const workspaceRoot = findWorkspaceRoot(process.cwd());
-  const workerArguments = ["--filter", "@faang-quant/worker", "ingest"];
+  const workerArguments = ["--filter", "@swe-quant/worker", "ingest"];
   // Windows exposes pnpm as a .cmd shim, which Node cannot execute directly.
   // Launch the shim through cmd.exe explicitly instead of using shell: true;
   // the latter concatenates spawn arguments and is deprecated by Node.

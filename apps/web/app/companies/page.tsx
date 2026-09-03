@@ -1,4 +1,4 @@
-import { Badge, Button, Card, CardContent, Container, EmptyState, PageHeader } from "@faang-quant/ui";
+import { Badge, Button, Card, CardContent, Container, EmptyState, PageHeader } from "@swe-quant/ui";
 import Link from "next/link";
 import {
   getCompaniesOverviewPage,

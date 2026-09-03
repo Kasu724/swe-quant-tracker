@@ -1,5 +1,5 @@
 {
-  "name": "@faang-quant/email",
+  "name": "@swe-quant/email",
   "version": "0.0.0",
   "private": true,
   "main": "./src/index.ts",
@@ -10,8 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@faang-quant/config": "workspace:*",
-    "@faang-quant/shared": "workspace:*",
+    "@swe-quant/config": "workspace:*",
+    "@swe-quant/shared": "workspace:*",
     "nodemailer": "^9.0.5",
     "resend": "^4.3.0"
   },

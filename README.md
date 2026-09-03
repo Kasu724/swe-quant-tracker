@@ -1,4 +1,4 @@
-# SWE + Quant Internship Tracker
+# SWE-Quant Tracker
 
 An open-source tracker for software engineering and quantitative internships. It brings postings from
 technology companies, trading firms, hedge funds, and other quantitative employers into one searchable
@@ -235,7 +235,7 @@ Single source of truth for the seeded target universe. `Tracked` means `db:seed`
 
    ```bash
    pnpm db:generate
-   pnpm --filter @faang-quant/db migrate:dev
+   pnpm --filter @swe-quant/db migrate:dev
    ```
 
 5. Seed companies, seed sources, and the local admin account:
@@ -310,7 +310,7 @@ It uses locally installed PostgreSQL client tools when available and otherwise r
 the `postgres:16` Docker image:
 
 ```powershell
-$env:LOCAL_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/faang_quant_tracker"
+$env:LOCAL_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/swe_quant_tracker"
 $env:DIRECT_URL="the Supabase direct or session-pooler URL"
 pnpm db:cloud:copy
 ```
@@ -364,8 +364,8 @@ pnpm build:desktop
 
 The output is written to `dist/desktop/`:
 
-- `FAANG-Quant-Tracker-Setup-<version>-x64.exe` — standard Windows installer
-- `FAANG-Quant-Tracker-Portable-<version>-x64.zip` — no-install portable tray service
+- `SWE-Quant-Tracker-Setup-<version>-x64.exe` — standard Windows installer
+- `SWE-Quant-Tracker-Portable-<version>-x64.zip` — no-install portable tray service
 
 Run the **Windows desktop release** workflow manually to download its build artifact, or push a
 version tag to create a GitHub Release and attach the installer and portable archive:

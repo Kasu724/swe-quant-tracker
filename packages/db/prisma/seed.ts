@@ -139,7 +139,7 @@ async function seedLocalProfile() {
   } else {
     await prisma.user.create({
       data: {
-        email: "local@faang-quant-tracker.invalid",
+        email: "local@swe-quant-tracker.invalid",
         name: "Local profile",
         alertEmailsEnabled: false
       }

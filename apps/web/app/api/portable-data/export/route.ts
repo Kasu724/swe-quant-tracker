@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   return new NextResponse(`${JSON.stringify(data, null, 2)}\n`, {
     headers: {
       "Content-Type": "application/json; charset=utf-8",
-      "Content-Disposition": `attachment; filename="faang-quant-tracker-backup-${date}.json"`,
+      "Content-Disposition": `attachment; filename="swe-quant-tracker-backup-${date}.json"`,
       "Cache-Control": "no-store"
     }
   });

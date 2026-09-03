@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@faang-quant/db";
+import { prisma } from "@swe-quant/db";
 import { getLocalProfile } from "../../../lib/local-profile";
 import { isPrismaErrorCode, postingIdSchema, readJsonObject } from "../../../lib/validation";
 

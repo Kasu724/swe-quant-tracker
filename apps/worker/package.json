@@ -1,5 +1,5 @@
 {
-  "name": "@faang-quant/worker",
+  "name": "@swe-quant/worker",
   "private": true,
   "scripts": {
     "dev": "dotenv -e ../../.env -- tsx watch src/index.ts",
@@ -13,10 +13,10 @@
     "reclassify": "dotenv -e ../../.env -- tsx src/cli.ts reclassify"
   },
   "dependencies": {
-    "@faang-quant/config": "workspace:*",
-    "@faang-quant/db": "workspace:*",
-    "@faang-quant/email": "workspace:*",
-    "@faang-quant/shared": "workspace:*",
+    "@swe-quant/config": "workspace:*",
+    "@swe-quant/db": "workspace:*",
+    "@swe-quant/email": "workspace:*",
+    "@swe-quant/shared": "workspace:*",
     "@prisma/client": "^6.6.0",
     "date-fns": "^4.1.0",
     "node-cron": "^4.1.0",

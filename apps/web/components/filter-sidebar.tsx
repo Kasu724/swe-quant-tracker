@@ -1,6 +1,6 @@
-import { Badge, Button, Card, CardContent, Checkbox, Input, Select } from "@faang-quant/ui";
-import { cn } from "@faang-quant/ui";
-import type { ListingFilters } from "@faang-quant/shared";
+import { Badge, Button, Card, CardContent, Checkbox, Input, Select } from "@swe-quant/ui";
+import { cn } from "@swe-quant/ui";
+import type { ListingFilters } from "@swe-quant/shared";
 
 function FilterSidebarForm({
   companies,

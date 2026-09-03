@@ -47,24 +47,24 @@ importers:
 
   apps/web:
     dependencies:
-      '@faang-quant/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@faang-quant/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@faang-quant/email':
-        specifier: workspace:*
-        version: link:../../packages/email
-      '@faang-quant/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
-      '@faang-quant/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@prisma/client':
         specifier: ^6.6.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      '@swe-quant/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@swe-quant/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@swe-quant/email':
+        specifier: workspace:*
+        version: link:../../packages/email
+      '@swe-quant/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@swe-quant/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -120,21 +120,21 @@ importers:
 
   apps/worker:
     dependencies:
-      '@faang-quant/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@faang-quant/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@faang-quant/email':
-        specifier: workspace:*
-        version: link:../../packages/email
-      '@faang-quant/shared':
-        specifier: workspace:*
-        version: link:../../packages/shared
       '@prisma/client':
         specifier: ^6.6.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      '@swe-quant/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@swe-quant/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@swe-quant/email':
+        specifier: workspace:*
+        version: link:../../packages/email
+      '@swe-quant/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
@@ -176,12 +176,12 @@ importers:
 
   packages/db:
     dependencies:
-      '@faang-quant/config':
-        specifier: workspace:*
-        version: link:../config
       '@prisma/client':
         specifier: ^6.6.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
+      '@swe-quant/config':
+        specifier: workspace:*
+        version: link:../config
     devDependencies:
       '@types/node':
         specifier: ^22.15.2
@@ -201,10 +201,10 @@ importers:
 
   packages/email:
     dependencies:
-      '@faang-quant/config':
+      '@swe-quant/config':
         specifier: workspace:*
         version: link:../config
-      '@faang-quant/shared':
+      '@swe-quant/shared':
         specifier: workspace:*
         version: link:../shared
       nodemailer:

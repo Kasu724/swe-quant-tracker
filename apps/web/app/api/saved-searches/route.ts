@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@faang-quant/db";
-import { listingFilterSchema } from "@faang-quant/shared";
+import { prisma } from "@swe-quant/db";
+import { listingFilterSchema } from "@swe-quant/shared";
 import { getLocalProfile } from "../../../lib/local-profile";
 import { getUserSavedSearches } from "../../../lib/queries";
 import {

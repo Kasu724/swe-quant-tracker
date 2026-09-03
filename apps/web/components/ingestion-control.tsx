@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { Button } from "@faang-quant/ui";
+import { Button } from "@swe-quant/ui";
 import type { IngestionStatus } from "../lib/ingestion-control";
 
 const initialStatus: IngestionStatus = {
