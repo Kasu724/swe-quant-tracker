@@ -43,7 +43,7 @@ const userDataDirectory = path.resolve(
 );
 
 const runtime = {
-  migrations: path.join(distributionDirectory, "migrations"),
+  schema: path.join(__dirname, "schema.sql"),
   seed: path.join(__dirname, "seed.cjs"),
   server: path.join(distributionDirectory, "server", "apps", "web", "server.js"),
   worker: path.join(__dirname, "worker.cjs"),
@@ -287,7 +287,7 @@ async function startControlServer() {
 let applicationEnvironment;
 
 async function startLocalService() {
-  const requiredFiles = [runtime.migrations, runtime.seed, runtime.server, runtime.worker, runtime.workerCli];
+  const requiredFiles = [runtime.schema, runtime.seed, runtime.server, runtime.worker, runtime.workerCli];
   const missingFile = requiredFiles.find((filePath) => !fs.existsSync(filePath));
   if (missingFile) throw new Error(`The local runtime is incomplete. Missing: ${missingFile}`);
 
@@ -297,7 +297,7 @@ async function startLocalService() {
 
   database = await startEmbeddedDatabase({
     dataDirectory: path.join(userDataDirectory, "database"),
-    migrationsDirectory: runtime.migrations
+    schemaPath: runtime.schema
   });
 
   const webPort = await reserveLoopbackPort();

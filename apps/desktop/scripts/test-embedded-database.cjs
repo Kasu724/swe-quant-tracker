@@ -12,11 +12,37 @@ async function main() {
   try {
     database = await startEmbeddedDatabase({
       dataDirectory,
-      migrationsDirectory: path.join(__dirname, "..", "..", "..", "packages", "db", "prisma", "migrations")
+      schemaPath: path.join(__dirname, "..", "runtime", "schema.sql")
     });
     prisma = new PrismaClient({ datasources: { db: { url: database.connectionUrl } } });
     const tables = await prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM information_schema.tables WHERE table_schema = 'public'`;
     if (!tables[0] || tables[0].count < 10) throw new Error("Desktop schema was not created");
+    const migrationTable = await prisma.$queryRaw`
+      SELECT COUNT(*)::int AS count
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = '_desktop_migrations'
+    `;
+    if (migrationTable[0]?.count !== 0) throw new Error("Desktop schema unexpectedly created a migration table");
+
+    await prisma.company.create({
+      data: {
+        name: "Desktop persistence test",
+        slug: "desktop-persistence-test",
+        companyBucket: "FAANG"
+      }
+    });
+    await prisma.$disconnect();
+    prisma = undefined;
+    await database.stop();
+    database = undefined;
+
+    database = await startEmbeddedDatabase({
+      dataDirectory,
+      schemaPath: path.join(__dirname, "..", "runtime", "schema.sql")
+    });
+    prisma = new PrismaClient({ datasources: { db: { url: database.connectionUrl } } });
+    const persistedCompany = await prisma.company.findUnique({ where: { slug: "desktop-persistence-test" } });
+    if (!persistedCompany) throw new Error("Desktop data did not persist after reopening the database");
     console.log(`Embedded database smoke test passed (${tables[0].count} public tables).`);
   } finally {
     await prisma?.$disconnect();

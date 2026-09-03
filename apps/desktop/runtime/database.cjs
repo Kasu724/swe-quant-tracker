@@ -1,6 +1,5 @@
 const fs = require("node:fs");
 const net = require("node:net");
-const path = require("node:path");
 
 async function reserveLoopbackPort() {
   return new Promise((resolve, reject) => {
@@ -15,32 +14,25 @@ async function reserveLoopbackPort() {
   });
 }
 
-async function applyMigrations(db, migrationsDirectory) {
-  await db.exec(`
-    CREATE TABLE IF NOT EXISTS "_desktop_migrations" (
-      "name" TEXT PRIMARY KEY,
-      "appliedAt" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
+async function initializeSchema(db, schemaPath) {
+  const result = await db.query(`
+    SELECT EXISTS (
+      SELECT 1
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'User'
+    ) AS "exists"
   `);
 
-  const appliedResult = await db.query('SELECT "name" FROM "_desktop_migrations"');
-  const applied = new Set(appliedResult.rows.map((row) => row.name));
-  const migrations = fs
-    .readdirSync(migrationsDirectory, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && /^\d+_[a-z0-9_]+$/i.test(entry.name))
-    .map((entry) => entry.name)
-    .sort();
+  // The embedded desktop database treats the Prisma schema as its final,
+  // immutable schema. Existing databases are left intact; fresh databases
+  // receive the complete schema snapshot in one transaction.
+  if (result.rows[0]?.exists) return;
 
-  for (const migration of migrations) {
-    if (applied.has(migration)) continue;
-
-    const sql = fs.readFileSync(path.join(migrationsDirectory, migration, "migration.sql"), "utf8");
-    const escapedName = migration.replaceAll("'", "''");
-    await db.exec(`BEGIN;\n${sql}\nINSERT INTO "_desktop_migrations" ("name") VALUES ('${escapedName}');\nCOMMIT;`);
-  }
+  const schemaSql = fs.readFileSync(schemaPath, "utf8");
+  await db.exec(`BEGIN;\n${schemaSql}\nCOMMIT;`);
 }
 
-async function startEmbeddedDatabase({ dataDirectory, migrationsDirectory }) {
+async function startEmbeddedDatabase({ dataDirectory, schemaPath }) {
   const [{ PGlite }, { PGLiteSocketServer }] = await Promise.all([
     import("@electric-sql/pglite"),
     import("@electric-sql/pglite-socket")
@@ -48,7 +40,7 @@ async function startEmbeddedDatabase({ dataDirectory, migrationsDirectory }) {
 
   fs.mkdirSync(dataDirectory, { recursive: true });
   const db = await PGlite.create(dataDirectory);
-  await applyMigrations(db, migrationsDirectory);
+  await initializeSchema(db, schemaPath);
 
   const port = await reserveLoopbackPort();
   const socketServer = new PGLiteSocketServer({

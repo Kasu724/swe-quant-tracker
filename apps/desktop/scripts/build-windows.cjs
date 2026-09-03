@@ -97,6 +97,7 @@ function stageRuntime() {
   copy(process.execPath, path.join(runtimeDirectory, "node.exe"));
   copy(path.join(desktopDirectory, "service.cjs"), path.join(runtimeDirectory, "service.cjs"));
   copy(path.join(desktopDirectory, "runtime", "database.cjs"), path.join(runtimeDirectory, "database.cjs"));
+  copy(path.join(desktopDirectory, "build", "schema.sql"), path.join(runtimeDirectory, "schema.sql"));
   copy(path.join(desktopDirectory, "build", "seed.cjs"), path.join(runtimeDirectory, "seed.cjs"));
   copy(path.join(desktopDirectory, "build", "worker.cjs"), path.join(runtimeDirectory, "worker.cjs"));
   copy(path.join(desktopDirectory, "build", "worker-cli.cjs"), path.join(runtimeDirectory, "worker-cli.cjs"));
@@ -108,7 +109,6 @@ function stageRuntime() {
     path.join(stageDirectory, "server", "apps", "web")
   );
   pruneServerRuntime();
-  copy(path.join(workspaceDirectory, "packages", "db", "prisma", "migrations"), path.join(stageDirectory, "migrations"));
 }
 
 function compileLauncher() {

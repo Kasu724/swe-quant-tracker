@@ -353,6 +353,8 @@ dashboard in the user's default browser, stores data in an embedded PostgreSQL-c
 database, and runs the ingestion scheduler in the background. Closing the browser does not stop the
 service; use the system-tray menu to reopen the dashboard, run ingestion immediately, view logs, or
 exit cleanly. The database persists in the current Windows user's application-data directory.
+Fresh desktop databases are initialized directly from the final Prisma schema snapshot; the packaged
+app does not apply migrations at runtime.
 
 Build the installer and portable executable locally from PowerShell:
 

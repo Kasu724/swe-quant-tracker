@@ -1,4 +1,5 @@
 const fs = require("node:fs");
+const { spawnSync } = require("node:child_process");
 const { isBuiltin } = require("node:module");
 const path = require("node:path");
 const esbuild = require("esbuild");
@@ -95,6 +96,32 @@ function assertRequiredModules(standaloneWebDirectory) {
   }
 }
 
+function generateFinalSchema() {
+  const prismaCli = require.resolve("prisma/build/index.js", {
+    paths: [path.join(workspaceDirectory, "packages", "db")]
+  });
+  const schemaPath = path.join(workspaceDirectory, "packages", "db", "prisma", "schema.prisma");
+  const result = spawnSync(process.execPath, [
+    prismaCli,
+    "migrate",
+    "diff",
+    "--from-empty",
+    "--to-schema-datamodel",
+    schemaPath,
+    "--script"
+  ], {
+    cwd: path.join(workspaceDirectory, "packages", "db"),
+    encoding: "utf8",
+    windowsHide: true
+  });
+
+  if (result.error || result.status !== 0 || !result.stdout.trim()) {
+    throw result.error || new Error(`Could not generate the final desktop schema: ${result.stderr || `exit code ${result.status}`}`);
+  }
+
+  fs.writeFileSync(path.join(outputDirectory, "schema.sql"), result.stdout);
+}
+
 const nodeModulesResolver = {
   name: "node-modules-resolver",
   setup(build) {
@@ -116,6 +143,7 @@ const nodeModulesResolver = {
 
 async function main() {
   fs.mkdirSync(outputDirectory, { recursive: true });
+  generateFinalSchema();
 
   const iconPng = await sharp(path.join(desktopDirectory, "resources", "icon.svg"))
     .resize(512, 512)
