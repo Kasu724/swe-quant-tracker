@@ -4,6 +4,10 @@ An open-source tracker for software engineering and quantitative internships. It
 technology companies, trading firms, hedge funds, and other quantitative employers into one searchable
 feed, with saved searches, application tracking, and alerts.
 
+**Platform support: the desktop build is currently Windows-only (x64).** macOS and Linux desktop
+builds are not currently supported. See [Windows Tray Service](#windows-tray-service) for build and
+installation instructions; [Local Setup](#local-setup) covers running the project from source.
+
 This project is built in public for students and contributors. It prefers official, structured,
 ATS-backed job data over brittle scraping. The current ingestion adapters support Greenhouse, Lever,
 Ashby, Workday, and selected official careers APIs and HTML payloads.
@@ -62,6 +66,71 @@ packages/
 - canonical posting storage with source-record traceability
 - duplicate detection and canonical merge tools
 - CSV export for filtered listings
+
+## Product Tour
+
+The tracker has two main surfaces: the internship feed for finding and organizing roles, and the
+Sources page for refreshing feeds and maintaining company/source configuration.
+
+![Internship feed dashboard](docs/images/dashboard.png)
+
+_Internship feed: filter by keyword, company, bucket, role, season, year, location, workplace, pay,
+and minimum compensation; then save the filter set or act on individual postings._
+
+![Source operations dashboard](docs/images/sources-dashboard.png)
+
+_Sources: run ingestion on demand, review recent runs, inspect duplicate candidates, and manage
+tracked companies and configured source adapters._
+
+## Using the Tracker
+
+### Find internships
+
+1. Start the local stack using the [Local Setup](#local-setup) instructions, then open
+   `http://localhost:3000`.
+2. Use the filter panel to narrow the feed. Keyword searches match company, title, and location;
+   the remaining controls cover company, company bucket, role category, season/year, workplace,
+   compensation, and minimum pay.
+3. Select **Apply** to refresh the results. Use **Reset** to return to the complete active feed.
+4. Open a posting title for its detail page, or choose **Apply** to open the employer's official
+   application/source page in a new tab.
+5. Use **Favorite** for a shortlist, **Mark applied** to track progress, **Hide** to remove a role
+   from the working feed, and the plus/list control to add a role to your application list.
+
+### Save searches and alerts
+
+1. Run the filters you care about.
+2. Enter a name in **Saved search name**, choose **Immediate alerts** or **Daily digest**, and
+   select **Save search**.
+3. Review saved filters and favorites from **Saved** in the site navigation. Saved searches keep
+   the filter payload that produced them, so you can audit or delete them later.
+
+### Refresh and maintain sources
+
+1. Open **Sources** to view ingestion metrics and recent source runs.
+2. Choose **Run ingestion now** to request a refresh. The progress indicator shows active source
+   work and newly discovered jobs; the worker also runs on its configured schedule.
+3. Review failed runs and duplicate candidates before changing source configuration.
+4. Use the company and source controls to disable noisy sources, re-enable paused sources, or add
+   a source with its adapter type, identifier, URL, display name, and priority.
+
+### Settings, Discord, and portability
+
+- **Settings** stores an optional alert email and digest timezone locally.
+- To send new-posting announcements to Discord, create a server webhook, paste it into **Discord
+  notifications**, select companies, save, and use **Send test message**. The webhook is kept in
+  the local database and is excluded from portable backups.
+- Use **Export backup** to download settings, saved searches, saved jobs, application progress,
+  companies, and source configuration as versioned JSON. On another machine, choose the JSON file
+  and select **Import backup**. The optional replace checkbox overwrites existing personal tracking
+  data before the import.
+
+### Windows desktop tool
+
+The Windows tray service packages the same dashboard with an embedded local database. Build it with
+`pnpm build:desktop`, install or unpack the generated artifact from `dist/desktop/`, and launch the
+tray app. Use the tray menu to reopen the dashboard, run ingestion, view logs, or exit. The browser,
+database, settings, and application tracking remain on the local machine.
 
 ## Target Company Coverage
 
@@ -346,6 +415,9 @@ pnpm worker:discord
 ```
 
 ## Windows Tray Service
+
+The desktop build currently supports **Windows x64 only**. There are no macOS or Linux desktop
+builds at this time.
 
 The lightweight Windows launcher is fully local and does not require Docker, PostgreSQL, Node.js,
 or a hosted deployment. It starts a bundled Next.js server on a random loopback-only port, opens the
