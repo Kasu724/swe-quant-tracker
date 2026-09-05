@@ -127,7 +127,7 @@ export default async function SettingsPage() {
                   {discord.destination.enabled ? "Discord is enabled" : "Discord is paused"}
                 </div>
                 <div className="text-slate-500">
-                  {notificationFilters.companySlugs.length ? `${notificationFilters.companySlugs.length} companies selected` : "All companies"} � Notification filters applied
+                  {notificationFilters.companySlugs.length ? `${notificationFilters.companySlugs.length} companies selected` : "All companies"} · Notification filters applied
                   {discord.destination.lastTestedAt ? ` · Last tested ${discord.destination.lastTestedAt.toLocaleString()}` : ""}
                 </div>
                 {discord.destination.lastTestStatus === false ? (
