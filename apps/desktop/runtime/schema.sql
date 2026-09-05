@@ -195,6 +195,7 @@ CREATE TABLE "DiscordDestination" (
     "userId" TEXT NOT NULL,
     "name" TEXT NOT NULL DEFAULT 'Discord',
     "webhookUrl" TEXT NOT NULL,
+    "filterJson" JSONB,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
     "lastTestedAt" TIMESTAMP(3),
     "lastTestStatus" BOOLEAN,

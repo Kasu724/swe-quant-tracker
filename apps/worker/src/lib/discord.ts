@@ -4,7 +4,13 @@ import {
   prisma,
   type InternshipPosting
 } from "@swe-quant/db";
-import { getPostingUrlCandidates } from "@swe-quant/shared";
+import {
+  getPostingUrlCandidates,
+  listingFilterSchema,
+  matchesListingFilters,
+  type ListingFilters
+} from "@swe-quant/shared";
+import { toListingSearchRecord } from "./listing-record";
 import { logger } from "./logger";
 
 const MAX_DISCORD_RETRY_DELAY_MS = 30_000;
@@ -291,8 +297,9 @@ function leaseDuration(env: WorkerEnv): number {
 
 export type DiscordDeliveryConfiguration = {
   webhookUrl: string;
-  /** null means the legacy environment webhook, which historically announced every company. */
+  /** Company restriction for legacy destinations; filter-based destinations use filters instead. */
   companyIds: string[] | null;
+  filters?: ListingFilters;
 };
 
 export async function readDiscordDeliveryConfiguration(
@@ -307,6 +314,7 @@ export async function readDiscordDeliveryConfiguration(
         findFirst: (args: unknown) => Promise<{
           webhookUrl: string;
           enabled: boolean;
+          filterJson?: unknown;
           companies: Array<{ companyId: string }>;
         } | null>;
       };
@@ -325,10 +333,22 @@ export async function readDiscordDeliveryConfiguration(
     // An explicitly saved destination, including a paused or unselected one,
     // takes precedence over the legacy environment fallback.
     if (destination) {
-      if (!destination.enabled || !destination.webhookUrl || destination.companies.length === 0) {
+      if (!destination.enabled || !destination.webhookUrl) {
         return null;
       }
 
+      if (destination.filterJson != null) {
+        const parsed = listingFilterSchema.safeParse(destination.filterJson);
+        // Invalid saved filters must not silently broaden delivery.
+        if (!parsed.success) return null;
+        return {
+          webhookUrl: destination.webhookUrl,
+          companyIds: null,
+          filters: parsed.data
+        };
+      }
+
+      if (destination.companies.length === 0) return null;
       return {
         webhookUrl: destination.webhookUrl,
         companyIds: destination.companies.map((company) => company.companyId)
@@ -382,7 +402,7 @@ export async function deliverPendingDiscordNotifications(
       ]
     },
     include: {
-      internshipPosting: true
+      internshipPosting: { include: { company: true } }
     },
     orderBy: [{ nextAttemptAt: "asc" }, { createdAt: "asc" }],
     take: env.DISCORD_NOTIFICATION_BATCH_SIZE
@@ -404,6 +424,7 @@ export async function deliverPendingDiscordNotifications(
     const claimed = await prisma.discordNotification.updateMany({
       where: {
         id: candidate.id,
+        eligibleForDelivery: true,
         OR: [
           {
             status: { in: [DiscordNotificationStatus.PENDING, DiscordNotificationStatus.FAILED] },
@@ -428,6 +449,23 @@ export async function deliverPendingDiscordNotifications(
     }
 
     try {
+      if (
+        configuration.filters &&
+        !matchesListingFilters(toListingSearchRecord(candidate.internshipPosting), configuration.filters)
+      ) {
+        // Retire excluded postings so they cannot occupy every batch or be
+        // announced retroactively after a later filter change.
+        await prisma.discordNotification.update({
+          where: { id: candidate.id },
+          data: {
+            eligibleForDelivery: false,
+            status: DiscordNotificationStatus.PENDING,
+            leaseExpiresAt: null,
+            attempts: { decrement: 1 }
+          }
+        });
+        continue;
+      }
       const result = await client.send(buildDiscordWebhookPayload(candidate.internshipPosting));
       const completedAt = options.now?.() ?? new Date();
       await prisma.discordNotification.update({

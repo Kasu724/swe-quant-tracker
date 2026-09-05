@@ -1,3 +1,4 @@
+import { listingFilterSchema } from "@swe-quant/shared";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -289,6 +290,86 @@ describe("Discord notification outbox", () => {
     expect(mocks.findMany).not.toHaveBeenCalled();
   });
 
+  it.each([
+    { companySlugs: ["other"] },
+    { companyBuckets: ["FAANG"] },
+    { roleCategories: ["SWE"] },
+    { q: "software" },
+    { seasons: ["WINTER"] },
+    { years: [2028] },
+    { locations: ["Boston"] },
+    { remoteTypes: ["REMOTE"] },
+    { payKnown: "unknown" },
+    { minimumPay: 101 },
+    { recentlyPostedDays: 1 }
+  ])("retires postings excluded by %j without sending them", async (filter) => {
+    mocks.destinationFindFirst.mockResolvedValue({
+      webhookUrl: baseEnv.DISCORD_WEBHOOK_URL,
+      enabled: true,
+      companies: [],
+      filterJson: listingFilterSchema.parse(filter)
+    });
+    mocks.findMany.mockResolvedValue([{
+      id: "filtered", internshipPostingId: posting.id, attempts: 0,
+      internshipPosting: {
+        ...posting, company: { slug: "example", companyBucket: "QUANT" },
+        roleCategory: "QUANT_RESEARCH", season: "SUMMER", year: 2027,
+        locationCountries: ["US"], remoteType: "ONSITE", isActive: true,
+        postingDate: new Date("2000-01-01"),
+        compensationMin: { toNumber: () => 80 }, compensationMax: { toNumber: () => 100 }
+      }
+    }]);
+    mocks.updateMany.mockResolvedValue({ count: 1 });
+    const client = { send: vi.fn() };
+
+    await deliverPendingDiscordNotifications(baseEnv as never, { client });
+
+    expect(client.send).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: "filtered" },
+      data: expect.objectContaining({ eligibleForDelivery: false, leaseExpiresAt: null })
+    });
+  });
+
+  it("sends matching postings with filters even without legacy company subscriptions", async () => {
+    mocks.destinationFindFirst.mockResolvedValue({
+      webhookUrl: baseEnv.DISCORD_WEBHOOK_URL,
+      enabled: true,
+      companies: [],
+      filterJson: listingFilterSchema.parse({
+        companySlugs: ["example"], companyBuckets: ["QUANT"], q: "research",
+        roleCategories: ["QUANT_RESEARCH"], seasons: ["SUMMER"], years: [2027],
+        locations: ["New York"], remoteTypes: ["ONSITE"], payKnown: "known", minimumPay: 90
+      })
+    });
+    mocks.findMany.mockResolvedValue([{
+      id: "matching", internshipPostingId: posting.id, attempts: 0,
+      internshipPosting: {
+        ...posting, company: { slug: "example", companyBucket: "QUANT" },
+        roleCategory: "QUANT_RESEARCH", season: "SUMMER", year: 2027,
+        locationCountries: ["US"], remoteType: "ONSITE", isActive: true,
+        compensationMin: { toNumber: () => 80 }, compensationMax: { toNumber: () => 100 }
+      }
+    }]);
+    mocks.updateMany.mockResolvedValue({ count: 1 });
+    const client = { send: vi.fn().mockResolvedValue({ attempts: 1 }) };
+
+    await deliverPendingDiscordNotifications(baseEnv as never, { client });
+
+    expect(client.send).toHaveBeenCalledTimes(1);
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.not.objectContaining({ internshipPosting: expect.anything() })
+    }));
+  });
+
+  it.each([null, { roleCategories: ["INVALID"] }])("keeps empty legacy or invalid filters from enabling all notifications", async (filterJson) => {
+    mocks.destinationFindFirst.mockResolvedValue({
+      webhookUrl: baseEnv.DISCORD_WEBHOOK_URL, enabled: true, companies: [], filterJson
+    });
+    await deliverPendingDiscordNotifications(baseEnv as never, { client: { send: vi.fn() } });
+    expect(mocks.findMany).not.toHaveBeenCalled();
+  });
+
   it("claims and marks a pending notification as sent", async () => {
     mocks.findMany.mockResolvedValue([
       {
@@ -311,7 +392,7 @@ describe("Discord notification outbox", () => {
 
     expect(mocks.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: expect.objectContaining({ id: "notification-1" }),
+        where: expect.objectContaining({ id: "notification-1", eligibleForDelivery: true }),
         data: expect.objectContaining({ status: "PROCESSING", attempts: { increment: 1 } })
       })
     );

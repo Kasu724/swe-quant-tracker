@@ -1,3 +1,5 @@
+import { listingFilterSchema } from "@swe-quant/shared";
+import { ListingFilterFields } from "../../components/listing-filter-fields";
 import { Button, Card, CardContent, Container, Input, PageHeader } from "@swe-quant/ui";
 import { PortableDataManager } from "../../components/portable-data-manager";
 import {
@@ -11,7 +13,7 @@ import { getDiscordSettings } from "../../lib/queries";
 export default async function SettingsPage() {
   const user = await getLocalProfile();
   const discord = await getDiscordSettings(user.id);
-  const selectedCompanyIds = new Set(discord.destination?.selectedCompanyIds ?? []);
+  const notificationFilters = discord.destination?.filters ?? listingFilterSchema.parse({});
 
   return (
     <Container className="space-y-8 py-12">
@@ -56,8 +58,8 @@ export default async function SettingsPage() {
           <div>
             <h2 className="font-display text-xl font-semibold text-ink">Discord notifications</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Connect a Discord server with a server webhook, then choose which tracked companies
-              should announce new internships. Messages are queued durably and delivered right after
+              Connect a Discord server with a server webhook, then choose which new internships
+              should be announced. Messages are queued durably and delivered right after
               each ingestion cycle, with retries for temporary Discord outages.
             </p>
           </div>
@@ -94,25 +96,18 @@ export default async function SettingsPage() {
               Send Discord notifications
             </label>
 
-            <fieldset className="space-y-3">
-              <legend className="text-sm font-medium text-slate-700">Companies to announce</legend>
-              <p className="text-xs text-slate-500">
-                Choose the tracked companies to announce. New postings from unselected companies stay out of Discord.
+            <fieldset className="space-y-4">
+              <legend className="text-sm font-medium text-slate-700">Notification filters</legend>
+              <p className="text-sm text-slate-600">
+                Use the same filters as the feed to choose which postings are sent to Discord.
+                These settings are saved separately and do not change your feed filters.
               </p>
-              <div className="grid max-h-80 gap-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
-                {discord.companies.map((company) => (
-                  <label key={company.id} className="flex items-center gap-2 rounded-xl px-2 py-2 text-sm text-slate-700 transition-colors hover:bg-white">
-                    <input
-                      type="checkbox"
-                      name="discordCompanyId"
-                      value={company.id}
-                      defaultChecked={discord.destination ? selectedCompanyIds.has(company.id) : true}
-                    />
-                    <span className="min-w-0 truncate">{company.name}</span>
-                    <span className="ml-auto shrink-0 text-xs text-slate-400">{company.companyBucket.replaceAll("_", " ")}</span>
-                  </label>
-                ))}
-              </div>
+              <ListingFilterFields
+                companies={discord.companies}
+                filters={notificationFilters}
+                multipleCompanies
+                showSort={false}
+              />
             </fieldset>
 
             {discord.destination ? (
@@ -132,7 +127,7 @@ export default async function SettingsPage() {
                   {discord.destination.enabled ? "Discord is enabled" : "Discord is paused"}
                 </div>
                 <div className="text-slate-500">
-                  {discord.destination.selectedCompanyIds.length} compan{discord.destination.selectedCompanyIds.length === 1 ? "y" : "ies"} selected
+                  {notificationFilters.companySlugs.length ? `${notificationFilters.companySlugs.length} companies selected` : "All companies"} · Notification filters applied
                   {discord.destination.lastTestedAt ? ` Â· Last tested ${discord.destination.lastTestedAt.toLocaleString()}` : ""}
                 </div>
                 {discord.destination.lastTestStatus === false ? (
@@ -154,7 +149,7 @@ export default async function SettingsPage() {
             <h2 className="font-display text-xl font-semibold text-ink">Portable backup</h2>
             <p className="mt-1 text-sm text-slate-600">
               Export settings, saved searches, saved jobs, application progress, companies, source configuration,
-              and Discord company selections as versioned JSON. Discord webhook secrets, raw posting caches,
+              and Discord notification filters as versioned JSON. Discord webhook secrets, raw posting caches,
               and ingestion logs are intentionally excluded.
             </p>
           </div>

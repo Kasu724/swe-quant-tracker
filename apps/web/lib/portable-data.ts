@@ -1,3 +1,4 @@
+import { listingFilterSchema } from "@swe-quant/shared";
 import { Prisma, prisma } from "@swe-quant/db";
 import { z } from "zod";
 import { getLocalProfile, isPlaceholderLocalEmail } from "./local-profile";
@@ -43,6 +44,7 @@ export const portableDataSchema = z.object({
   discord: z
     .object({
       enabled: z.boolean(),
+      filters: listingFilterSchema.nullable().optional(),
       companySlugs: z.array(z.string().min(1).max(255)).max(10_000)
     })
     .nullable()
@@ -120,6 +122,7 @@ export async function createPortableData(theme: "light" | "dark" | "system"): Pr
       where: { userId: user.id },
       select: {
         enabled: true,
+        filterJson: true,
         companies: {
           select: {
             company: { select: { slug: true } }
@@ -178,6 +181,7 @@ export async function createPortableData(theme: "light" | "dark" | "system"): Pr
     discord: discordDestination
       ? {
           enabled: discordDestination.enabled,
+          filters: discordDestination.filterJson == null ? null : listingFilterSchema.parse(discordDestination.filterJson),
           companySlugs: discordDestination.companies.map((entry) => entry.company.slug)
         }
       : null,
@@ -252,6 +256,7 @@ export async function importPortableData(data: PortableData, replacePersonalData
           where: { id: destination.id },
           data: {
             enabled: data.discord.enabled,
+            filterJson: data.discord.filters ?? Prisma.DbNull,
             companies: {
               deleteMany: {},
               create: matchingCompanies.map((company) => ({ companyId: company.id }))

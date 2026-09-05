@@ -23,10 +23,11 @@ async function initializeSchema(db, schemaPath) {
     ) AS "exists"
   `);
 
-  // The embedded desktop database treats the Prisma schema as its final,
-  // immutable schema. Existing databases are left intact; fresh databases
-  // receive the complete schema snapshot in one transaction.
-  if (result.rows[0]?.exists) return;
+  // Apply additive upgrades before starting services against an existing database.
+  if (result.rows[0]?.exists) {
+    await db.exec('ALTER TABLE "DiscordDestination" ADD COLUMN IF NOT EXISTS "filterJson" JSONB;');
+    return;
+  }
 
   const schemaSql = fs.readFileSync(schemaPath, "utf8");
   await db.exec(`BEGIN;\n${schemaSql}\nCOMMIT;`);

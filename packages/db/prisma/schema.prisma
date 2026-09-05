@@ -285,6 +285,7 @@ model DiscordDestination {
   user           User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
   name           String                       @default("Discord")
   webhookUrl     String
+  filterJson     Json?
   enabled        Boolean                      @default(true)
   lastTestedAt   DateTime?
   lastTestStatus Boolean?

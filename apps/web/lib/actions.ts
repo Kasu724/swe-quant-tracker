@@ -1,5 +1,6 @@
 "use server";
 
+import { parseListingFilterForm } from "./listing-filter-params";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@swe-quant/db";
@@ -201,20 +202,18 @@ export async function saveDiscordSettingsAction(formData: FormData) {
   const rawWebhookUrl = String(formData.get("discordWebhookUrl") ?? "").trim();
   const clearWebhook = formData.get("clearDiscordWebhook") === "on";
   const enabled = formData.get("discordEnabled") === "on";
-  const requestedCompanyIds = Array.from(
-    new Set(
-      formData
-        .getAll("discordCompanyId")
-        .map((value) => String(value).trim())
-        .filter((value) => postingIdSchema.safeParse(value).success)
-    )
-  );
+  let filters;
+  try {
+    filters = parseListingFilterForm(formData);
+  } catch {
+    return;
+  }
 
   const parsedWebhook = rawWebhookUrl
     ? discordWebhookUrlSchema.safeParse(rawWebhookUrl)
     : { success: true as const, data: undefined };
 
-  if (!parsedWebhook.success || requestedCompanyIds.length > 1_000) {
+  if (!parsedWebhook.success || filters.companySlugs.length > 1_000) {
     return;
   }
 
@@ -231,20 +230,6 @@ export async function saveDiscordSettingsAction(formData: FormData) {
       return;
     }
 
-    const companyRows = await tx.company.findMany({
-      where: {
-        id: { in: requestedCompanyIds },
-        isActive: true,
-        sources: {
-          some: {
-            isActive: true,
-            pollingEnabled: true
-          }
-        }
-      },
-      select: { id: true }
-    });
-    const companyIds = companyRows.map((company) => company.id);
     const webhookUrl = parsedWebhook.data ?? existing?.webhookUrl;
 
     if (!webhookUrl) {
@@ -263,18 +248,14 @@ export async function saveDiscordSettingsAction(formData: FormData) {
               lastError: null
             }
           : {}),
-        companies: {
-          deleteMany: {},
-          create: companyIds.map((companyId) => ({ companyId }))
-        }
+        filterJson: filters,
+        companies: { deleteMany: {} }
       },
       create: {
         userId: user.id,
         webhookUrl,
         enabled,
-        companies: {
-          create: companyIds.map((companyId) => ({ companyId }))
-        }
+        filterJson: filters
       }
     });
   });

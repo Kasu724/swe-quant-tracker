@@ -332,14 +332,20 @@ To announce newly discovered internships in a selected Discord server:
 
 1. In the target Discord server, open **Server Settings → Integrations → Webhooks**, create a
    webhook, and copy its URL.
-2. Open **Settings → Discord notifications**, paste the webhook URL, select the companies to
-   announce, and save. Use **Send test message** to verify that the server connection works.
+2. Open **Settings → Discord notifications**, paste the webhook URL, configure **Notification filters**,
+   and save. Use **Send test message** to verify that the server connection works.
    Only Discord-owned HTTPS webhook URLs are accepted. The URL is stored in the local database,
    is never rendered back into the page, and is excluded from portable backups.
 3. Apply the database migrations with `pnpm db:migrate`, then run or restart the worker.
 
 The worker creates a durable notification record in the same database transaction as each new
-internship. The saved destination's company subscriptions filter which postings are eligible. After
+internship. Notification filters use the same company, keyword, bucket, role, season, year,
+location, workplace, pay, and missing-data options as the main feed, with a separate saved
+configuration. Leave the company selection empty to include all companies. Email alerts continue
+to use each saved search's filters. Discord checks its saved filters before delivery; excluded
+postings are retired from the eligible queue and are not replayed when filters change. Existing
+company-only destinations keep their selections until updated. Notification filters are included
+in portable backups, while webhook secrets remain excluded. After
 an ingestion cycle commits, the worker immediately drains the outbox; `DISCORD_NOTIFICATION_CRON`
 remains a recovery path for failures, rate limits, and interrupted workers. A unique posting
 constraint prevents duplicate delivery intent, while leases and bounded retries keep delivery safe.
@@ -347,7 +353,7 @@ For one-off/serverless scheduling, run `pnpm worker:discord`.
 
 `DISCORD_WEBHOOK_URL` remains supported as a legacy, process-wide fallback for headless deployments
 that have not configured the local Settings page. It announces every company and is not used when a
-saved destination exists; prefer the profile-scoped Settings configuration for company selection.
+saved destination exists; prefer the profile-scoped Settings configuration for notification filters.
 
 ## Supabase Cloud Database
 
@@ -426,7 +432,7 @@ database, and runs the ingestion scheduler in the background. Closing the browse
 service; use the system-tray menu to reopen the dashboard, run ingestion immediately, view logs, or
 exit cleanly. The database persists in the current Windows user's application-data directory.
 Fresh desktop databases are initialized directly from the final Prisma schema snapshot; the packaged
-app does not apply migrations at runtime.
+app applies additive schema upgrades when opening an existing database.
 
 Build the installer and portable executable locally from PowerShell:
 
@@ -515,7 +521,7 @@ workflow, source-quality expectations, test commands, and guidelines for handlin
 - mail transport lives in `packages/email`
 - `EmailAlertProvider` implements the shared `AlertProvider` interface
 - newly created postings atomically create a `DiscordNotification` outbox row in the same database transaction
-- the profile-scoped `DiscordDestination` stores the webhook and selected companies; the secret is never included in portable exports
+- the profile-scoped `DiscordDestination` stores the webhook and independent listing filters; the secret is never included in portable exports
 - ingestion drains matching Discord notifications immediately after the cycle, while the independent Discord schedule provides leases, bounded retries, rate-limit handling, and durable failure state
 - run `pnpm worker:discord` to process the outbox manually; webhook failures never roll back or block ingestion
 - unsubscribe links disable all future alert emails for the local profile
@@ -541,7 +547,7 @@ Implemented server actions include:
 - favorite toggling
 - application state updates
 - settings updates
-- Discord destination and company-selection settings, including a connection test action
+- Discord destination and notification filter settings, including a connection test action
 - unsubscribe handling
 - local settings and portable data import/export
 - company/source toggles
