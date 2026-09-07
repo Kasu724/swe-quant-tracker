@@ -44,12 +44,17 @@ export function InfiniteListings({
   const [errorText, setErrorText] = useState<string | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingRef = useRef(false);
+  const activeQueryKeyRef = useRef("");
+  const abortRef = useRef<AbortController | null>(null);
   const queryKey = useMemo(
     () => `${queryString}|${batchSize}|${total}|${initialListings.map((listing) => listing.id).join(",")}`,
     [batchSize, initialListings, queryString, total]
   );
+  activeQueryKeyRef.current = queryKey;
 
   useEffect(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setListings(initialListings);
     setFavoriteIds(new Set(initialFavoriteIds));
     setListIds(new Set(initialListIds));
@@ -59,6 +64,7 @@ export function InfiniteListings({
     setIsLoading(false);
     loadingRef.current = false;
     setErrorText(null);
+    return () => abortRef.current?.abort();
   }, [initialApplicationStates, initialFavoriteIds, initialListIds, initialListings, queryKey, total]);
 
   const loadNextBatch = useCallback(async () => {
@@ -69,6 +75,9 @@ export function InfiniteListings({
     loadingRef.current = true;
     setIsLoading(true);
     setErrorText(null);
+    const requestQueryKey = queryKey;
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     try {
       const params = new URLSearchParams(queryString);
@@ -77,16 +86,21 @@ export function InfiniteListings({
       params.set("limit", String(batchSize));
 
       const response = await fetch(`/api/internships?${params.toString()}`, {
+        signal: controller.signal,
         headers: {
           Accept: "application/json"
         }
       });
 
       if (!response.ok) {
-        throw new Error("Unable to load more internships.");
+        throw new Error("Unable to load more roles.");
       }
 
       const batch = (await response.json()) as ListingsBatchResponse;
+
+      if (activeQueryKeyRef.current !== requestQueryKey) {
+        return;
+      }
 
       setListings((current) => {
         const knownIds = new Set(current.map((listing) => listing.id));
@@ -110,12 +124,19 @@ export function InfiniteListings({
         }));
       }
     } catch (error) {
-      setErrorText(error instanceof Error ? error.message : "Unable to load more internships.");
+      if (activeQueryKeyRef.current === requestQueryKey && !(error instanceof DOMException && error.name === "AbortError")) {
+        setErrorText(error instanceof Error ? error.message : "Unable to load more roles.");
+      }
     } finally {
-      loadingRef.current = false;
-      setIsLoading(false);
+      if (activeQueryKeyRef.current === requestQueryKey) {
+        loadingRef.current = false;
+        setIsLoading(false);
+      }
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
     }
-  }, [batchSize, hasMore, nextOffset, queryString]);
+  }, [batchSize, hasMore, nextOffset, queryKey, queryString]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -143,7 +164,7 @@ export function InfiniteListings({
   return (
     <>
       <div className="text-sm text-slate-500">
-        {total} internships matched your filters. Showing {listings.length} of {total}.
+        {total} early career roles matched your filters. Showing {listings.length} of {total}.
       </div>
       <div className="space-y-4">
         {listings.map((listing) => (
@@ -171,7 +192,7 @@ export function InfiniteListings({
         <div ref={sentinelRef} className="h-8" aria-hidden="true" />
         {isLoading ? (
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm text-slate-500">
-            Loading more internships...
+            Loading more roles...
           </div>
         ) : null}
         {!hasMore && listings.length > 0 ? (

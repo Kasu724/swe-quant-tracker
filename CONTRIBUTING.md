@@ -5,10 +5,16 @@ documentation, source coverage, test fixtures, and bug reports are welcome.
 
 ## Project scope
 
-The tracker focuses on internships in:
+The tracker focuses on internships and new grad roles in:
 
 - software engineering and closely related technical roles
 - quantitative development, research, and trading
+
+Listings are searchable globally. The feed's location controls use a country selector plus one
+specific location phrase, and the position type control can include internships, new grad roles, or
+both. Keep these controls backed by the shared filter schema and matcher so feed pages, pagination,
+CSV export, saved searches, and Discord filters have identical behavior. A phrase such as `London,
+Ontario` must remain one location value.
 
 Prefer an employer's official careers page, public ATS feed, or documented public endpoint. Every
 listing should preserve a link to an official source or application page. Do not add sources that
@@ -29,7 +35,9 @@ require bypassing authentication, access controls, CAPTCHAs, or anti-bot protect
 
 5. Open a pull request that explains the problem, the approach, and how you verified it.
 
-Database changes should include a Prisma migration. Adapter changes should include representative,
+Database changes should include a Prisma migration. When adding or changing posting classification,
+run Prisma generation and the migration, then run an ingestion or reclassification pass to populate
+existing rows before checking filter counts. Adapter changes should include representative,
 sanitized fixtures or mocked payloads and tests for normalization behavior.
 
 ## Adding an employer or source

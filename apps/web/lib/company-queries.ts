@@ -12,13 +12,6 @@ const companiesWhere = {
   }
 } satisfies Prisma.CompanyWhereInput;
 
-const trackedLocationWhere = {
-  OR: [
-    { locationCountries: { isEmpty: true } },
-    { locationCountries: { has: "US" } }
-  ]
-} satisfies Prisma.InternshipPostingWhereInput;
-
 const companySelect = {
   id: true,
   name: true,
@@ -97,9 +90,8 @@ export async function getCompaniesOverviewPage(
     by: ["companyId"],
     where: {
       companyId: { in: companies.map((company) => company.id) },
-      internshipFlag: true,
+      OR: [{ internshipFlag: true }, { newGradFlag: true }],
       isActive: true,
-      ...trackedLocationWhere
     },
     _count: { _all: true }
   });

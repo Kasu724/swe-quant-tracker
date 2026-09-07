@@ -18,7 +18,7 @@ const display = Space_Grotesk({
 
 export const metadata: Metadata = {
   title: "SWE-Quant Tracker",
-  description: "An open-source tracker for software engineering and quantitative internships."
+  description: "An open-source tracker for software engineering and quantitative internships and new grad roles worldwide."
 };
 
 export const dynamic = "force-dynamic";

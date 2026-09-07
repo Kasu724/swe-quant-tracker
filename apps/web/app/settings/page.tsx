@@ -58,7 +58,7 @@ export default async function SettingsPage() {
           <div>
             <h2 className="font-display text-xl font-semibold text-ink">Discord notifications</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Connect a Discord server with a server webhook, then choose which new internships
+              Connect a Discord server with a server webhook, then choose which early career roles
               should be announced. Messages are queued durably and delivered right after
               each ingestion cycle, with retries for temporary Discord outages.
             </p>
@@ -99,7 +99,7 @@ export default async function SettingsPage() {
             <fieldset className="space-y-4">
               <legend className="text-sm font-medium text-slate-700">Notification filters</legend>
               <p className="text-sm text-slate-600">
-                Use the same filters as the feed to choose which postings are sent to Discord.
+                Use the same country, location, and position filters as the feed to choose which postings are sent to Discord.
                 These settings are saved separately and do not change your feed filters.
               </p>
               <ListingFilterFields

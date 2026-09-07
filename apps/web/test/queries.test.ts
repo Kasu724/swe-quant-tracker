@@ -30,4 +30,22 @@ describe("web listing query parsing", () => {
     const filters = parseListingFilters({ year: ["2027", "not-a-year"] });
     expect(filters.years).toEqual([2027]);
   });
+
+  it("parses country, specific location, and position type together", () => {
+    const filters = parseListingFilters({
+      country: "CA",
+      location: "London, Ontario",
+      positionType: ["INTERNSHIP", "NEW_GRAD"]
+    });
+
+    expect(filters.countries).toEqual(["CA"]);
+    expect(filters.locations).toEqual(["London, Ontario"]);
+    expect(filters.positionTypes).toEqual(["INTERNSHIP", "NEW_GRAD"]);
+    expect(filters.usOnly).toBe(false);
+  });
+
+  it("preserves explicit legacy usOnly and lets a country selection override it", () => {
+    expect(parseListingFilters({ usOnly: "true" }).usOnly).toBe(true);
+    expect(parseListingFilters({ usOnly: "true", country: "CA" }).usOnly).toBe(false);
+  });
 });

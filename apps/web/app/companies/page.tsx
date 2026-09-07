@@ -36,7 +36,7 @@ function CompanyCard({ company }: { company: CompanyOverview }) {
               <Badge tone="brand">{company.companyBucket.replaceAll("_", " ")}</Badge>
               <Badge tone="neutral">{company.trackedSourceCount} sources</Badge>
               <Badge tone={company.activeInternshipCount > 0 ? "success" : "neutral"}>
-                {company.activeInternshipCount} active internships
+                {company.activeInternshipCount} active roles
               </Badge>
             </div>
 

@@ -46,6 +46,8 @@ export function ListingCard({
               <Badge tone="brand" className="dark:bg-brand-900 dark:text-brand-100">
                 {posting.roleCategory.replaceAll("_", " ")}
               </Badge>
+              {posting.internshipFlag ? <Badge tone="neutral">Internship</Badge> : null}
+              {posting.newGradFlag ? <Badge tone="success">New grad</Badge> : null}
               <Badge tone="neutral">{posting.remoteType}</Badge>
               {isNew ? <Badge tone="success">New</Badge> : null}
             </div>
