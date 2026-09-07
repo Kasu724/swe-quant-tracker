@@ -1,6 +1,11 @@
 import { COUNTRY_CODE_BY_NAME, US_STATE_NAME_BY_CODE } from "../constants/domain";
 import type { NormalizedLocation, RemoteTypeValue } from "../types";
-import { canonicalizeText, slugify, uniqueStrings } from "./text";
+import { canonicalizeSearchText as canonicalizeText, slugify as asciiSlugify, uniqueStrings } from "./text";
+
+function slugify(value: string): string {
+  const searchKey = canonicalizeText(value).replace(/\s+/g, "-");
+  return /[^\x00-\x7f]/.test(searchKey) ? searchKey : asciiSlugify(value) || searchKey;
+}
 
 const US_STATE_CODE_BY_NAME = Object.fromEntries(
   Object.entries(US_STATE_NAME_BY_CODE).map(([code, name]) => [name.toLowerCase(), code])

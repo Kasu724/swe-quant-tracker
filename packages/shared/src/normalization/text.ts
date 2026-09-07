@@ -50,6 +50,14 @@ export function slugify(value: string): string {
   return canonicalizeText(value).replace(/\s+/g, "-");
 }
 
+/** Search keeps every writing system while matching accented Latin names. */
+export function canonicalizeSearchText(value: string): string {
+  return normalizeWhitespace(value.normalize("NFKD").toLowerCase()
+    .replace(/\p{M}/gu, "")
+    .replace(/[’']/g, "")
+    .replace(/[^\p{L}\p{N}\s]+/gu, " "));
+}
+
 export function uniqueStrings(values: Array<string | undefined | null>): string[] {
   return Array.from(new Set(values.filter((value): value is string => Boolean(value))));
 }

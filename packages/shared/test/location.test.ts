@@ -7,6 +7,12 @@ import {
 } from "../src/normalization/location";
 
 describe("location normalization", () => {
+  it("preserves non-Latin locations and recognizes accented country and city names", () => {
+    expect(normalizeLocations(["東京", "大阪"])).toHaveLength(2);
+    expect(normalizeLocations(["東京, Japan", "大阪, Japan"])).toHaveLength(2);
+    expect(extractLocationCountries(normalizeLocations(["São Paulo"]))).toEqual(["BR"]);
+    expect(extractLocationCountries(normalizeLocations(["Abidjan, Côte d’Ivoire"]))).toEqual(["CI"]);
+  });
   it("normalizes us city-state pairs", () => {
     const locations = normalizeLocations(["New York, NY"]);
 

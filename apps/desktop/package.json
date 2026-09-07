@@ -13,6 +13,7 @@
   "scripts": {
     "build:runtime": "node scripts/build-next.cjs && node scripts/prepare-runtime.cjs",
     "test:database": "node scripts/test-embedded-database.cjs",
+    "test:filters": "node scripts/test-listing-filters.cjs",
     "test:packaged": "node scripts/test-packaged-runtime.cjs",
     "dev": "pnpm build:runtime && node scripts/build-windows.cjs --dir --launch",
     "dist:win": "pnpm build:runtime && node scripts/build-windows.cjs"

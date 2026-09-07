@@ -17,6 +17,12 @@ const baseRecord: ListingSearchRecord = {
 };
 
 describe("listing filters", () => {
+  it("matches international text without turning non-Latin queries into match-all", () => {
+    expect(matchesListingFilters(baseRecord, listingFilterSchema.parse({ q: "東京" }))).toBe(false);
+    expect(matchesListingFilters({ ...baseRecord, locationRaw: "東京, Japan" }, listingFilterSchema.parse({ q: "東京", countries: ["JP"], locations: ["東京"] }))).toBe(true);
+    expect(matchesListingFilters({ ...baseRecord, locationRaw: "Montréal, Canada" }, listingFilterSchema.parse({ locations: ["Montreal"], countries: ["CA"] }))).toBe(true);
+    expect(matchesListingFilters({ ...baseRecord, locationRaw: null, locationsNormalized: [{ raw: "Montréal, Canada", display: "Montréal, Canada", key: "montreal", countryCode: "CA" }] }, listingFilterSchema.parse({ q: "Montreal" }))).toBe(true);
+  });
   it("includes worldwide postings by default and preserves explicit US-only filtering", () => {
     const filters = listingFilterSchema.parse({ usOnly: true });
 

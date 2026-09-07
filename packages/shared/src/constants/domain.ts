@@ -364,7 +364,9 @@ for (const { code, name } of COUNTRY_OPTIONS) {
   COUNTRY_CODE_BY_NAME[code.toLowerCase()] = code;
 
   const key = name
+    .normalize("NFKD")
     .toLowerCase()
+    .replace(/\p{M}/gu, "")
     .replace(/[’']/g, "")
     .replace(/[^a-z0-9\s]+/g, " ")
     .replace(/\s+/g, " ")

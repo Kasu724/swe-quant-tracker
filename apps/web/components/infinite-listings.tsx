@@ -98,7 +98,7 @@ export function InfiniteListings({
 
       const batch = (await response.json()) as ListingsBatchResponse;
 
-      if (activeQueryKeyRef.current !== requestQueryKey) {
+      if (controller.signal.aborted || activeQueryKeyRef.current !== requestQueryKey) {
         return;
       }
 
@@ -124,11 +124,11 @@ export function InfiniteListings({
         }));
       }
     } catch (error) {
-      if (activeQueryKeyRef.current === requestQueryKey && !(error instanceof DOMException && error.name === "AbortError")) {
+      if (!controller.signal.aborted && activeQueryKeyRef.current === requestQueryKey && !(error instanceof DOMException && error.name === "AbortError")) {
         setErrorText(error instanceof Error ? error.message : "Unable to load more roles.");
       }
     } finally {
-      if (activeQueryKeyRef.current === requestQueryKey) {
+      if (abortRef.current === controller && activeQueryKeyRef.current === requestQueryKey) {
         loadingRef.current = false;
         setIsLoading(false);
       }

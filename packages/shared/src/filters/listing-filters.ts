@@ -8,7 +8,7 @@ import {
   ROLE_CATEGORIES
 } from "../constants/domain";
 import type { ListingSearchRecord, NormalizedLocation } from "../types";
-import { canonicalizeText } from "../normalization/text";
+import { canonicalizeSearchText as canonicalizeText } from "../normalization/text";
 import {
   isUsOrUnknownPostingLocation,
   normalizeLocations
@@ -161,7 +161,7 @@ export function matchesListingFilters(record: ListingSearchRecord, filters: List
   if (filters.q) {
     const query = canonicalizeText(filters.q);
     const haystack = canonicalizeText(
-      `${record.companyNameSnapshot} ${record.title} ${record.locationRaw ?? ""}`
+      `${record.companyNameSnapshot} ${record.title} ${record.locationRaw ?? ""} ${(record.locationsNormalized ?? []).map(locationText).join(" ")}`
     );
 
     if (!haystack.includes(query)) {
