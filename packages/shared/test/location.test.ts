@@ -67,6 +67,33 @@ describe("location normalization", () => {
     expect(extractLocationCountries(normalizeLocations(["London, United States"]))).toEqual(["US"]);
   });
 
+  it("recognizes country alpha-2 codes outside the legacy alias set", () => {
+    expect(normalizeLocations(["Hanoi, VN"])[0]?.countryCode).toBe("VN");
+    expect(normalizeLocations(["Lagos, NG"])[0]?.countryCode).toBe("NG");
+    expect(
+      extractLocationCountries(normalizeLocations(["Auckland"]), { countryCode: "NZ" })
+    ).toContain("NZ");
+  });
+
+  it("uses structured state or province regions before city aliases", () => {
+    expect(normalizeLocations(["Paris, TX"])[0]?.countryCode).toBe("US");
+    expect(normalizeLocations(["London, ON"])[0]?.countryCode).toBe("CA");
+    expect(normalizeLocations(["Vancouver, BC"])[0]?.countryCode).toBe("CA");
+    expect(extractLocationCountries(normalizeLocations(["Paris, TX"]))).toEqual(["US"]);
+  });
+
+  it("disambiguates two-letter region codes with the city context", () => {
+    expect(normalizeLocations(["Berlin, DE"])[0]?.countryCode).toBe("DE");
+    expect(normalizeLocations(["Pune, IN"])[0]?.countryCode).toBe("IN");
+    expect(normalizeLocations(["Toronto, CA"])[0]?.countryCode).toBe("CA");
+    expect(normalizeLocations(["San Francisco, CA"])[0]?.countryCode).toBe("US");
+    expect(normalizeLocations(["Portland, OR"])[0]?.countryCode).toBe("US");
+    expect(normalizeLocations(["Germany, Berlin"])[0]?.countryCode).toBe("DE");
+    expect(normalizeLocations(["Berlin, DE, United States"])[0]?.countryCode).toBe("US");
+    expect(normalizeLocations(["Georgia"])[0]?.countryCode).toBe("US");
+    expect(normalizeLocations(["IN"])[0]?.countryCode).toBe("IN");
+  });
+
   it("allows US and unknown locations but rejects known non-US locations", () => {
     expect(isUsOrUnknownPostingLocation(["US"])).toBe(true);
     expect(isUsOrUnknownPostingLocation([])).toBe(true);

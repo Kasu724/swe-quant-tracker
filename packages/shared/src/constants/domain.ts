@@ -90,10 +90,12 @@ ZA ZM ZW
 
 const countryDisplayNames = new Intl.DisplayNames(["en"], { type: "region" });
 
-export const COUNTRY_OPTIONS = ISO_COUNTRY_CODES.map((code) => ({
-  code,
-  name: countryDisplayNames.of(code) ?? code
-}));
+export const COUNTRY_OPTIONS = ISO_COUNTRY_CODES
+  .map((code) => ({
+    code,
+    name: countryDisplayNames.of(code) ?? code
+  }))
+  .sort((left, right) => left.name.localeCompare(right.name));
 
 export const INTERNSHIP_TITLE_INCLUDE_PATTERNS = [
   /\bintern(ship)?\b/i,
@@ -359,6 +361,8 @@ export const COUNTRY_CODE_BY_NAME: Record<string, string> = {
 // The normalization mirrors canonicalizeText without importing the text
 // module, which keeps the constants module dependency-free.
 for (const { code, name } of COUNTRY_OPTIONS) {
+  COUNTRY_CODE_BY_NAME[code.toLowerCase()] = code;
+
   const key = name
     .toLowerCase()
     .replace(/[’']/g, "")

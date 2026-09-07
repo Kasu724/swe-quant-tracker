@@ -6,6 +6,26 @@ const US_STATE_CODE_BY_NAME = Object.fromEntries(
   Object.entries(US_STATE_NAME_BY_CODE).map(([code, name]) => [name.toLowerCase(), code])
 );
 
+const CANADA_PROVINCE_NAME_BY_CODE: Record<string, string> = {
+  AB: "Alberta",
+  BC: "British Columbia",
+  MB: "Manitoba",
+  NB: "New Brunswick",
+  NL: "Newfoundland and Labrador",
+  NS: "Nova Scotia",
+  NT: "Northwest Territories",
+  NU: "Nunavut",
+  ON: "Ontario",
+  PE: "Prince Edward Island",
+  QC: "Quebec",
+  SK: "Saskatchewan",
+  YT: "Yukon"
+};
+
+const CANADA_PROVINCE_CODE_BY_NAME = Object.fromEntries(
+  Object.entries(CANADA_PROVINCE_NAME_BY_CODE).map(([code, name]) => [name.toLowerCase(), code])
+);
+
 const EMBEDDED_COUNTRY_ALIASES = new Set(["u s", "u s a", "us", "usa", "uk", "uae"]);
 
 const COUNTRY_METADATA_KEYS = new Set([
@@ -118,15 +138,46 @@ function inferCountryCodesFromText(value: string): string[] {
   );
 }
 
-function inferRegion(part: string): { region?: string; regionCode?: string; countryCode?: string } {
+function inferRegion(
+  part: string,
+  cityPart?: string
+): { region?: string; regionCode?: string; countryCode?: string } {
   const trimmed = part.trim();
   const regionCode = trimmed.toUpperCase();
+
+  // A two-letter region can be both a US state and a country-specific region
+  // code. Prefer a known international city when the city disambiguates it:
+  // Berlin, DE; Pune, IN; and Toronto, CA are common ATS formats.
+  const cityCountryCode = cityPart
+    ? COUNTRY_CODE_BY_KNOWN_NON_US_CITY[canonicalizeText(cityPart)]
+    : undefined;
+
+  if (
+    cityCountryCode &&
+    cityCountryCode === regionCode &&
+    cityCountryCode !== "US" &&
+    US_STATE_NAME_BY_CODE[regionCode]
+  ) {
+    return {
+      region: trimmed,
+      regionCode,
+      countryCode: cityCountryCode
+    };
+  }
 
   if (US_STATE_NAME_BY_CODE[regionCode]) {
     return {
       region: US_STATE_NAME_BY_CODE[regionCode],
       regionCode,
       countryCode: "US"
+    };
+  }
+
+  if (CANADA_PROVINCE_NAME_BY_CODE[regionCode]) {
+    return {
+      region: CANADA_PROVINCE_NAME_BY_CODE[regionCode],
+      regionCode,
+      countryCode: "CA"
     };
   }
 
@@ -137,6 +188,16 @@ function inferRegion(part: string): { region?: string; regionCode?: string; coun
       region: US_STATE_NAME_BY_CODE[stateCode],
       regionCode: stateCode,
       countryCode: "US"
+    };
+  }
+
+  const provinceCode = CANADA_PROVINCE_CODE_BY_NAME[trimmed.toLowerCase()];
+
+  if (provinceCode) {
+    return {
+      region: CANADA_PROVINCE_NAME_BY_CODE[provinceCode],
+      regionCode: provinceCode,
+      countryCode: "CA"
     };
   }
 
@@ -193,10 +254,15 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
 
   const parts = trimmed.split(",").map((part) => part.trim()).filter(Boolean);
   const [cityPart, regionPart, countryPart] = parts;
-  const region = inferRegion(countryPart ? regionPart : regionPart ?? "");
+  const region = inferRegion(parts.length === 1 ? trimmed : regionPart ?? "", cityPart);
+  const directSinglePartCountryCode =
+    parts.length === 1 && /^[a-z]{2,3}$/i.test(trimmed) ? inferCountryCode(trimmed) : undefined;
   const countryCode = countryPart
     ? inferCountryCode(countryPart) ?? inferCountryCodesFromText(countryPart)[0] ?? region.countryCode
-    : region.countryCode ?? inferCountryCode(regionPart ?? "") ?? inferCountryCodesFromText(trimmed)[0];
+    : directSinglePartCountryCode ??
+      region.countryCode ??
+      inferCountryCode(regionPart ?? "") ??
+      inferCountryCodesFromText(trimmed)[0];
   const country =
     countryPart ?? (countryCode === "US" ? "United States" : region.countryCode ? region.region : undefined);
 
@@ -297,7 +363,11 @@ export function extractLocationCountries(
 
   return uniqueStrings([
     ...locations.map((location) => location.countryCode),
-    ...locations.flatMap((location) => inferCountryCodesFromText(location.raw)),
+    // A structured country or region takes precedence over city-name aliases.
+    // For example, Paris, TX is US even though Paris is also a French city.
+    ...locations
+      .filter((location) => !location.countryCode)
+      .flatMap((location) => inferCountryCodesFromText(location.raw)),
     ...metadataCountryValues.flatMap((value) => inferCountryCodesFromText(value))
   ]);
 }
