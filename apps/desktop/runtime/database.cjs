@@ -52,8 +52,31 @@ async function startEmbeddedDatabase({ dataDirectory, schemaPath }) {
   });
   await socketServer.start();
 
+  async function checkHealth() {
+    await db.query("SELECT 1");
+
+    return new Promise((resolve, reject) => {
+      const socket = net.createConnection({ host: "127.0.0.1", port });
+      const timeout = setTimeout(() => {
+        socket.destroy(new Error(`Embedded database socket health check timed out on port ${port}`));
+      }, 1_000);
+
+      const finish = (error) => {
+        clearTimeout(timeout);
+        socket.destroy();
+        if (error) reject(error);
+        else resolve();
+      };
+
+      socket.once("connect", () => finish());
+      socket.once("error", finish);
+      socket.once("timeout", () => finish(new Error(`Embedded database socket timed out on port ${port}`)));
+    });
+  }
+
   return {
     connectionUrl: `postgresql://postgres:postgres@127.0.0.1:${port}/postgres?sslmode=disable&pgbouncer=true&connection_limit=1`,
+    checkHealth,
     async stop() {
       await socketServer.stop();
       await db.close();

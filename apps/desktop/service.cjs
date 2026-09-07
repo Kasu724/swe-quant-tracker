@@ -14,6 +14,10 @@ let workerProcess;
 let ingestionProcess;
 let controlServer;
 let logDescriptor;
+let databaseHealthTimer;
+let databaseHealthCheckInFlight = false;
+let databaseHealthFailures = 0;
+let databaseRecoveryInProgress = false;
 let cleanupStarted = false;
 let fatalErrorReported = false;
 let commandBuffer = "";
@@ -160,6 +164,81 @@ function waitForSpawn(child, label) {
     child.once("spawn", onSpawn);
     child.once("error", onError);
   });
+}
+
+function watchDatabaseHealth() {
+  if (databaseHealthTimer) clearInterval(databaseHealthTimer);
+
+  databaseHealthTimer = setInterval(() => {
+    if (cleanupStarted || databaseRecoveryInProgress || !database?.checkHealth || databaseHealthCheckInFlight) {
+      return;
+    }
+
+    databaseHealthCheckInFlight = true;
+    void database.checkHealth()
+      .then(() => {
+        databaseHealthFailures = 0;
+      })
+      .catch((error) => {
+        databaseHealthFailures += 1;
+        logMessage(`Embedded database health check failed (${databaseHealthFailures}/3)`, error);
+        if (databaseHealthFailures >= 3) {
+          void recoverDatabase(error);
+        }
+      })
+      .finally(() => {
+        databaseHealthCheckInFlight = false;
+      });
+  }, 5_000);
+  databaseHealthTimer.unref();
+}
+
+async function recoverDatabase(cause) {
+  if (cleanupStarted || databaseRecoveryInProgress) return;
+  databaseRecoveryInProgress = true;
+  databaseHealthFailures = 0;
+  logMessage("Embedded database is unavailable; restarting local services", cause);
+  emit("STATUS", encodedMessage("The local database connection was lost. Restarting local services..."));
+
+  try {
+    await Promise.all([
+      stopChild(ingestionProcess, "the local ingestion job"),
+      stopChild(workerProcess, "the worker scheduler"),
+      stopChild(serverProcess, "the local web server")
+    ]);
+    ingestionProcess = undefined;
+    workerProcess = undefined;
+    serverProcess = undefined;
+
+    await database?.stop();
+    database = await startEmbeddedDatabase({
+      dataDirectory: path.join(userDataDirectory, "database"),
+      schemaPath: runtime.schema
+    });
+    applicationEnvironment = {
+      ...applicationEnvironment,
+      DATABASE_URL: database.connectionUrl,
+      DIRECT_URL: database.connectionUrl
+    };
+
+    await runNode(runtime.seed, [], applicationEnvironment);
+    serverProcess = spawnNode(runtime.server, [], applicationEnvironment);
+    await waitForServer(applicationEnvironment.APP_BASE_URL, serverProcess);
+    serverProcess.once("exit", (code, signal) => {
+      if (!cleanupStarted && !databaseRecoveryInProgress) {
+        reportFatal(new Error(`The local web server stopped (${signal || `code ${code}`}).`));
+      }
+    });
+    workerProcess = spawnNode(runtime.worker, [], applicationEnvironment);
+    await waitForSpawn(workerProcess, "The local worker");
+    await startIngestion(applicationEnvironment, true);
+    logMessage(`Local services recovered at ${applicationEnvironment.APP_BASE_URL}`);
+    emit("STATUS", encodedMessage("Local services recovered."));
+  } catch (error) {
+    reportFatal(new Error(`Could not recover the local database: ${errorMessage(error)}`));
+  } finally {
+    databaseRecoveryInProgress = false;
+  }
 }
 
 async function startIngestion(environment, initial = false) {
@@ -320,13 +399,16 @@ async function startLocalService() {
   serverProcess = spawnNode(runtime.server, [], applicationEnvironment);
   await waitForServer(origin, serverProcess);
   serverProcess.once("exit", (code, signal) => {
-    if (!cleanupStarted) reportFatal(new Error(`The local web server stopped (${signal || `code ${code}`}).`));
+    if (!cleanupStarted && !databaseRecoveryInProgress) {
+      reportFatal(new Error(`The local web server stopped (${signal || `code ${code}`}).`));
+    }
   });
 
   workerProcess = spawnNode(runtime.worker, [], applicationEnvironment);
   await waitForSpawn(workerProcess, "The local worker");
   await startIngestion(applicationEnvironment, true);
 
+  watchDatabaseHealth();
   logMessage(`Local runtime ready at ${origin}`);
   emit("READY", origin);
 }
@@ -361,6 +443,10 @@ async function stopChild(child, label) {
 async function cleanup() {
   if (cleanupStarted) return;
   cleanupStarted = true;
+  if (databaseHealthTimer) {
+    clearInterval(databaseHealthTimer);
+    databaseHealthTimer = undefined;
+  }
 
   await Promise.all([
     stopChild(ingestionProcess, "the ingestion job"),

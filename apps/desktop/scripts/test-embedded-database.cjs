@@ -15,6 +15,7 @@ async function main() {
       schemaPath: path.join(__dirname, "..", "runtime", "schema.sql")
     });
     prisma = new PrismaClient({ datasources: { db: { url: database.connectionUrl } } });
+    await database.checkHealth();
     const tables = await prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM information_schema.tables WHERE table_schema = 'public'`;
     if (!tables[0] || tables[0].count < 10) throw new Error("Desktop schema was not created");
     const migrationTable = await prisma.$queryRaw`
@@ -43,6 +44,7 @@ async function main() {
       schemaPath: path.join(__dirname, "..", "runtime", "schema.sql")
     });
     prisma = new PrismaClient({ datasources: { db: { url: database.connectionUrl } } });
+    await database.checkHealth();
     const persistedCompany = await prisma.company.findUnique({ where: { slug: "desktop-persistence-test" } });
     if (!persistedCompany) throw new Error("Desktop data did not persist after reopening the database");
     const user = await prisma.user.create({ data: { email: "filters@example.invalid" } });
