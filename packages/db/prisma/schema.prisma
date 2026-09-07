@@ -209,6 +209,7 @@ model InternshipPosting {
   @@index([discoveredAt])
   @@index([roleCategory, year, season])
   @@index([remoteType, isActive])
+  @@index([newGradFlag, isActive])
   @@index([dedupeFingerprint])
   @@index([normalizedTitle])
   @@index([locationCountries], type: Gin)

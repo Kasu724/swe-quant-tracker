@@ -55,6 +55,11 @@ async function main() {
       WHERE table_schema = 'public' AND table_name = 'InternshipPosting' AND column_name = 'newGradFlag'
     `;
     if (upgradedColumns[0]?.count !== 1) throw new Error("New-graduate column was not restored by schema upgrade");
+    const upgradedIndexes = await prisma.$queryRaw`
+      SELECT COUNT(*)::int AS count FROM pg_indexes
+      WHERE schemaname = 'public' AND indexname = 'InternshipPosting_newGradFlag_isActive_idx'
+    `;
+    if (upgradedIndexes[0]?.count !== 1) throw new Error("New-graduate index was not restored by schema upgrade");
     const persistedPosting = await prisma.internshipPosting.create({
       data: {
         companyId: persistedCompany.id,
