@@ -29,6 +29,7 @@ export type NormalizedLocation = {
   regionCode?: string;
   country?: string;
   countryCode?: string;
+  countryInferred?: boolean;
   isRemote?: boolean;
   isUs?: boolean;
 };

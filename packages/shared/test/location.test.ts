@@ -61,6 +61,7 @@ describe("location normalization", () => {
   });
 
   it("uses structured country metadata when the display location is ambiguous", () => {
+    expect(extractLocationCountries(normalizeLocations(["London"]), { countryCode: "CA" })).toEqual(["CA"]);
     const countries = extractLocationCountries(normalizeLocations(["Madrid"]), {
       countryCode: "ESP"
     });

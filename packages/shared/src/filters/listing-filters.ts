@@ -76,7 +76,7 @@ function attachSingleAuthoritativeCountry(
   record: ListingSearchRecord,
   locations: NormalizedLocation[]
 ): NormalizedLocation[] {
-  if (locations.length !== 1 || locations[0]?.countryCode) {
+  if (locations.length !== 1 || (locations[0]?.countryCode && !locations[0]?.countryInferred)) {
     return locations;
   }
 

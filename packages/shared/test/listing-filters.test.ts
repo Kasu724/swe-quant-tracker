@@ -23,6 +23,11 @@ describe("listing filters", () => {
     expect(matchesListingFilters({ ...baseRecord, locationRaw: "Montréal, Canada" }, listingFilterSchema.parse({ locations: ["Montreal"], countries: ["CA"] }))).toBe(true);
     expect(matchesListingFilters({ ...baseRecord, locationRaw: null, locationsNormalized: [{ raw: "Montréal, Canada", display: "Montréal, Canada", key: "montreal", countryCode: "CA" }] }, listingFilterSchema.parse({ q: "Montreal" }))).toBe(true);
   });
+  it("uses structured country data instead of a guess from an ambiguous city", () => {
+    const record = { ...baseRecord, locationRaw: "London", locationCountries: ["CA"] };
+    expect(matchesListingFilters(record, listingFilterSchema.parse({ countries: ["CA"], locations: ["London"] }))).toBe(true);
+    expect(matchesListingFilters(record, listingFilterSchema.parse({ countries: ["GB"] }))).toBe(false);
+  });
   it("includes worldwide postings by default and preserves explicit US-only filtering", () => {
     const filters = listingFilterSchema.parse({ usOnly: true });
 

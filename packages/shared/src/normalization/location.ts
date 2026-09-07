@@ -279,6 +279,7 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
       display: trimmed,
       key: slugify(trimmed),
       countryCode: singlePartCountryCode,
+      countryInferred: Boolean(COUNTRY_CODE_BY_KNOWN_NON_US_CITY[lowered]) && !inferCountryCode(trimmed),
       country:
         singlePartCountryCode === "US"
           ? "United States"
@@ -366,14 +367,16 @@ export function extractLocationCountries(
     collectMetadataCountryStrings(metadata, metadataCountryValues);
   }
 
+  const metadataCountries = uniqueStrings(metadataCountryValues.flatMap((value) => inferCountryCodesFromText(value)));
   return uniqueStrings([
-    ...locations.map((location) => location.countryCode),
+    ...locations.filter((location) => !location.countryInferred || metadataCountries.length === 0)
+      .map((location) => location.countryCode),
     // A structured country or region takes precedence over city-name aliases.
     // For example, Paris, TX is US even though Paris is also a French city.
     ...locations
       .filter((location) => !location.countryCode)
       .flatMap((location) => inferCountryCodesFromText(location.raw)),
-    ...metadataCountryValues.flatMap((value) => inferCountryCodesFromText(value))
+    ...metadataCountries
   ]);
 }
 
