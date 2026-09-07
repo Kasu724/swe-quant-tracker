@@ -34,6 +34,8 @@ async function main() {
     });
     // Simulate a database created before notification filters were introduced.
     await prisma.$executeRawUnsafe('ALTER TABLE "DiscordDestination" DROP COLUMN "filterJson"');
+    // Simulate a database created before new-graduate classification was added.
+    await prisma.$executeRawUnsafe('ALTER TABLE "InternshipPosting" DROP COLUMN "newGradFlag"');
     await prisma.$disconnect();
     prisma = undefined;
     await database.stop();
@@ -47,6 +49,31 @@ async function main() {
     await database.checkHealth();
     const persistedCompany = await prisma.company.findUnique({ where: { slug: "desktop-persistence-test" } });
     if (!persistedCompany) throw new Error("Desktop data did not persist after reopening the database");
+    const upgradedColumns = await prisma.$queryRaw`
+      SELECT COUNT(*)::int AS count
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'InternshipPosting' AND column_name = 'newGradFlag'
+    `;
+    if (upgradedColumns[0]?.count !== 1) throw new Error("New-graduate column was not restored by schema upgrade");
+    const persistedPosting = await prisma.internshipPosting.create({
+      data: {
+        companyId: persistedCompany.id,
+        companyNameSnapshot: persistedCompany.name,
+        slug: "desktop-new-grad-persistence",
+        title: "Software Engineer, New Grad",
+        normalizedTitle: "software engineer new grad",
+        roleCategory: "SWE",
+        internshipFlag: false,
+        newGradFlag: true,
+        applicationUrl: "https://example.invalid/jobs/new-grad",
+        sourceType: "CUSTOM_API",
+        sourceName: "Desktop smoke test",
+        dedupeFingerprint: "desktop-new-grad-persistence"
+      }
+    });
+    if (!persistedPosting.newGradFlag || persistedPosting.internshipFlag) {
+      throw new Error("New-graduate classification did not persist correctly");
+    }
     const user = await prisma.user.create({ data: { email: "filters@example.invalid" } });
     await prisma.discordDestination.create({
       data: {

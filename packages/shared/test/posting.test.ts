@@ -5,6 +5,8 @@ function normalizePosting(overrides: {
   postingDate?: string | Date | null;
   applicationUrl?: string;
   sourceUrl?: string;
+  title?: string;
+  descriptionText?: string;
 } = {}) {
   return normalizeFetchedPosting({
     company: { name: "Example", slug: "example" },
@@ -16,10 +18,11 @@ function normalizePosting(overrides: {
     },
     posting: {
       externalJobId: "job-123",
-      title: "Software Engineer Intern",
+      title: overrides.title ?? "Software Engineer Intern",
       applicationUrl: overrides.applicationUrl ?? "https://example.com/jobs/123/apply",
       sourceUrl: overrides.sourceUrl ?? "https://example.com/jobs/123",
       postingDate: overrides.postingDate,
+      descriptionText: overrides.descriptionText,
       raw: {}
     }
   });
@@ -49,5 +52,21 @@ describe("posting normalization", () => {
     });
 
     expect(posting.applicationUrl).toBe("https://example.com/jobs/123/apply");
+  });
+
+  it("classifies new-graduate roles while keeping internships authoritative", () => {
+    const newGrad = normalizePosting({
+      title: "Software Engineer, New Grad",
+      descriptionText: "Full-time entry-level role"
+    });
+    const intern = normalizePosting({
+      title: "Software Engineer Intern",
+      descriptionText: "New grad internship for students"
+    });
+
+    expect(newGrad.internshipFlag).toBe(false);
+    expect(newGrad.newGradFlag).toBe(true);
+    expect(intern.internshipFlag).toBe(true);
+    expect(intern.newGradFlag).toBe(false);
   });
 });

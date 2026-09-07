@@ -87,6 +87,7 @@ const normalized = {
   normalizedTitle: "quant intern",
   roleCategory: "QUANT_RESEARCH",
   internshipFlag: true,
+  newGradFlag: false,
   season: "SUMMER",
   year: 2027,
   employmentType: "Intern",
@@ -232,5 +233,31 @@ describe("persistPosting", () => {
         eligibleForDelivery: false
       }
     });
+  });
+
+  it("persists a supported international new-graduate posting", async () => {
+    await expect(
+      persistPosting({
+        source: source as never,
+        normalized: {
+          ...normalized,
+          title: "Software Engineer, New Grad",
+          internshipFlag: false,
+          newGradFlag: true,
+          locationRaw: "London, United Kingdom",
+          locationCountries: ["GB"]
+        } as never,
+        discordNotificationEligible: true
+      })
+    ).resolves.toEqual({ postingId: "posting-1", discovered: true });
+
+    const createCall = mocks.transactionClient.internshipPosting.create.mock.calls[0]?.[0];
+    expect(createCall.data).toEqual(
+      expect.objectContaining({
+        internshipFlag: false,
+        newGradFlag: true,
+        locationCountries: ["GB"]
+      })
+    );
   });
 });

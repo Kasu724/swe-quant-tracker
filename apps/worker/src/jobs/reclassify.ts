@@ -33,6 +33,38 @@ function toNormalizedLocations(value: Prisma.JsonValue | null): NormalizedLocati
   });
 }
 
+export function classifyStoredPosting(input: {
+  title: string;
+  descriptionText?: string | null;
+  descriptionRaw?: string | null;
+  employmentType?: string | null;
+  locationRaw?: string | null;
+  locationsNormalized?: Prisma.JsonValue | null;
+  metadataJson?: Prisma.JsonValue | null;
+}) {
+  const description =
+    input.descriptionText ?? (input.descriptionRaw ? stripHtml(input.descriptionRaw) : undefined);
+  const metadata = toMetadataRecord(input.metadataJson ?? null);
+  const existingLocations = toNormalizedLocations(input.locationsNormalized ?? null);
+  const locations = normalizeLocations([
+    input.locationRaw,
+    ...existingLocations.map((location) => location.raw)
+  ]);
+  const locationCountries = extractLocationCountries(locations, metadata);
+  const internshipFlag = isInternshipPosting(input.title, description, {
+    employmentType: input.employmentType,
+    metadata
+  });
+  const newGradFlag =
+    !internshipFlag &&
+    isNewGradPosting(input.title, description, {
+      employmentType: input.employmentType,
+      metadata
+    });
+
+  return { internshipFlag, newGradFlag, locations, locationCountries };
+}
+
 export async function runInternshipReclassification() {
   const postings = await prisma.internshipPosting.findMany({
     select: {
@@ -50,37 +82,10 @@ export async function runInternshipReclassification() {
     }
   });
 
-  const updates = postings.map((posting) => {
-      const description =
-        posting.descriptionText ??
-        (posting.descriptionRaw ? stripHtml(posting.descriptionRaw) : undefined);
-      const metadata = toMetadataRecord(posting.metadataJson);
-      const existingLocations = toNormalizedLocations(posting.locationsNormalized);
-      const locations = normalizeLocations([
-        posting.locationRaw,
-        ...existingLocations.map((location) => location.raw)
-      ]);
-      const locationCountries = extractLocationCountries(locations, metadata);
-
-      const internshipFlag = isInternshipPosting(posting.title, description, {
-        employmentType: posting.employmentType,
-        metadata
-      });
-      const newGradFlag =
-        !internshipFlag &&
-        isNewGradPosting(posting.title, description, {
-          employmentType: posting.employmentType,
-          metadata
-        });
-
-      return {
-        id: posting.id,
-        internshipFlag,
-        newGradFlag,
-        locations,
-        locationCountries
-      };
-    });
+  const updates = postings.map((posting) => ({
+    id: posting.id,
+    ...classifyStoredPosting(posting)
+  }));
 
   for (const update of updates) {
     await prisma.internshipPosting.update({

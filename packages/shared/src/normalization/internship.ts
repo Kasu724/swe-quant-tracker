@@ -55,8 +55,8 @@ const NEW_GRAD_TITLE_INCLUDE_PATTERNS = [
   /\bearly career\b/i,
   /\bentry[- ]level\b/i,
   /\buniversity grad(?:uate)?\b/i,
-  /\bgraduate (?:software|data|machine learning|quant|technology|engineering|trader|trading|researcher|developer|analyst)\b/i,
-  /\b(?:software|data|machine learning|quant|technology|engineering|trader|trading|researcher|developer|analyst)\s+(?:[-–]\s*)?graduate\b/i,
+  /\bgraduate (?:software|data|machine learning|quant|technology|engineering|engineer|trader|trading|researcher|developer|analyst)\b/i,
+  /\b(?:software|data|machine learning|quant|technology|engineering|engineer|trader|trading|researcher|developer|analyst)\s+(?:[-–]\s*)?graduate\b/i,
   /\bgraduate program\b/i,
   /\bcampus hire\b/i
 ] as const;
@@ -67,8 +67,7 @@ const NEW_GRAD_BODY_INCLUDE_PATTERNS = [
   /\bnew graduate program\b/i,
   /\bentry[- ]level (?:role|position|opportunity)\b/i,
   /\bdesigned for (?:new|recent) graduates?\b/i,
-  /\b(?:campus|university) hire(?:s|ing)?\b/i,
-  /\bgraduates? (?:of|from) (?:a|an)? ?(?:college|university)\b/i
+  /\b(?:campus|university) hire(?:s|ing)?\b/i
 ] as const;
 
 const NEW_GRAD_HARD_EXCLUDE_PATTERNS = [
