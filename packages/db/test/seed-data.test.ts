@@ -31,6 +31,7 @@ describe("database seed data", () => {
   });
 
   it("seeds broad source queries for local classification", () => {
+    expect(companySourceSeeds.find((source) => source.companySlug === "nvidia")?.requestConfigJson?.appliedFacets).toBeUndefined();
     expect(new URL(companySourceSeeds.find((source) => source.companySlug === "sap")!.sourceUrl).searchParams.has("keywords")).toBe(false);
     expect(companySourceSeeds.find((source) => source.companySlug === "splunk")?.requestConfigJson?.query).toBe("splunk");
     for (const source of companySourceSeeds) {

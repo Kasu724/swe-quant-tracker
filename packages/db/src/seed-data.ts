@@ -961,9 +961,6 @@ const seededCompanySourceSeeds: SeedCompanySource[] = [
     requestConfigJson: {
       pageSize: 20,
       maxPages: 3,
-      appliedFacets: {
-        workerSubType: ["0c40f6bd1d8f10adf6dae42e46d44a17"]
-      },
       rateLimitMs: 1500
     },
     isActive: true
