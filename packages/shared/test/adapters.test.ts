@@ -275,8 +275,12 @@ describe("structured adapters", () => {
         requestConfigJson: { maxPages: 1 },
         parserConfigJson: { parserId: "apple-search" }
       },
-      fetchImpl: async () =>
-        new Response(`
+      fetchImpl: async (input) => {
+        const requestUrl = new URL(String(input));
+
+        expect(requestUrl.searchParams.has("team")).toBe(false);
+
+        return new Response(`
           <li>
             <div id="search-search-job-title-200655115-1731-1">
               <div class="job-title-link">
@@ -293,7 +297,8 @@ describe("structured adapters", () => {
               </div>
             </div>
           </li>
-        `)
+        `);
+      }
     });
 
     expect(postings).toHaveLength(1);
@@ -305,20 +310,24 @@ describe("structured adapters", () => {
   it("stops Apple pagination after a short final page", async () => {
     const adapter = new CustomHtmlAdapter();
     let calls = 0;
-    const pageHtml = (jobId: string) => `
+    const pageHtml = (
+      jobId: string,
+      title = "Software Engineering Intern",
+      location = "Cupertino"
+    ) => `
       <li>
         <div id="search-search-job-title-${jobId}-1">
           <div class="job-title-link">
             <h3>
               <a href="/en-us/details/${jobId}/software-engineering-intern?team=STDNT">
-                Software Engineering Intern
+                ${title}
               </a>
             </h3>
             <span class="team-name">Students</span>
             <span class="job-posted-date">Apr 01, 2026</span>
           </div>
           <div id="search-location-search-job-title-${jobId}-1">
-            <span id="search-store-name-container-1">Cupertino</span>
+            <span id="search-store-name-container-1">${location}</span>
           </div>
         </div>
       </li>
@@ -339,7 +348,9 @@ describe("structured adapters", () => {
         const url = String(input);
 
         if (url.includes("page=3")) {
-          return new Response(pageHtml("2003"));
+          return new Response(
+            pageHtml("2003", "Software Engineer New Graduate", "London, United Kingdom")
+          );
         }
 
         if (url.includes("page=4")) {
@@ -352,6 +363,8 @@ describe("structured adapters", () => {
 
     expect(calls).toBe(3);
     expect(postings).toHaveLength(5);
+    expect(postings.some((posting) => posting.title === "Software Engineer New Graduate")).toBe(true);
+    expect(postings.some((posting) => posting.locationRaw === "London, United Kingdom")).toBe(true);
   });
 
   it("normalizes DRW listings payloads from official careers HTML", async () => {
@@ -446,8 +459,12 @@ describe("structured adapters", () => {
         requestConfigJson: { maxPages: 1 },
         parserConfigJson: { parserId: "google-careers-search" }
       },
-      fetchImpl: async () =>
-        new Response(`
+      fetchImpl: async (input) => {
+        const requestUrl = new URL(String(input));
+
+        expect(requestUrl.searchParams.has("q")).toBe(false);
+
+        return new Response(`
           <html>
             <body>
               <a href="jobs/results/135846492295307974-research-scientist-intern-summer-2026?q=intern">
@@ -483,7 +500,8 @@ describe("structured adapters", () => {
               </script>
             </body>
           </html>
-        `)
+        `);
+      }
     });
 
     expect(postings).toHaveLength(1);
@@ -494,6 +512,37 @@ describe("structured adapters", () => {
     );
     expect(postings[0]?.locationRaw).toBe("Sydney NSW, Australia");
     expect(postings[0]?.additionalLocations).toEqual(["Melbourne VIC, Australia"]);
+  });
+
+  it("preserves non-career search terms while widening career keywords", async () => {
+    const queries = [
+      ["splunk intern", "splunk"],
+      ["東京", "東京"],
+      ["internship", undefined],
+      ["()", undefined]
+    ] as const;
+
+    for (const [query, expected] of queries) {
+      const adapter = new CustomHtmlAdapter();
+      const postings = await adapter.fetchPostings({
+        company: { name: "Google", slug: "google" },
+        source: {
+          sourceType: "CUSTOM_HTML",
+          sourceName: "Google careers search",
+          sourceIdentifier: "google-careers-query-shape",
+          sourceUrl: `https://www.google.com/about/careers/applications/jobs/results?q=${encodeURIComponent(query)}`,
+          parserConfigJson: { parserId: "google-careers-search" }
+        },
+        fetchImpl: async (input) => {
+          const requestUrl = new URL(String(input));
+
+          expect(requestUrl.searchParams.get("q")).toBe(expected ?? null);
+          return new Response("<script>AF_initDataCallback({key: 'ds:1', hash: '2', data:[[], null, 0, 20], sideChannel: {}});</script>");
+        }
+      });
+
+      expect(postings).toEqual([]);
+    }
   });
 
   it("normalizes Amazon official search JSON responses", async () => {
@@ -509,8 +558,12 @@ describe("structured adapters", () => {
         requestConfigJson: { pageSize: 100, maxPages: 1 },
         parserConfigJson: { parserId: "amazon-search-json" }
       },
-      fetchImpl: async () =>
-        new Response(
+      fetchImpl: async (input) => {
+        const requestUrl = new URL(String(input));
+
+        expect(requestUrl.searchParams.has("is_intern[]")).toBe(false);
+
+        return new Response(
           JSON.stringify({
             hits: 1,
             jobs: [
@@ -547,7 +600,8 @@ describe("structured adapters", () => {
               }
             ]
           })
-        )
+        );
+      }
     });
 
     expect(postings).toHaveLength(1);
@@ -577,6 +631,11 @@ describe("structured adapters", () => {
         const requestUrl = typeof url === "string" ? url : url.toString();
 
         if (requestUrl.includes("/api/pcsx/search")) {
+          const searchUrl = new URL(requestUrl);
+
+          expect(searchUrl.searchParams.has("query")).toBe(false);
+          expect(searchUrl.searchParams.has("filter_employment_type")).toBe(false);
+
           return new Response(
             JSON.stringify({
               data: {
@@ -985,6 +1044,31 @@ describe("structured adapters", () => {
     expect(postings[0]?.additionalLocations).toEqual(["Nashville, TN, United States"]);
   });
 
+  it("does not add an implicit Oracle location facet", async () => {
+    const adapter = new CustomApiAdapter();
+    const postings = await adapter.fetchPostings({
+      company: { name: "Oracle", slug: "oracle" },
+      source: {
+        sourceType: "CUSTOM_API",
+        sourceName: "Oracle global careers search",
+        sourceIdentifier: "oracle-global",
+        sourceUrl:
+          "https://example.oraclecloud.com/hcmRestApi/resources/latest/recruitingCEJobRequisitions",
+        requestConfigJson: { siteNumber: "CX_GLOBAL", pageSize: 1, maxPages: 1 },
+        parserConfigJson: { parserId: "oracle-hcm-search" }
+      },
+      fetchImpl: async (url) => {
+        const finder = new URL(String(url)).searchParams.get("finder") ?? "";
+
+        expect(finder).not.toContain("selectedLocationsFacet=");
+
+        return new Response(JSON.stringify({ items: [{ TotalJobsCount: 0, requisitionList: [] }] }));
+      }
+    });
+
+    expect(postings).toEqual([]);
+  });
+
   it("normalizes SmartRecruiters postings with detail fetches", async () => {
     const adapter = new CustomApiAdapter();
     const postings = await adapter.fetchPostings({
@@ -1079,7 +1163,10 @@ describe("structured adapters", () => {
           );
         }
 
-        expect(JSON.parse(String(init?.body)).location_code_list).toEqual(["CT_94"]);
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          keyword: "",
+          location_code_list: ["CT_94"]
+        });
 
         return new Response(
           JSON.stringify({
@@ -1132,7 +1219,7 @@ describe("structured adapters", () => {
         parserConfigJson: { parserId: "uber-search" }
       },
       fetchImpl: async (_url, init) => {
-        expect(JSON.parse(String(init?.body)).params.query).toBe("intern");
+        expect(JSON.parse(String(init?.body)).params.query).toBe("");
 
         return new Response(
           JSON.stringify({
@@ -1197,7 +1284,7 @@ describe("structured adapters", () => {
         parserConfigJson: { parserId: "eightfold-jobs" }
       },
       fetchImpl: async (url) => {
-        expect(url.toString()).toContain("query=intern");
+        expect(url.toString()).not.toContain("query=intern");
         expect(url.toString()).toContain("start=0");
 
         return new Response(
@@ -1250,7 +1337,10 @@ describe("structured adapters", () => {
         parserConfigJson: { parserId: "phenom-refine-search" }
       },
       fetchImpl: async (_url, init) => {
-        expect(JSON.parse(String(init?.body)).keywords).toBe("intern");
+        expect(JSON.parse(String(init?.body))).toMatchObject({
+          country: "us",
+          keywords: ""
+        });
 
         return new Response(
           JSON.stringify({
@@ -1347,7 +1437,7 @@ describe("structured adapters", () => {
 
         expect(requestUrl.searchParams.get("scope")).toBe("careers2");
         expect(requestUrl.searchParams.get("appid")).toBe("careers");
-        expect(requestUrl.searchParams.get("query")).toBe("intern");
+        expect(requestUrl.searchParams.get("query")).toBe("");
 
         return new Response(
           JSON.stringify({
@@ -1685,6 +1775,10 @@ describe("structured adapters", () => {
         const requestUrl = typeof url === "string" ? url : url.toString();
 
         if (requestUrl.endsWith("/jobs") && init?.method === "POST") {
+          const requestBody = JSON.parse(String(init.body)) as Record<string, unknown>;
+
+          expect(requestBody.searchText).toBeUndefined();
+
           return new Response(
             JSON.stringify({
               total: 3,
