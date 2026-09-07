@@ -26,6 +26,7 @@ async function initializeSchema(db, schemaPath) {
   // Apply additive upgrades before starting services against an existing database.
   if (result.rows[0]?.exists) {
     await db.exec('ALTER TABLE "DiscordDestination" ADD COLUMN IF NOT EXISTS "filterJson" JSONB;');
+    await db.exec('ALTER TABLE "InternshipPosting" ADD COLUMN IF NOT EXISTS "newGradFlag" BOOLEAN NOT NULL DEFAULT false;');
     return;
   }
 

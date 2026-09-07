@@ -1,4 +1,4 @@
-import type { ListingSearchRecord } from "@swe-quant/shared";
+import type { ListingSearchRecord, NormalizedLocation } from "@swe-quant/shared";
 
 export function toListingSearchRecord(posting: {
   company: { slug: string; companyBucket: string };
@@ -8,14 +8,21 @@ export function toListingSearchRecord(posting: {
   season: string | null;
   year: number | null;
   locationRaw: string | null;
+  locationsNormalized: unknown;
   locationCountries: string[];
+  internshipFlag: boolean;
+  newGradFlag: boolean;
   remoteType: string;
   compensationMin: unknown;
   compensationMax: unknown;
   isActive: boolean;
   postingDate: Date | null;
   discoveredAt: Date;
-}): ListingSearchRecord {
+}): ListingSearchRecord & {
+  locationsNormalized: NormalizedLocation[];
+  internshipFlag: boolean;
+  newGradFlag: boolean;
+} {
   const toNumeric = (value: unknown) => {
     if (typeof value === "number") {
       return value;
@@ -27,6 +34,16 @@ export function toListingSearchRecord(posting: {
     return undefined;
   };
 
+  const locationsNormalized = Array.isArray(posting.locationsNormalized)
+    ? posting.locationsNormalized.filter(
+        (value): value is NormalizedLocation =>
+          Boolean(value) &&
+          typeof value === "object" &&
+          !Array.isArray(value) &&
+          typeof (value as NormalizedLocation).key === "string"
+      )
+    : [];
+
   return {
     companySlug: posting.company.slug,
     companyNameSnapshot: posting.companyNameSnapshot,
@@ -36,7 +53,10 @@ export function toListingSearchRecord(posting: {
     season: posting.season,
     year: posting.year,
     locationRaw: posting.locationRaw,
+    locationsNormalized,
     locationCountries: posting.locationCountries,
+    internshipFlag: posting.internshipFlag,
+    newGradFlag: posting.newGradFlag,
     remoteType: posting.remoteType as ListingSearchRecord["remoteType"],
     compensationMin: toNumeric(posting.compensationMin),
     compensationMax: toNumeric(posting.compensationMax),

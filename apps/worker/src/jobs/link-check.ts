@@ -7,7 +7,7 @@ export async function runPostingLinkCheck(options?: { limit?: number }) {
   const postings = await prisma.internshipPosting.findMany({
     where: {
       isActive: true,
-      internshipFlag: true
+      OR: [{ internshipFlag: true }, { newGradFlag: true }]
     },
     orderBy: [{ updatedAt: "asc" }],
     ...(options?.limit ? { take: options.limit } : {}),

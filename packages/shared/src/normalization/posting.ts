@@ -7,7 +7,7 @@ import type {
 import { categorizeRole, normalizeTitle } from "./role";
 import { computeDedupeFingerprint } from "./dedupe";
 import { parseCompensation } from "./compensation";
-import { isInternshipPosting } from "./internship";
+import { isInternshipPosting, isNewGradPosting } from "./internship";
 import { detectRemoteType, extractLocationCountries, normalizeLocations } from "./location";
 import { inferSeasonYear } from "./season";
 import { slugify, stripHtml } from "./text";
@@ -80,16 +80,25 @@ export function normalizeFetchedPosting(input: {
     year
   });
 
+  const internshipFlag = isInternshipPosting(input.posting.title, descriptionText, {
+    employmentType: input.posting.employmentType,
+    metadata: input.posting.metadata ?? undefined
+  });
+  const newGradFlag =
+    !internshipFlag &&
+    isNewGradPosting(input.posting.title, descriptionText, {
+      employmentType: input.posting.employmentType,
+      metadata: input.posting.metadata ?? undefined
+    });
+
   return {
     slug: buildPostingSlug(input.company.slug, input.posting.title, input.posting.externalJobId),
     externalJobId: input.posting.externalJobId,
     title: input.posting.title,
     normalizedTitle,
     roleCategory: categorizeRole(input.posting.title, descriptionText),
-    internshipFlag: isInternshipPosting(input.posting.title, descriptionText, {
-      employmentType: input.posting.employmentType,
-      metadata: input.posting.metadata ?? undefined
-    }),
+    internshipFlag,
+    newGradFlag,
     season,
     year,
     employmentType: input.posting.employmentType ?? undefined,

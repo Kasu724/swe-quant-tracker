@@ -2,7 +2,7 @@ import { prisma, type Prisma } from "@swe-quant/db";
 import {
   extractLocationCountries,
   isInternshipPosting,
-  isUsOrUnknownPostingLocation,
+  isNewGradPosting,
   normalizeLocations,
   stripHtml,
   type NormalizedLocation
@@ -35,9 +35,6 @@ function toNormalizedLocations(value: Prisma.JsonValue | null): NormalizedLocati
 
 export async function runInternshipReclassification() {
   const postings = await prisma.internshipPosting.findMany({
-    where: {
-      internshipFlag: true
-    },
     select: {
       id: true,
       title: true,
@@ -48,44 +45,51 @@ export async function runInternshipReclassification() {
       locationsNormalized: true,
       locationCountries: true,
       metadataJson: true,
-      isActive: true
+      isActive: true,
+      newGradFlag: true
     }
   });
 
-  const idsToDeactivate = postings
-    .filter((posting) => {
+  const updates = postings.map((posting) => {
       const description =
         posting.descriptionText ??
         (posting.descriptionRaw ? stripHtml(posting.descriptionRaw) : undefined);
       const metadata = toMetadataRecord(posting.metadataJson);
-      const locations = toNormalizedLocations(posting.locationsNormalized);
-      const locationCountries = [
-        ...posting.locationCountries,
-        ...extractLocationCountries(
-          locations.length > 0 ? locations : normalizeLocations([posting.locationRaw]),
-          metadata
-        )
-      ];
+      const existingLocations = toNormalizedLocations(posting.locationsNormalized);
+      const locations = normalizeLocations([
+        posting.locationRaw,
+        ...existingLocations.map((location) => location.raw)
+      ]);
+      const locationCountries = extractLocationCountries(locations, metadata);
 
-      return (
-        !isInternshipPosting(posting.title, description, {
+      const internshipFlag = isInternshipPosting(posting.title, description, {
+        employmentType: posting.employmentType,
+        metadata
+      });
+      const newGradFlag =
+        !internshipFlag &&
+        isNewGradPosting(posting.title, description, {
           employmentType: posting.employmentType,
           metadata
-        }) || !isUsOrUnknownPostingLocation(locationCountries)
-      );
-    })
-    .map((posting) => posting.id);
+        });
 
-  if (idsToDeactivate.length > 0) {
-    await prisma.internshipPosting.updateMany({
-      where: {
-        id: {
-          in: idsToDeactivate
-        }
-      },
+      return {
+        id: posting.id,
+        internshipFlag,
+        newGradFlag,
+        locations,
+        locationCountries
+      };
+    });
+
+  for (const update of updates) {
+    await prisma.internshipPosting.update({
+      where: { id: update.id },
       data: {
-        internshipFlag: false,
-        isActive: false
+        internshipFlag: update.internshipFlag,
+        newGradFlag: update.newGradFlag,
+        locationsNormalized: update.locations as Prisma.InputJsonValue,
+        locationCountries: update.locationCountries
       }
     });
   }
@@ -93,7 +97,9 @@ export async function runInternshipReclassification() {
   logger.info(
     {
       inspected: postings.length,
-      deactivated: idsToDeactivate.length
+      deactivated: 0,
+      internships: updates.filter((posting) => posting.internshipFlag).length,
+      newGrad: updates.filter((posting) => posting.newGradFlag).length
     },
     "Internship reclassification completed"
   );

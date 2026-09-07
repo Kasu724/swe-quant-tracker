@@ -168,6 +168,7 @@ model InternshipPosting {
   normalizedTitle      String
   roleCategory         RoleCategory         @default(OTHER)
   internshipFlag       Boolean              @default(true)
+  newGradFlag          Boolean              @default(false)
   season               String?
   year                 Int?
   employmentType       String?
