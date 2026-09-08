@@ -1,7 +1,7 @@
 import { runDailyDigestCycle } from "./jobs/digest";
 import { runIngestionCycle } from "./jobs/ingest";
 import { runPostingLinkCheck } from "./jobs/link-check";
-import { runInternshipReclassification } from "./jobs/reclassify";
+import { runInternshipReclassification, runLocationNormalization } from "./jobs/reclassify";
 import { runDiscordNotifications } from "./jobs/discord";
 import { prisma } from "@swe-quant/db";
 
@@ -31,6 +31,11 @@ async function main() {
 
   if (command === "reclassify") {
     await runInternshipReclassification();
+    return;
+  }
+
+  if (command === "normalize-locations") {
+    await runLocationNormalization();
     return;
   }
 

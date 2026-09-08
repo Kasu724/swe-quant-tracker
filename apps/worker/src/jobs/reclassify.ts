@@ -109,3 +109,49 @@ export async function runInternshipReclassification() {
     "Internship reclassification completed"
   );
 }
+
+export async function runLocationNormalization() {
+  const postings = await prisma.internshipPosting.findMany({
+    select: {
+      id: true,
+      locationRaw: true,
+      locationsNormalized: true,
+      locationCountries: true,
+      metadataJson: true
+    }
+  });
+
+  for (const posting of postings) {
+    const existingLocations = toNormalizedLocations(posting.locationsNormalized ?? null);
+    const locations = normalizeLocations([
+      posting.locationRaw,
+      ...existingLocations.map((location) => location.raw)
+    ]);
+    const locationCountries = extractLocationCountries(
+      locations,
+      toMetadataRecord(posting.metadataJson ?? null)
+    );
+
+    await prisma.internshipPosting.update({
+      where: { id: posting.id },
+      data: {
+        locationsNormalized: locations as Prisma.InputJsonValue,
+        locationCountries
+      }
+    });
+  }
+
+  logger.info(
+    {
+      inspected: postings.length,
+      changed: postings.filter((posting) => {
+        const existing = toNormalizedLocations(posting.locationsNormalized ?? null);
+        return JSON.stringify(existing) !== JSON.stringify(normalizeLocations([
+          posting.locationRaw,
+          ...existing.map((location) => location.raw)
+        ]));
+      }).length
+    },
+    "Location normalization completed"
+  );
+}

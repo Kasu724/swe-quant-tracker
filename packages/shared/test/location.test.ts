@@ -87,6 +87,7 @@ describe("location normalization", () => {
 
       expect(normalized[0]?.countryCode, raw).toBe(countryCode);
       expect(normalized[0]?.country, raw).toBe(country);
+      expect(normalized[0]?.display, raw).toContain(country);
       expect(extractLocationCountries(normalized), raw).toEqual([countryCode]);
     }
 
@@ -103,6 +104,26 @@ describe("location normalization", () => {
     expect(normalizeLocations(["San Francisco"])[0]?.countryCode).toBe("US");
     expect(normalizeLocations(["London"])[0]?.countryCode).toBe("GB");
     expect(normalizeLocations(["Paris"])[0]?.countryCode).toBe("FR");
+  });
+
+  it("renders canonical city, region, and country names", () => {
+    expect(normalizeLocations(["San Francisco"])[0]?.display).toBe("San Francisco, United States");
+    expect(normalizeLocations(["san francisco, ca"])[0]?.display).toBe(
+      "San Francisco, California, United States"
+    );
+    expect(normalizeLocations(["London, United Kingdom"])[0]?.display).toBe("London, United Kingdom");
+    expect(normalizeLocations(["Hybrid - San Francisco"])[0]?.display).toBe(
+      "Hybrid - San Francisco, United States"
+    );
+    expect(normalizeLocations(["San Francisco, CA • New York, NY"]).map((location) => location.display)).toEqual([
+      "San Francisco, California, United States",
+      "New York City, New York, United States"
+    ]);
+    expect(normalizeLocations(["San Francisco, Seattle, New York"]).map((location) => location.display)).toEqual([
+      "San Francisco, United States",
+      "Seattle, United States",
+      "New York City, United States"
+    ]);
   });
 
   it("keeps unknown place names country-neutral", () => {

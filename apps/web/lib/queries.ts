@@ -155,13 +155,15 @@ function sortListings(
 }
 
 function locationDisplay(raw: string | null, normalized: Prisma.JsonValue): string | null {
-  if (raw?.trim()) return raw;
-  if (!Array.isArray(normalized)) return null;
-  return normalized.flatMap((value) => {
+  const normalizedDisplay = Array.isArray(normalized)
+    ? normalized.flatMap((value) => {
     if (!value || typeof value !== "object" || Array.isArray(value)) return [];
     const display = typeof value.display === "string" ? value.display : value.raw;
     return typeof display === "string" && display.trim() ? [display] : [];
-  }).join(" | ") || null;
+    }).join(" | ") || null
+    : null;
+
+  return normalizedDisplay ?? (raw?.trim() || null);
 }
 
 export function serializeFeedListing(listing: ListingRow): FeedListing {
@@ -639,7 +641,7 @@ export async function getDiscordSettings(userId: string) {
 }
 
 export async function getUserFavorites(userId: string) {
-  return prisma.userFavorite.findMany({
+  const favorites = await prisma.userFavorite.findMany({
     where: { userId },
     include: {
       internshipPosting: {
@@ -650,6 +652,17 @@ export async function getUserFavorites(userId: string) {
     },
     orderBy: { createdAt: "desc" }
   });
+
+  return favorites.map((favorite) => ({
+    ...favorite,
+    internshipPosting: {
+      ...favorite.internshipPosting,
+      locationRaw: locationDisplay(
+        favorite.internshipPosting.locationRaw,
+        favorite.internshipPosting.locationsNormalized
+      )
+    }
+  }));
 }
 
 export async function getFavoritePostingIds(userId: string, postingIds: string[]) {

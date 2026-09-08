@@ -128,8 +128,25 @@ function cityMatches(value: string): CityMatch[] {
   return CITY_MATCHES_BY_NAME.get(canonicalizeText(value)) ?? [];
 }
 
-function bestCityMatch(value: string, regionPart?: string): CityMatch | undefined {
-  const matches = cityMatches(value);
+function cityMatchesWithSuffix(value: string): CityMatch[] {
+  const directMatches = cityMatches(value);
+
+  if (directMatches.length > 0) {
+    return directMatches;
+  }
+
+  const baseName = value.split(/\s+[-–—]\s+/)[0]?.trim();
+  const baseMatches = baseName && baseName !== value ? cityMatches(baseName) : [];
+
+  if (baseMatches.length > 0) {
+    return baseMatches;
+  }
+
+  return cityMatches(`${baseName ?? value} City`);
+}
+
+function bestCityMatch(value: string, regionPart?: string, countryCode?: string): CityMatch | undefined {
+  const matches = cityMatchesWithSuffix(value);
 
   if (matches.length === 0) {
     return undefined;
@@ -137,6 +154,7 @@ function bestCityMatch(value: string, regionPart?: string): CityMatch | undefine
 
   const normalizedRegion = canonicalizeText(regionPart ?? "");
   const regionCode = regionPart?.trim().toUpperCase();
+  const requestedCountry = countryCode ?? inferCountryCode(regionPart ?? "");
   const matchingRegion = normalizedRegion
     ? matches.filter(
         (city) =>
@@ -145,7 +163,14 @@ function bestCityMatch(value: string, regionPart?: string): CityMatch | undefine
           canonicalizeText(CANADA_PROVINCE_NAME_BY_CODE[city.adminCode] ?? "") === normalizedRegion
       )
     : [];
-  const candidates = matchingRegion.length > 0 ? matchingRegion : matches;
+  const matchingCountry = requestedCountry
+    ? matches.filter((city) => city.country === requestedCountry)
+    : [];
+  const candidates = matchingRegion.length > 0
+    ? matchingRegion
+    : matchingCountry.length > 0
+      ? matchingCountry
+      : matches;
 
   return candidates.reduce((best, candidate) =>
     candidate.population > best.population ? candidate : best
@@ -154,6 +179,19 @@ function bestCityMatch(value: string, regionPart?: string): CityMatch | undefine
 
 function inferCountryCodeFromCity(value: string, regionPart?: string): string | undefined {
   return COUNTRY_CODE_BY_CITY_ALIAS[canonicalizeText(value)] ?? bestCityMatch(value, regionPart)?.country;
+}
+
+function cityMatchForLocation(
+  value: string | undefined,
+  regionPart: string | undefined,
+  countryCode: string | undefined
+): CityMatch | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const preferredCountry = countryCode ?? COUNTRY_CODE_BY_CITY_ALIAS[canonicalizeText(value)];
+  return bestCityMatch(value, regionPart, preferredCountry);
 }
 
 function normalizeMetadataKey(key: string): string {
@@ -306,27 +344,37 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
     return undefined;
   }
 
-  const lowered = canonicalizeText(trimmed);
+  const remotePrefixMatch = trimmed.match(/^(remote|hybrid|onsite)\s*(?:[-:,]\s*)/i);
+  const remotePrefix = remotePrefixMatch?.[1]
+    ? remotePrefixMatch[1][0].toUpperCase() + remotePrefixMatch[1].slice(1).toLowerCase()
+    : undefined;
+  const locationValue = remotePrefix
+    ? trimmed.slice(remotePrefixMatch?.[0].length ?? 0).replace(/^(remote|hybrid|onsite)\s*(?:[-:,]\s*)/i, "").trim()
+    : trimmed;
+  const lowered = canonicalizeText(locationValue);
   const remote = detectRemoteType(trimmed);
   const remoteOnly = lowered === "remote" || lowered === "hybrid" || lowered === "onsite";
 
   if (remoteOnly) {
     return {
       raw: trimmed,
-      display: trimmed,
+      display: lowered[0].toUpperCase() + lowered.slice(1),
       key: slugify(trimmed),
       isRemote: remote === "REMOTE",
       isUs: false
     };
   }
 
-  const parts = trimmed.split(",").map((part) => part.trim()).filter(Boolean);
+  const parts = locationValue.split(",").map((part) => part.trim()).filter(Boolean);
   const [cityPart, regionPart, countryPart] = parts;
   const region = inferRegion(parts.length === 1 ? trimmed : regionPart ?? "", cityPart);
   const directSinglePartCountryCode =
     parts.length === 1 && /^[a-z]{2,3}$/i.test(trimmed) ? inferCountryCode(trimmed) : undefined;
   const countryCode = countryPart
-    ? inferCountryCode(countryPart) ?? inferCountryCodesFromText(countryPart)[0] ?? region.countryCode
+    ? inferCountryCode(countryPart) ??
+      inferCountryCodesFromText(countryPart)[0] ??
+      region.countryCode ??
+      inferCountryCodeFromCity(cityPart, regionPart)
     : directSinglePartCountryCode ??
       region.countryCode ??
       inferCountryCode(regionPart ?? "") ??
@@ -335,13 +383,20 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
   const country = countryCode ? COUNTRY_NAME_BY_CODE[countryCode] : countryPart;
 
   if (parts.length === 1) {
-    const explicitCountryCode = inferCountryCode(trimmed);
-    const cityCountryCode = inferCountryCodeFromCity(trimmed);
+    const explicitCountryCode = inferCountryCode(locationValue);
+    const cityCountryCode = inferCountryCodeFromCity(locationValue);
     const singlePartCountryCode = countryCode ?? inferCountryCodesFromText(trimmed)[0] ?? cityCountryCode;
+    const cityMatch = cityMatchForLocation(locationValue, undefined, singlePartCountryCode);
+    const locationDisplay = cityMatch && singlePartCountryCode
+      ? [cityMatch.name, COUNTRY_NAME_BY_CODE[singlePartCountryCode]].filter(Boolean).join(", ")
+      : locationValue;
+    const display = remotePrefix && locationDisplay !== remotePrefix
+      ? `${remotePrefix} - ${locationDisplay}`
+      : locationDisplay;
 
     return {
       raw: trimmed,
-      display: trimmed,
+      display,
       key: slugify(trimmed),
       countryCode: singlePartCountryCode,
       countryInferred: Boolean(cityCountryCode) && !explicitCountryCode,
@@ -351,9 +406,15 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
     };
   }
 
+  const cityMatch = cityMatchForLocation(cityPart, regionPart, countryCode);
+  const canonicalCity = cityMatch?.name ?? cityPart;
+  const canonicalRegion = region.regionCode || !region.countryCode ? region.region : undefined;
+  const locationDisplay = [canonicalCity, canonicalRegion, country].filter(Boolean).join(", ") || locationValue;
+  const display = remotePrefix ? `${remotePrefix} - ${locationDisplay}` : locationDisplay;
+
   return {
     raw: trimmed,
-    display: trimmed,
+    display,
     key: slugify([cityPart, region.region, country].filter(Boolean).join(" ")),
     city: cityPart,
     region: region.region,
@@ -367,7 +428,14 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
 
 export function normalizeLocations(values: Array<string | null | undefined>): NormalizedLocation[] {
   const normalized = values
-    .flatMap((value) => (value ? value.split(/\s+\|\s+|\s*;\s*|\s+\/\s+/) : []))
+    .flatMap((value) => (value ? value.split(/\s+\|\s+|\s*;\s*|\s+\/\s+|\s*•\s*/) : []))
+    .flatMap((value) => {
+      const commaParts = value.split(",").map((part) => part.trim()).filter(Boolean);
+
+      return commaParts.length > 2 && commaParts.every((part) => cityMatchesWithSuffix(part).length > 0)
+        ? commaParts
+        : [value];
+    })
     .map((value) => normalizeSingleLocation(value))
     .filter((value): value is NormalizedLocation => Boolean(value));
 
