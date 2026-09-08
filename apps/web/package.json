@@ -9,12 +9,13 @@
     "test": "vitest run ../../apps/web/test"
   },
   "dependencies": {
+    "@prisma/client": "^6.6.0",
     "@swe-quant/config": "workspace:*",
     "@swe-quant/db": "workspace:*",
     "@swe-quant/email": "workspace:*",
     "@swe-quant/shared": "workspace:*",
     "@swe-quant/ui": "workspace:*",
-    "@prisma/client": "^6.6.0",
+    "all-the-cities": "^3.1.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "lucide-react": "^0.503.0",

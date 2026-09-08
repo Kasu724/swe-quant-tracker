@@ -3,7 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { Badge, Button, Card, CardContent } from "@swe-quant/ui";
 import type { ApplicationState } from "@swe-quant/db";
-import { getPreferredPostingUrl } from "@swe-quant/shared";
+import { getPreferredPostingUrl } from "@swe-quant/shared/posting-links";
 import type { FeedListing } from "../lib/queries";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../lib/actions";
 import { PostingListButton } from "./posting-list-button";

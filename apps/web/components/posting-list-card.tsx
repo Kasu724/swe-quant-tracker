@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { CheckCircle2, ExternalLink, Trash2 } from "lucide-react";
 import { Badge, Button, Card, CardContent, Checkbox, cn } from "@swe-quant/ui";
-import { getPreferredPostingUrl } from "@swe-quant/shared";
+import { getPreferredPostingUrl } from "@swe-quant/shared/posting-links";
 import type { PostingListItem } from "../lib/queries";
 import { safeExternalUrl } from "../lib/validation";
 import { IntentLink } from "./site-nav-link";
