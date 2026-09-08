@@ -151,6 +151,24 @@ describe("listing filters", () => {
     ).toBe(true);
     expect(
       matchesListingFilters(
+        { ...baseRecord, locationRaw: "San Francisco", locationCountries: [] },
+        listingFilterSchema.parse({ countries: ["US"] })
+      )
+    ).toBe(true);
+    expect(
+      matchesListingFilters(
+        { ...baseRecord, locationRaw: "Cupertino", locationCountries: [] },
+        listingFilterSchema.parse({ countries: ["US"] })
+      )
+    ).toBe(true);
+    expect(
+      matchesListingFilters(
+        { ...baseRecord, locationRaw: "Reykjavik", locationCountries: [] },
+        listingFilterSchema.parse({ countries: ["IS"] })
+      )
+    ).toBe(true);
+    expect(
+      matchesListingFilters(
         {
           ...baseRecord,
           locationRaw: "Mountain View",

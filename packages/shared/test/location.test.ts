@@ -69,9 +69,47 @@ describe("location normalization", () => {
     expect(countries).toEqual(["ES"]);
   });
 
-  it("infers obvious non-US city-only locations", () => {
-    expect(extractLocationCountries(normalizeLocations(["Munich"]))).toEqual(["DE"]);
+  it("infers city-only locations across countries", () => {
+    const cases = [
+      ["San Francisco", "US", "United States"],
+      ["Mountain View", "US", "United States"],
+      ["Cupertino", "US", "United States"],
+      ["Redmond", "US", "United States"],
+      ["Munich", "DE", "Germany"],
+      ["Reykjavik", "IS", "Iceland"],
+      ["Nairobi", "KE", "Kenya"],
+      ["Ho Chi Minh City", "VN", "Vietnam"],
+      ["Zürich", "CH", "Switzerland"]
+    ] as const;
+
+    for (const [raw, countryCode, country] of cases) {
+      const normalized = normalizeLocations([raw]);
+
+      expect(normalized[0]?.countryCode, raw).toBe(countryCode);
+      expect(normalized[0]?.country, raw).toBe(country);
+      expect(extractLocationCountries(normalized), raw).toEqual([countryCode]);
+    }
+
     expect(extractLocationCountries(normalizeLocations(["London, United States"]))).toEqual(["US"]);
+  });
+
+  it("uses structured metadata instead of an inferred city country", () => {
+    expect(
+      extractLocationCountries(normalizeLocations(["San Francisco"]), { countryCode: "CA" })
+    ).toEqual(["CA"]);
+  });
+
+  it("uses population to resolve ambiguous city-only locations", () => {
+    expect(normalizeLocations(["San Francisco"])[0]?.countryCode).toBe("US");
+    expect(normalizeLocations(["London"])[0]?.countryCode).toBe("GB");
+    expect(normalizeLocations(["Paris"])[0]?.countryCode).toBe("FR");
+  });
+
+  it("keeps unknown place names country-neutral", () => {
+    const location = normalizeLocations(["Invented Place That Does Not Exist"])[0];
+
+    expect(location?.countryCode).toBeUndefined();
+    expect(extractLocationCountries(location ? [location] : [])).toEqual([]);
   });
 
   it("recognizes country alpha-2 codes outside the legacy alias set", () => {
@@ -106,6 +144,8 @@ describe("location normalization", () => {
     expect(isUsOrUnknownPostingLocation([])).toBe(true);
     expect(isUsOrUnknownPostingLocation([], "Remote - United States")).toBe(true);
     expect(isUsOrUnknownPostingLocation([], "Remote - Canada")).toBe(false);
+    expect(isUsOrUnknownPostingLocation([], "San Francisco")).toBe(true);
+    expect(isUsOrUnknownPostingLocation([], "Paris, TX")).toBe(true);
     expect(isUsOrUnknownPostingLocation(["US", "CA"])).toBe(true);
     expect(isUsOrUnknownPostingLocation(["GB"])).toBe(false);
   });

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   COMPANY_BUCKETS,
+  COUNTRY_OPTIONS,
   ISO_COUNTRY_CODES,
   LISTING_SORT_OPTIONS,
   POSITION_TYPES,
@@ -15,6 +16,7 @@ import {
 } from "../normalization/location";
 
 const isoCountryCodes = new Set(ISO_COUNTRY_CODES);
+const countryNameByCode = new Map(COUNTRY_OPTIONS.map(({ code, name }) => [code, name]));
 const countryCodeSchema = z
   .string()
   .trim()
@@ -88,9 +90,19 @@ function attachSingleAuthoritativeCountry(
     )
   );
 
-  return countryCodes.length === 1
-    ? [{ ...locations[0], countryCode: countryCodes[0] }]
-    : locations;
+  if (countryCodes.length !== 1) {
+    return locations;
+  }
+
+  const countryCode = countryCodes[0];
+
+  return [
+    {
+      ...locations[0],
+      countryCode,
+      country: countryNameByCode.get(countryCode) ?? locations[0]?.country
+    }
+  ];
 }
 
 function locationText(location: NormalizedLocation): string {

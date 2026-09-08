@@ -1,4 +1,5 @@
-import { COUNTRY_CODE_BY_NAME, US_STATE_NAME_BY_CODE } from "../constants/domain";
+import cities from "all-the-cities";
+import { COUNTRY_CODE_BY_NAME, COUNTRY_OPTIONS, US_STATE_NAME_BY_CODE } from "../constants/domain";
 import type { NormalizedLocation, RemoteTypeValue } from "../types";
 import { canonicalizeSearchText as canonicalizeText, slugify as asciiSlugify, uniqueStrings } from "./text";
 
@@ -31,6 +32,10 @@ const CANADA_PROVINCE_CODE_BY_NAME = Object.fromEntries(
   Object.entries(CANADA_PROVINCE_NAME_BY_CODE).map(([code, name]) => [name.toLowerCase(), code])
 );
 
+const COUNTRY_NAME_BY_CODE = Object.fromEntries(
+  COUNTRY_OPTIONS.map(({ code, name }) => [code, name])
+);
+
 const EMBEDDED_COUNTRY_ALIASES = new Set(["u s", "u s a", "us", "usa", "uk", "uae"]);
 
 const COUNTRY_METADATA_KEYS = new Set([
@@ -43,7 +48,9 @@ const COUNTRY_METADATA_KEYS = new Set([
   "normalizedcountryname"
 ]);
 
-const COUNTRY_CODE_BY_KNOWN_NON_US_CITY: Record<string, string> = {
+// Preserve common ATS aliases that differ from the gazetteer's canonical
+// place names. Exact gazetteer matching handles the general case below.
+const COUNTRY_CODE_BY_CITY_ALIAS: Record<string, string> = {
   "abu dhabi": "AE",
   amsterdam: "NL",
   ankara: "TR",
@@ -99,6 +106,56 @@ const COUNTRY_CODE_BY_KNOWN_NON_US_CITY: Record<string, string> = {
   zurich: "CH"
 };
 
+type CityMatch = (typeof cities)[number];
+
+const CITY_MATCHES_BY_NAME = new Map<string, CityMatch[]>();
+
+for (const city of cities) {
+  for (const name of uniqueStrings([city.name, city.altName])) {
+    const key = canonicalizeText(name);
+
+    if (!key) {
+      continue;
+    }
+
+    const matches = CITY_MATCHES_BY_NAME.get(key) ?? [];
+    matches.push(city);
+    CITY_MATCHES_BY_NAME.set(key, matches);
+  }
+}
+
+function cityMatches(value: string): CityMatch[] {
+  return CITY_MATCHES_BY_NAME.get(canonicalizeText(value)) ?? [];
+}
+
+function bestCityMatch(value: string, regionPart?: string): CityMatch | undefined {
+  const matches = cityMatches(value);
+
+  if (matches.length === 0) {
+    return undefined;
+  }
+
+  const normalizedRegion = canonicalizeText(regionPart ?? "");
+  const regionCode = regionPart?.trim().toUpperCase();
+  const matchingRegion = normalizedRegion
+    ? matches.filter(
+        (city) =>
+          city.adminCode.toUpperCase() === regionCode ||
+          canonicalizeText(US_STATE_NAME_BY_CODE[city.adminCode] ?? "") === normalizedRegion ||
+          canonicalizeText(CANADA_PROVINCE_NAME_BY_CODE[city.adminCode] ?? "") === normalizedRegion
+      )
+    : [];
+  const candidates = matchingRegion.length > 0 ? matchingRegion : matches;
+
+  return candidates.reduce((best, candidate) =>
+    candidate.population > best.population ? candidate : best
+  );
+}
+
+function inferCountryCodeFromCity(value: string, regionPart?: string): string | undefined {
+  return COUNTRY_CODE_BY_CITY_ALIAS[canonicalizeText(value)] ?? bestCityMatch(value, regionPart)?.country;
+}
+
 function normalizeMetadataKey(key: string): string {
   return key.toLowerCase().replace(/[^a-z0-9]+/g, "");
 }
@@ -136,11 +193,19 @@ function inferCountryCodesFromText(value: string): string[] {
     return countryMatches;
   }
 
-  return uniqueStrings(
-    Object.entries(COUNTRY_CODE_BY_KNOWN_NON_US_CITY)
+  const aliasedCityMatches = uniqueStrings(
+    Object.entries(COUNTRY_CODE_BY_CITY_ALIAS)
       .filter(([city]) => new RegExp(`(?:^|\\s)${escapeRegex(city)}(?:\\s|$)`).test(key))
       .map(([, code]) => code)
   );
+
+  if (aliasedCityMatches.length > 0) {
+    return aliasedCityMatches;
+  }
+
+  const cityMatch = bestCityMatch(value);
+
+  return cityMatch ? [cityMatch.country] : [];
 }
 
 function inferRegion(
@@ -153,9 +218,7 @@ function inferRegion(
   // A two-letter region can be both a US state and a country-specific region
   // code. Prefer a known international city when the city disambiguates it:
   // Berlin, DE; Pune, IN; and Toronto, CA are common ATS formats.
-  const cityCountryCode = cityPart
-    ? COUNTRY_CODE_BY_KNOWN_NON_US_CITY[canonicalizeText(cityPart)]
-    : undefined;
+  const cityCountryCode = cityPart ? inferCountryCodeFromCity(cityPart, trimmed) : undefined;
 
   if (
     cityCountryCode &&
@@ -267,25 +330,22 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
     : directSinglePartCountryCode ??
       region.countryCode ??
       inferCountryCode(regionPart ?? "") ??
-      inferCountryCodesFromText(trimmed)[0];
-  const country =
-    countryPart ?? (countryCode === "US" ? "United States" : region.countryCode ? region.region : undefined);
+      inferCountryCodesFromText(trimmed)[0] ??
+      inferCountryCodeFromCity(cityPart, regionPart);
+  const country = countryCode ? COUNTRY_NAME_BY_CODE[countryCode] : countryPart;
 
   if (parts.length === 1) {
-    const singlePartCountryCode = countryCode ?? inferCountryCodesFromText(trimmed)[0];
+    const explicitCountryCode = inferCountryCode(trimmed);
+    const cityCountryCode = inferCountryCodeFromCity(trimmed);
+    const singlePartCountryCode = countryCode ?? inferCountryCodesFromText(trimmed)[0] ?? cityCountryCode;
 
     return {
       raw: trimmed,
       display: trimmed,
       key: slugify(trimmed),
       countryCode: singlePartCountryCode,
-      countryInferred: Boolean(COUNTRY_CODE_BY_KNOWN_NON_US_CITY[lowered]) && !inferCountryCode(trimmed),
-      country:
-        singlePartCountryCode === "US"
-          ? "United States"
-          : singlePartCountryCode
-            ? trimmed
-            : country,
+      countryInferred: Boolean(cityCountryCode) && !explicitCountryCode,
+      country: singlePartCountryCode ? COUNTRY_NAME_BY_CODE[singlePartCountryCode] : country,
       isRemote: remote === "REMOTE",
       isUs: singlePartCountryCode === "US"
     };
@@ -386,7 +446,13 @@ export function isUsOrUnknownPostingLocation(
 ): boolean {
   const knownCountryCodes = uniqueStrings([
     ...countryCodes.filter(Boolean),
-    ...rawLocations.flatMap((location) => (location ? inferCountryCodesFromText(location) : []))
+    ...rawLocations.flatMap((location) =>
+      location
+        ? normalizeLocations([location])
+            .map((normalized) => normalized.countryCode)
+            .filter((countryCode): countryCode is string => Boolean(countryCode))
+        : []
+    )
   ]);
 
   return knownCountryCodes.length === 0 || knownCountryCodes.includes("US");
