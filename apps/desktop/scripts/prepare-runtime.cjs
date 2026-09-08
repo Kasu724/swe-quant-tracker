@@ -122,6 +122,19 @@ function generateFinalSchema() {
   fs.writeFileSync(path.join(outputDirectory, "schema.sql"), result.stdout);
 }
 
+function copyCityGazetteer() {
+  const packageEntry = require.resolve("all-the-cities", {
+    paths: [path.join(workspaceDirectory, "packages", "shared")]
+  });
+  const cityDataPath = path.join(path.dirname(packageEntry), "cities.pbf");
+
+  if (!fs.existsSync(cityDataPath)) {
+    throw new Error(`Could not locate the all-the-cities dataset: ${cityDataPath}`);
+  }
+
+  fs.copyFileSync(cityDataPath, path.join(outputDirectory, "cities.pbf"));
+}
+
 const nodeModulesResolver = {
   name: "node-modules-resolver",
   setup(build) {
@@ -144,6 +157,7 @@ const nodeModulesResolver = {
 async function main() {
   fs.mkdirSync(outputDirectory, { recursive: true });
   generateFinalSchema();
+  copyCityGazetteer();
 
   const iconPng = await sharp(path.join(desktopDirectory, "resources", "icon.svg"))
     .resize(512, 512)
