@@ -20,7 +20,7 @@
   },
   "devDependencies": {
     "app-builder-lib": "26.15.3",
-    "esbuild": "0.27.7",
-    "sharp": "0.35.3"
+    "esbuild": "0.28.1",
+    "sharp": "0.35.4"
   }
 }
