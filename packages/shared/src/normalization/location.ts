@@ -413,6 +413,39 @@ function parseCountryPrefixedLocation(value: string): string | undefined {
   return [city, region?.name, COUNTRY_NAME_BY_CODE[countryCode]].filter(Boolean).join(", ");
 }
 
+function parseCountryFirstLocation(value: string): string | undefined {
+  const parts = value.split(",").map((part) => part.trim()).filter(Boolean);
+
+  if (parts.length < 2) {
+    return undefined;
+  }
+
+  const countryCode = inferCountryCode(parts[0] ?? "");
+  if (!countryCode) {
+    return undefined;
+  }
+
+  const trailingCountryCode = inferCountryCode(parts.at(-1) ?? "");
+  const hasMatchingTrailingCountry = trailingCountryCode === countryCode;
+  const middleParts = hasMatchingTrailingCountry ? parts.slice(1, -1) : parts.slice(1);
+  const cityValue = middleParts.join(", ").trim();
+
+  if (
+    !hasMatchingTrailingCountry &&
+    inferCountryCodeFromCity(cityValue) !== countryCode &&
+    bestCityMatch(cityValue, undefined, countryCode)?.country !== countryCode
+  ) {
+    return undefined;
+  }
+
+  if (!cityValue) {
+    return COUNTRY_NAME_BY_CODE[countryCode];
+  }
+
+  const cityMatch = bestCityMatch(cityValue, undefined, countryCode);
+  return [cityMatch?.name ?? cityValue, COUNTRY_NAME_BY_CODE[countryCode]].filter(Boolean).join(", ");
+}
+
 export function detectRemoteType(...values: Array<string | null | undefined>): RemoteTypeValue {
   const combined = canonicalizeText(values.filter(Boolean).join(" "));
 
@@ -444,7 +477,8 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
     ? trimmed.slice(remotePrefixMatch?.[0].length ?? 0).replace(/^(remote|hybrid|onsite)\s*(?:[-:,]\s*)/i, "").trim()
     : trimmed;
   const parsedLocationValue = parseCountryPrefixedLocation(locationValue);
-  const canonicalInput = parsedLocationValue ?? locationValue;
+  const countryFirstLocation = parseCountryFirstLocation(locationValue);
+  const canonicalInput = countryFirstLocation ?? parsedLocationValue ?? locationValue;
   const lowered = canonicalizeText(canonicalInput);
   const remote = detectRemoteType(trimmed);
   const remoteOnly = lowered === "remote" || lowered === "hybrid" || lowered === "onsite";
@@ -563,8 +597,11 @@ export function normalizeLocations(values: Array<string | null | undefined>): No
     })
     .flatMap((value) => {
       const commaParts = value.split(",").map((part) => part.trim()).filter(Boolean);
+      const hasCountryToken =
+        inferCountryCode(commaParts[0] ?? "") !== undefined ||
+        inferCountryCode(commaParts.at(-1) ?? "") !== undefined;
 
-      return commaParts.length > 2 && commaParts.every((part) => cityMatchesWithSuffix(part).length > 0)
+      return commaParts.length > 2 && !hasCountryToken && commaParts.every((part) => cityMatchesWithSuffix(part).length > 0)
         ? commaParts
         : [value];
     })

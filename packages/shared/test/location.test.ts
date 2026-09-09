@@ -139,6 +139,8 @@ describe("location normalization", () => {
       "Beijing, China",
       "Shanghai, China"
     ]);
+    expect(normalizeLocations(["China, Beijing, China"])[0]?.display).toBe("Beijing, China");
+    expect(normalizeLocations(["India, Bangalore, India"])[0]?.display).toBe("Bangalore, India");
   });
 
   it("keeps unknown place names country-neutral", () => {
