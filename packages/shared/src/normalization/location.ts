@@ -358,8 +358,9 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
   if (remoteOnly) {
     return {
       raw: trimmed,
-      display: lowered[0].toUpperCase() + lowered.slice(1),
+      display: "Unknown location",
       key: slugify(trimmed),
+      isUnknown: true,
       isRemote: remote === "REMOTE",
       isUs: false
     };
@@ -380,7 +381,7 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
       inferCountryCode(regionPart ?? "") ??
       inferCountryCodesFromText(trimmed)[0] ??
       inferCountryCodeFromCity(cityPart, regionPart);
-  const country = countryCode ? COUNTRY_NAME_BY_CODE[countryCode] : countryPart;
+  const country = countryCode ? COUNTRY_NAME_BY_CODE[countryCode] : undefined;
 
   if (parts.length === 1) {
     const explicitCountryCode = inferCountryCode(locationValue);
@@ -390,9 +391,7 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
     const locationDisplay = cityMatch && singlePartCountryCode
       ? [cityMatch.name, COUNTRY_NAME_BY_CODE[singlePartCountryCode]].filter(Boolean).join(", ")
       : locationValue;
-    const display = remotePrefix && locationDisplay !== remotePrefix
-      ? `${remotePrefix} - ${locationDisplay}`
-      : locationDisplay;
+    const display = singlePartCountryCode ? locationDisplay : "Unknown location";
 
     return {
       raw: trimmed,
@@ -401,6 +400,7 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
       countryCode: singlePartCountryCode,
       countryInferred: Boolean(cityCountryCode) && !explicitCountryCode,
       country: singlePartCountryCode ? COUNTRY_NAME_BY_CODE[singlePartCountryCode] : country,
+      isUnknown: !singlePartCountryCode,
       isRemote: remote === "REMOTE",
       isUs: singlePartCountryCode === "US"
     };
@@ -409,8 +409,8 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
   const cityMatch = cityMatchForLocation(cityPart, regionPart, countryCode);
   const canonicalCity = cityMatch?.name ?? cityPart;
   const canonicalRegion = region.regionCode || !region.countryCode ? region.region : undefined;
-  const locationDisplay = [canonicalCity, canonicalRegion, country].filter(Boolean).join(", ") || locationValue;
-  const display = remotePrefix ? `${remotePrefix} - ${locationDisplay}` : locationDisplay;
+  const locationDisplay = [canonicalCity, canonicalRegion, country].filter(Boolean).join(", ");
+  const display = countryCode ? locationDisplay || locationValue : "Unknown location";
 
   return {
     raw: trimmed,
@@ -421,6 +421,7 @@ function normalizeSingleLocation(value: string): NormalizedLocation | undefined 
     regionCode: region.regionCode,
     country,
     countryCode,
+    isUnknown: !countryCode,
     isRemote: remote === "REMOTE",
     isUs: countryCode === "US"
   };

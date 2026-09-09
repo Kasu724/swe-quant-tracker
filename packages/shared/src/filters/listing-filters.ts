@@ -273,7 +273,9 @@ export function matchesListingFilters(record: ListingSearchRecord, filters: List
     return false;
   }
 
-  const hasLocation = Boolean(record.locationRaw?.trim()) || normalizedLocations.length > 0;
+  const hasLocation = normalizedLocations.some(
+    (location) => !location.isUnknown && Boolean(location.countryCode)
+  );
 
   if (!filters.includeMissingLocation && !hasLocation) {
     return false;

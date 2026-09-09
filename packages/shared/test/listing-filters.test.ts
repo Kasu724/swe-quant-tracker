@@ -266,6 +266,26 @@ describe("listing filters", () => {
         listingFilterSchema.parse({ includeMissingLocation: false })
       )
     ).toBe(true);
+    expect(
+      matchesListingFilters(
+        {
+          ...baseRecord,
+          locationRaw: "Remote",
+          locationsNormalized: [{ raw: "Remote", display: "Unknown location", key: "remote", isUnknown: true }]
+        },
+        listingFilterSchema.parse({ includeMissingLocation: false })
+      )
+    ).toBe(false);
+    expect(
+      matchesListingFilters(
+        {
+          ...baseRecord,
+          locationRaw: "Remote",
+          locationsNormalized: [{ raw: "Remote", display: "Unknown location", key: "remote", isUnknown: true }]
+        },
+        listingFilterSchema.parse({ includeMissingLocation: true })
+      )
+    ).toBe(true);
   });
 
   it("matches either selected position type and supports both flags", () => {

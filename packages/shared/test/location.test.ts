@@ -113,7 +113,7 @@ describe("location normalization", () => {
     );
     expect(normalizeLocations(["London, United Kingdom"])[0]?.display).toBe("London, United Kingdom");
     expect(normalizeLocations(["Hybrid - San Francisco"])[0]?.display).toBe(
-      "Hybrid - San Francisco, United States"
+      "San Francisco, United States"
     );
     expect(normalizeLocations(["San Francisco, CA • New York, NY"]).map((location) => location.display)).toEqual([
       "San Francisco, California, United States",
@@ -130,7 +130,16 @@ describe("location normalization", () => {
     const location = normalizeLocations(["Invented Place That Does Not Exist"])[0];
 
     expect(location?.countryCode).toBeUndefined();
+    expect(location?.display).toBe("Unknown location");
+    expect(location?.isUnknown).toBe(true);
     expect(extractLocationCountries(location ? [location] : [])).toEqual([]);
+  });
+
+  it("labels remote-only postings without a country as unknown", () => {
+    const location = normalizeLocations(["Remote"])[0];
+
+    expect(location?.display).toBe("Unknown location");
+    expect(location?.isUnknown).toBe(true);
   });
 
   it("recognizes country alpha-2 codes outside the legacy alias set", () => {
