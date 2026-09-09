@@ -154,7 +154,7 @@ export async function sendDailyDigests() {
     const postings = await prisma.internshipPosting.findMany({
       where: {
         discoveredAt: { gt: since },
-        internshipFlag: true
+        OR: [{ internshipFlag: true }, { newGradFlag: true }]
       },
       orderBy: { discoveredAt: "desc" },
       include: { company: true }

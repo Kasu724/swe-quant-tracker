@@ -3,7 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { Badge, Button, Card, CardContent } from "@swe-quant/ui";
 import type { ApplicationState } from "@swe-quant/db";
-import { getPreferredPostingUrl } from "@swe-quant/shared";
+import { getPreferredPostingUrl } from "@swe-quant/shared/posting-links";
 import type { FeedListing } from "../lib/queries";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../lib/actions";
 import { PostingListButton } from "./posting-list-button";
@@ -46,6 +46,8 @@ export function ListingCard({
               <Badge tone="brand" className="dark:bg-brand-900 dark:text-brand-100">
                 {posting.roleCategory.replaceAll("_", " ")}
               </Badge>
+              {posting.internshipFlag ? <Badge tone="neutral">Internship</Badge> : null}
+              {posting.newGradFlag ? <Badge tone="success">New grad</Badge> : null}
               <Badge tone="neutral">{posting.remoteType}</Badge>
               {isNew ? <Badge tone="success">New</Badge> : null}
             </div>

@@ -46,14 +46,59 @@ const BODY_FALSE_POSITIVE_PATTERNS = [
   /\bcampus recruiting\b/i
 ] as const;
 
+// New graduate classification is intentionally conservative.  A degree or
+// graduation date in an experienced requisition is not enough; the posting
+// must identify the role as entry level, a graduate program, or a campus hire.
+const NEW_GRAD_TITLE_INCLUDE_PATTERNS = [
+  /\bnew grad(?:uate)?\b/i,
+  /\brecent grad(?:uate)?\b/i,
+  /\bearly career\b/i,
+  /\bentry[- ]level\b/i,
+  /\buniversity grad(?:uate)?\b/i,
+  /\bgraduate (?:software|data|machine learning|quant|technology|engineering|engineer|trader|trading|researcher|developer|analyst)\b/i,
+  /\b(?:software|data|machine learning|quant|technology|engineering|engineer|trader|trading|researcher|developer|analyst)\s+(?:[-–]\s*)?graduate\b/i,
+  /\bgraduate program\b/i,
+  /\bcampus hire\b/i
+] as const;
+
+const NEW_GRAD_BODY_INCLUDE_PATTERNS = [
+  /\b(?:open|welcoming|welcome) to (?:new|recent) graduates?\b/i,
+  /\bfor (?:new|recent) graduates?\b/i,
+  /\bnew graduate program\b/i,
+  /\bentry[- ]level (?:role|position|opportunity)\b/i,
+  /\bdesigned for (?:new|recent) graduates?\b/i,
+  /\b(?:campus|university) hire(?:s|ing)?\b/i
+] as const;
+
+const NEW_GRAD_HARD_EXCLUDE_PATTERNS = [
+  /\b(?:senior|staff|principal|lead|director|head|vp|vice president)\b/i,
+  /\bexperienced (?:professional|engineer|researcher|candidate)s?\b/i
+] as const;
+
+const NEW_GRAD_BODY_EXPERIENCE_EXCLUDE_PATTERNS = [
+  /\b(?:[5-9]|[1-9]\d)\+? years? (?:of )?experience\b/i,
+  /\b(?:minimum|required|at least)\s+(?:[3-9]|[1-9]\d)\+? years?\b/i
+] as const;
+
+const NEW_GRAD_STRUCTURED_INCLUDE_PATTERNS = [
+  /\bnew graduate\b/i,
+  /\bentry[- ]level\b/i,
+  /\bearly career\b/i,
+  /\bgraduate program\b/i,
+  /\bcampus hire\b/i,
+  /\buniversity graduate\b/i
+] as const;
+
 const STRUCTURED_METADATA_INCLUDE_KEYS = new Set([
   "careercategories",
+  "careerlevel",
   "categories",
   "category",
   "commitment",
   "department",
   "discipline",
   "employmenttype",
+  "experiencelevel",
   "jobcategory",
   "jobfamily",
   "jobkeywords",
@@ -97,6 +142,22 @@ function hasStrongBodyIncludeSignal(text: string): boolean {
 
 function hasBodyFalsePositiveSignal(text: string): boolean {
   return BODY_FALSE_POSITIVE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function hasNewGradTitleSignal(text: string): boolean {
+  return NEW_GRAD_TITLE_INCLUDE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function hasNewGradBodySignal(text: string): boolean {
+  return NEW_GRAD_BODY_INCLUDE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function hasNewGradStructuredSignal(text: string): boolean {
+  return NEW_GRAD_STRUCTURED_INCLUDE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function hasNewGradHardExcludeSignal(text: string): boolean {
+  return NEW_GRAD_HARD_EXCLUDE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
 function collectAllStructuredStrings(value: unknown, output: string[]) {
@@ -197,4 +258,45 @@ export function isInternshipPosting(
   }
 
   return hasStrongBodyIncludeSignal(bodyText);
+}
+
+/**
+ * Classify full-time graduate and entry-level roles independently from
+ * internships.  Internship classification always wins in normalizePosting.
+ */
+export function isNewGradPosting(
+  title: string,
+  description?: string | null,
+  options?: {
+    employmentType?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }
+): boolean {
+  const titleText = canonicalizeText(title);
+  const bodyText = canonicalizeText(description ?? "");
+  const structuredParts: string[] = [];
+
+  if (options?.employmentType) {
+    structuredParts.push(options.employmentType);
+  }
+
+  if (options?.metadata) {
+    collectStructuredMetadataStrings(options.metadata, structuredParts);
+  }
+
+  const structuredText = canonicalizeText(structuredParts.join(" "));
+
+  if (
+    hasNewGradHardExcludeSignal(titleText) ||
+    hasNewGradHardExcludeSignal(structuredText) ||
+    NEW_GRAD_BODY_EXPERIENCE_EXCLUDE_PATTERNS.some((pattern) => pattern.test(bodyText))
+  ) {
+    return false;
+  }
+
+  return (
+    hasNewGradTitleSignal(titleText) ||
+    hasNewGradBodySignal(bodyText) ||
+    hasNewGradStructuredSignal(structuredText)
+  );
 }

@@ -54,6 +54,49 @@ export const LISTING_SORT_OPTIONS = [
   "location"
 ] as const;
 
+export const POSITION_TYPES = ["INTERNSHIP", "NEW_GRAD"] as const;
+
+/**
+ * ISO 3166-1 alpha-2 country codes. Keep this catalog independent from the
+ * countries currently present in the database so the location selector can
+ * offer every country before a posting has been observed there.
+ */
+export const ISO_COUNTRY_CODES = `
+AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ
+BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV BW BY BZ
+CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ
+DE DJ DK DM DO DZ
+EC EE EG EH ER ES ET
+FI FJ FK FM FO FR
+GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY
+HK HM HN HR HT HU
+ID IE IL IM IN IO IQ IR IS IT
+JE JM JO JP
+KE KG KH KI KM KN KP KR KW KY KZ
+LA LB LC LI LK LR LS LT LU LV LY
+MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ
+NA NC NE NF NG NI NL NO NP NR NU NZ
+OM
+PA PE PF PG PH PK PL PM PN PR PS PT PW PY
+QA
+RE RO RS RU RW
+SA SB SC SD SE SG SH SI SJ SK SL SM SN SO SR SS ST SV SX SY SZ
+TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ
+UA UG UM US UY UZ
+VA VC VE VG VI VN VU
+WF WS YE YT
+ZA ZM ZW
+`.trim().split(/\s+/);
+
+const countryDisplayNames = new Intl.DisplayNames(["en"], { type: "region" });
+
+export const COUNTRY_OPTIONS = ISO_COUNTRY_CODES
+  .map((code) => ({
+    code,
+    name: countryDisplayNames.of(code) ?? code
+  }))
+  .sort((left, right) => left.name.localeCompare(right.name));
+
 export const INTERNSHIP_TITLE_INCLUDE_PATTERNS = [
   /\bintern(ship)?\b/i,
   /\bsummer analyst\b/i,
@@ -313,3 +356,23 @@ export const COUNTRY_CODE_BY_NAME: Record<string, string> = {
   norway: "NO",
   "hong kong": "HK"
 };
+
+// Add the localized display name for every ISO country to the alias table.
+// The normalization mirrors canonicalizeText without importing the text
+// module, which keeps the constants module dependency-free.
+for (const { code, name } of COUNTRY_OPTIONS) {
+  COUNTRY_CODE_BY_NAME[code.toLowerCase()] = code;
+
+  const key = name
+    .normalize("NFKD")
+    .toLowerCase()
+    .replace(/\p{M}/gu, "")
+    .replace(/[’']/g, "")
+    .replace(/[^a-z0-9\s]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (key) {
+    COUNTRY_CODE_BY_NAME[key] = code;
+  }
+}

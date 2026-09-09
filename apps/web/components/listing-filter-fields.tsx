@@ -1,4 +1,5 @@
 import { Checkbox, Input, Select, cn } from "@swe-quant/ui";
+import { COUNTRY_OPTIONS } from "@swe-quant/shared";
 import type { ListingFilters } from "@swe-quant/shared";
 
 export function ListingFilterFields({
@@ -12,7 +13,12 @@ export function ListingFilterFields({
 }) {
   return (
     <>
-      <input type="hidden" name="usOnly" value={String(filters.usOnly)} />
+      {filters.usOnly ? (
+        <label className="flex items-center gap-2 text-sm text-amber-800">
+          <input type="checkbox" name="usOnly" defaultChecked />
+          Keep legacy US-only filter
+        </label>
+      ) : null}
       {filters.recentlyPostedDays ? <input type="hidden" name="recent" value={filters.recentlyPostedDays} /> : null}
       <div className="space-y-2">
         <label className="text-sm font-medium text-slate-700">Keyword</label>
@@ -86,12 +92,40 @@ export function ListingFilterFields({
       </div>
       <div className={cn("grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")}>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Location</label>
+          <label htmlFor="filter-country" className="text-sm font-medium text-slate-700">Country</label>
+          <Select id="filter-country" name="country" defaultValue={filters.countries[0] ?? ""}>
+            <option value="">All countries</option>
+            {COUNTRY_OPTIONS.map((country) => (
+              <option key={country.code} value={country.code}>
+                {country.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="filter-location" className="text-sm font-medium text-slate-700">Specific location</label>
           <Input
+            id="filter-location"
             name="location"
             defaultValue={filters.locations[0] ?? ""}
-            placeholder="New York"
+            placeholder="City, region, or phrase"
           />
+          <p className="text-xs text-slate-500">Use one phrase such as “London, Ontario”.</p>
+        </div>
+      </div>
+      <div className={cn("grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")}>
+        <div className="space-y-2">
+          <label htmlFor="filter-position-type" className="text-sm font-medium text-slate-700">Position type</label>
+          <Select
+            id="filter-position-type"
+            name="positionType"
+            defaultValue={filters.positionTypes.length === 1 ? filters.positionTypes[0] : ""}
+          >
+            <option value="">Internships and new grad</option>
+            <option value="INTERNSHIP">Internship</option>
+            <option value="NEW_GRAD">New grad</option>
+          </Select>
+          <p className="text-xs text-slate-500">Choose one type or leave both included.</p>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">Workplace</label>
@@ -117,6 +151,8 @@ export function ListingFilterFields({
           <Input
             name="minimumPay"
             type="number"
+            min="0"
+            step="any"
             defaultValue={filters.minimumPay ?? ""}
             placeholder="35"
           />

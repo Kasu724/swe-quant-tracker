@@ -3,7 +3,6 @@ import { unstable_cache } from "next/cache";
 import { prisma, type ApplicationState, type Prisma } from "@swe-quant/db";
 import {
   getPreferredPostingUrl,
-  isUsOrUnknownPostingLocation,
   listingFilterSchema,
   matchesListingFilters,
   serializeRowsToCsv,
@@ -22,6 +21,7 @@ const listingSelect = {
   season: true,
   year: true,
   locationRaw: true,
+  locationsNormalized: true,
   locationCountries: true,
   remoteType: true,
   compensationMin: true,
@@ -34,6 +34,8 @@ const listingSelect = {
   sourceUrl: true,
   sourceName: true,
   isActive: true,
+  internshipFlag: true,
+  newGradFlag: true,
   company: {
     select: {
       slug: true,
@@ -52,6 +54,8 @@ export type FeedListing = {
   companyNameSnapshot: string;
   title: string;
   roleCategory: ListingRow["roleCategory"];
+  internshipFlag: boolean;
+  newGradFlag: boolean;
   season: string | null;
   year: number | null;
   locationRaw: string | null;
@@ -79,13 +83,6 @@ export type PostingListItem = {
   posting: FeedListing;
 };
 
-const trackedLocationWhere: Prisma.InternshipPostingWhereInput = {
-  OR: [
-    { locationCountries: { isEmpty: true } },
-    { locationCountries: { has: "US" } }
-  ]
-};
-
 function toListingRecord(
   posting: ListingRow
 ): ListingSearchRecord {
@@ -95,10 +92,15 @@ function toListingRecord(
     companyBucket: posting.company.companyBucket,
     title: posting.title,
     roleCategory: posting.roleCategory,
+    internshipFlag: posting.internshipFlag,
+    newGradFlag: posting.newGradFlag,
     season: posting.season,
     year: posting.year,
     locationRaw: posting.locationRaw,
     locationCountries: posting.locationCountries,
+    locationsNormalized: Array.isArray(posting.locationsNormalized)
+      ? (posting.locationsNormalized as ListingSearchRecord["locationsNormalized"])
+      : undefined,
     remoteType: posting.remoteType,
     compensationMin:
       typeof posting.compensationMin?.toNumber === "function"
@@ -121,27 +123,47 @@ function sortListings(
   const sorted = [...listings];
 
   sorted.sort((left, right) => {
+    let comparison = 0;
     switch (sort) {
       case "postingDate":
       case "newest":
-        return (right.postingDate?.getTime() ?? 0) - (left.postingDate?.getTime() ?? 0);
+        comparison = (right.postingDate?.getTime() ?? -Infinity) - (left.postingDate?.getTime() ?? -Infinity) ||
+          right.discoveredAt.getTime() - left.discoveredAt.getTime();
+        break;
       case "discoveredDate":
-        return (right.discoveredAt?.getTime() ?? 0) - (left.discoveredAt?.getTime() ?? 0);
+        comparison = (right.discoveredAt?.getTime() ?? 0) - (left.discoveredAt?.getTime() ?? 0);
+        break;
       case "company":
-        return left.companyNameSnapshot.localeCompare(right.companyNameSnapshot);
+        comparison = left.companyNameSnapshot.localeCompare(right.companyNameSnapshot);
+        break;
       case "pay":
-        return (
+        comparison = (
           Number(right.compensationMax?.toString?.() ?? right.compensationMin?.toString?.() ?? 0) -
           Number(left.compensationMax?.toString?.() ?? left.compensationMin?.toString?.() ?? 0)
         );
+        break;
       case "location":
-        return (left.locationRaw ?? "").localeCompare(right.locationRaw ?? "");
+        comparison = (left.locationRaw ?? "").localeCompare(right.locationRaw ?? "");
+        break;
       default:
-        return 0;
+        break;
     }
+    return comparison || left.id.localeCompare(right.id);
   });
 
   return sorted;
+}
+
+function locationDisplay(raw: string | null, normalized: Prisma.JsonValue): string | null {
+  const normalizedDisplay = Array.isArray(normalized)
+    ? normalized.flatMap((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const display = typeof value.display === "string" ? value.display : value.raw;
+    return typeof display === "string" && display.trim() ? [display] : [];
+    }).join(" | ") || null
+    : null;
+
+  return normalizedDisplay ?? (raw?.trim() || null);
 }
 
 export function serializeFeedListing(listing: ListingRow): FeedListing {
@@ -151,9 +173,11 @@ export function serializeFeedListing(listing: ListingRow): FeedListing {
     companyNameSnapshot: listing.companyNameSnapshot,
     title: listing.title,
     roleCategory: listing.roleCategory,
+    internshipFlag: listing.internshipFlag,
+    newGradFlag: listing.newGradFlag,
     season: listing.season,
     year: listing.year,
-    locationRaw: listing.locationRaw,
+    locationRaw: locationDisplay(listing.locationRaw, listing.locationsNormalized),
     remoteType: listing.remoteType,
     compensationMin: listing.compensationMin?.toString() ?? null,
     compensationMax: listing.compensationMax?.toString() ?? null,
@@ -197,25 +221,25 @@ function buildListingsWhere(filters: ListingFilters, userId?: string): Prisma.In
         }
       : {};
   const queryPredicates: Prisma.InternshipPostingWhereInput[] = [
-    trackedLocationWhere,
-    ...(filters.q
-      ? [
-          {
-            OR: [
-              { title: { contains: filters.q, mode: "insensitive" as const } },
-              { companyNameSnapshot: { contains: filters.q, mode: "insensitive" as const } },
-              { locationRaw: { contains: filters.q, mode: "insensitive" as const } }
-            ]
-          }
-        ]
-      : []),
+    // Free text, country inference, and location phrases are evaluated by
+    // matchesListingFilters. Avoid a SQL contains prefilter here because it
+    // can exclude canonical matches (punctuation and accents) before the
+    // shared matcher sees them.
     payKnownWhere,
-    minimumPayWhere,
-    ...(filters.includeMissingLocation ? [] : [{ locationRaw: { not: null } }])
+    ...(filters.payKnown === "unknown" ? [{ compensationMin: null, compensationMax: null }] : []),
+    minimumPayWhere
   ];
 
+  const positionTypes = filters.positionTypes ?? [];
+  const positionWhere: Prisma.InternshipPostingWhereInput =
+    positionTypes.length === 1
+      ? positionTypes[0] === "INTERNSHIP"
+        ? { internshipFlag: true }
+        : { newGradFlag: true }
+      : { OR: [{ internshipFlag: true }, { newGradFlag: true }] };
+
   return {
-    internshipFlag: true,
+    ...positionWhere,
     AND: queryPredicates,
     ...(filters.companySlugs.length || filters.companyBuckets.length
       ? {
@@ -260,6 +284,9 @@ function canUsePaginatedListings(filters: ListingFilters): boolean {
   return (
     !filters.q &&
     filters.locations.length === 0 &&
+    filters.countries.length === 0 &&
+    filters.positionTypes.length === 0 &&
+    !filters.usOnly &&
     !filters.recentlyPostedDays &&
     filters.includeMissingLocation &&
     (filters.sort === "postingDate" ||
@@ -275,8 +302,7 @@ const getCachedListingFilterMetadata = unstable_cache(
         isActive: true,
         postings: {
           some: {
-            internshipFlag: true,
-            ...trackedLocationWhere
+            OR: [{ internshipFlag: true }, { newGradFlag: true }]
           }
         }
       },
@@ -290,8 +316,7 @@ const getCachedListingFilterMetadata = unstable_cache(
           select: {
             postings: {
               where: {
-                internshipFlag: true,
-                ...trackedLocationWhere
+                OR: [{ internshipFlag: true }, { newGradFlag: true }]
               }
             }
           }
@@ -344,56 +369,12 @@ export async function getListingsPage(
   const where = buildListingsWhere(filters, userId);
   const orderBy =
     filters.sort === "discoveredDate"
-      ? { discoveredAt: "desc" as const }
+      ? [{ discoveredAt: "desc" as const }, { id: "asc" as const }]
       : [
           { postingDate: { sort: "desc" as const, nulls: "last" as const } },
-          { discoveredAt: "desc" as const }
+          { discoveredAt: "desc" as const },
+          { id: "asc" as const }
         ];
-  // Rows with a US country code are guaranteed to pass the shared location
-  // matcher. Empty country arrays need a small, bounded fallback because the
-  // matcher also infers countries from raw text (e.g. "Mexico, Guadalajara").
-  // Fetching only those unknown-location rows preserves exact offsets while
-  // avoiding materialization of the complete feed on every batch.
-  if (filters.usOnly) {
-    const knownWhere: Prisma.InternshipPostingWhereInput = {
-      ...where,
-      AND: [
-        ...(Array.isArray(where.AND) ? where.AND : []),
-        { locationCountries: { has: "US" } }
-      ]
-    };
-    const unknownWhere: Prisma.InternshipPostingWhereInput = {
-      ...where,
-      AND: [
-        ...(Array.isArray(where.AND) ? where.AND : []),
-        { locationCountries: { isEmpty: true } }
-      ]
-    };
-    const [knownTotal, knownListings, unknownCandidates] = await Promise.all([
-      prisma.internshipPosting.count({ where: knownWhere }),
-      prisma.internshipPosting.findMany({
-        where: knownWhere,
-        select: listingSelect,
-        orderBy,
-        take: offset + limit
-      }),
-      prisma.internshipPosting.findMany({
-        where: unknownWhere,
-        select: listingSelect,
-        orderBy
-      })
-    ]);
-    const unknownListings = unknownCandidates.filter((posting) =>
-      matchesListingFilters(toListingRecord(posting), filters)
-    );
-    const merged = sortListings([...knownListings, ...unknownListings], filters.sort);
-
-    return {
-      listings: merged.slice(offset, offset + limit),
-      total: knownTotal + unknownListings.length
-    };
-  }
-
   const [total, listings] = await Promise.all([
     prisma.internshipPosting.count({ where }),
     prisma.internshipPosting.findMany({
@@ -415,12 +396,11 @@ export async function getListingFilterMetadata() {
 export async function getHomeStats() {
   const [activeInternships, newInternships, companyCount, activeSourceCount] = await Promise.all([
     prisma.internshipPosting.count({
-      where: { internshipFlag: true, isActive: true, ...trackedLocationWhere }
+      where: { OR: [{ internshipFlag: true }, { newGradFlag: true }], isActive: true }
     }),
     prisma.internshipPosting.count({
       where: {
-        internshipFlag: true,
-        ...trackedLocationWhere,
+        OR: [{ internshipFlag: true }, { newGradFlag: true }],
         discoveredAt: {
           gte: subDays(new Date(), 7)
         }
@@ -489,9 +469,8 @@ export async function getCompaniesOverview() {
       companyId: {
         in: companies.map((company) => company.id)
       },
-      internshipFlag: true,
+      OR: [{ internshipFlag: true }, { newGradFlag: true }],
       isActive: true,
-      ...trackedLocationWhere
     },
     _count: {
       _all: true
@@ -518,9 +497,12 @@ export async function getInternshipBySlug(slug: string, userId?: string) {
       companyNameSnapshot: true,
       title: true,
       roleCategory: true,
+      internshipFlag: true,
+      newGradFlag: true,
       season: true,
       year: true,
       locationRaw: true,
+      locationsNormalized: true,
       locationCountries: true,
       remoteType: true,
       payRaw: true,
@@ -558,7 +540,7 @@ export async function getInternshipBySlug(slug: string, userId?: string) {
     }
   });
 
-  if (!posting || !isUsOrUnknownPostingLocation(posting.locationCountries, posting.locationRaw)) {
+  if (!posting) {
     return null;
   }
 
@@ -580,7 +562,7 @@ export async function getInternshipBySlug(slug: string, userId?: string) {
     : [null, null];
 
   return {
-    posting,
+    posting: { ...posting, locationRaw: locationDisplay(posting.locationRaw, posting.locationsNormalized) },
     favorite,
     applicationState
   };
@@ -659,7 +641,7 @@ export async function getDiscordSettings(userId: string) {
 }
 
 export async function getUserFavorites(userId: string) {
-  return prisma.userFavorite.findMany({
+  const favorites = await prisma.userFavorite.findMany({
     where: { userId },
     include: {
       internshipPosting: {
@@ -670,6 +652,17 @@ export async function getUserFavorites(userId: string) {
     },
     orderBy: { createdAt: "desc" }
   });
+
+  return favorites.map((favorite) => ({
+    ...favorite,
+    internshipPosting: {
+      ...favorite.internshipPosting,
+      locationRaw: locationDisplay(
+        favorite.internshipPosting.locationRaw,
+        favorite.internshipPosting.locationsNormalized
+      )
+    }
+  }));
 }
 
 export async function getFavoritePostingIds(userId: string, postingIds: string[]) {
@@ -752,8 +745,7 @@ export async function getAdminDashboardData() {
     }),
     prisma.internshipPosting.findMany({
       where: {
-        internshipFlag: true,
-        ...trackedLocationWhere,
+        OR: [{ internshipFlag: true }, { newGradFlag: true }],
         discoveredAt: {
           gte: subDays(new Date(), 7)
         }
@@ -786,8 +778,7 @@ export async function getAdminDashboardData() {
     }),
     prisma.internshipPosting.findMany({
       where: {
-        internshipFlag: true,
-        ...trackedLocationWhere
+        OR: [{ internshipFlag: true }, { newGradFlag: true }]
       },
       take: 150,
       orderBy: { discoveredAt: "desc" }
@@ -805,8 +796,7 @@ export async function getAdminDashboardData() {
     }),
     prisma.internshipPosting.findMany({
       where: {
-        internshipFlag: true,
-        ...trackedLocationWhere,
+        OR: [{ internshipFlag: true }, { newGradFlag: true }],
         discoveredAt: {
           gte: subDays(new Date(), 1)
         }
@@ -863,7 +853,7 @@ export async function exportListingsCsv(filters: ListingFilters, userId?: string
       title: listing.title,
       season: listing.season ?? "",
       year: listing.year ?? "",
-      location: listing.locationRaw ?? "",
+      location: locationDisplay(listing.locationRaw, listing.locationsNormalized) ?? "",
       remoteType: listing.remoteType,
       postingDate: listing.postingDate?.toISOString() ?? "",
       discoveredAt: listing.discoveredAt?.toISOString() ?? "",

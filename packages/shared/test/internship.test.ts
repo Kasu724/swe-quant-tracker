@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isInternshipPosting } from "../src/normalization/internship";
+import { isInternshipPosting, isNewGradPosting } from "../src/normalization/internship";
 
 describe("isInternshipPosting", () => {
   it("detects explicit internship roles", () => {
@@ -97,5 +97,36 @@ describe("isInternshipPosting", () => {
         "This role will coordinate internship programs and campus recruiting events."
       )
     ).toBe(false);
+  });
+});
+
+describe("isNewGradPosting", () => {
+  it("detects explicit new graduate and entry-level roles", () => {
+    expect(isNewGradPosting("Software Engineer, New Grad", "Full-time role")).toBe(true);
+    expect(isNewGradPosting("Entry-level Quantitative Developer", "Join our trading team.")).toBe(true);
+    expect(isNewGradPosting("Graduate Trader", "Work with senior traders.")).toBe(true);
+    expect(isNewGradPosting("Quantitative Researcher - Graduate", "Join our research team.")).toBe(true);
+    expect(isNewGradPosting("Graduate Engineer", "Join our engineering team.")).toBe(true);
+  });
+
+  it("detects graduate intent in role copy", () => {
+    expect(
+      isNewGradPosting("Software Engineer", "This role is designed for recent graduates.")
+    ).toBe(true);
+  });
+
+  it("rejects experienced roles that only mention a degree or graduates", () => {
+    expect(isNewGradPosting("Senior Software Engineer", "Recent graduates may apply.")).toBe(false);
+    expect(isNewGradPosting("Software Engineer", "Work with senior engineers and a hiring manager.")).toBe(false);
+    expect(isNewGradPosting("Software Engineer", "Candidates should be graduates from a university.")).toBe(false);
+    expect(isNewGradPosting("Software Engineer", "Requires 5+ years of experience.")).toBe(false);
+  });
+
+  it("uses structured early-career metadata", () => {
+    expect(
+      isNewGradPosting("Software Engineer", undefined, {
+        metadata: { careerLevel: "Entry Level" }
+      })
+    ).toBe(true);
   });
 });

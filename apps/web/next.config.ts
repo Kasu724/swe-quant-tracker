@@ -7,9 +7,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const nextConfig: NextConfig = {
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
-  webpack(config, { dev }) {
+  serverExternalPackages: ["all-the-cities"],
+  webpack(config, { dev, isServer }) {
     if (!dev) {
       config.cache = false;
+    }
+    if (isServer) {
+      config.externals.push({ "all-the-cities": "commonjs all-the-cities" });
     }
     return config;
   },

@@ -44,6 +44,8 @@ export default async function InternshipDetailPage({
               <div className="flex flex-wrap gap-2">
                 <Badge tone="brand">{posting.company.companyBucket.replaceAll("_", " ")}</Badge>
                 <Badge tone="neutral">{posting.roleCategory.replaceAll("_", " ")}</Badge>
+                {posting.internshipFlag ? <Badge tone="neutral">Internship</Badge> : null}
+                {posting.newGradFlag ? <Badge tone="success">New grad</Badge> : null}
                 <Badge tone="neutral">{posting.sourceName}</Badge>
               </div>
               <div className="grid gap-4 md:grid-cols-2">

@@ -27,6 +27,7 @@ function notificationForm() {
     ["discordEnabled", "on"], ["company", "amazon"], ["company", "google"],
     ["category", "SWE"], ["bucket", "FAANG"], ["season", "SUMMER"],
     ["year", "2027"], ["q", "engineer"], ["location", "Seattle"],
+    ["country", "US"], ["positionType", "INTERNSHIP"], ["positionType", "NEW_GRAD"],
     ["remote", "HYBRID"], ["payKnown", "known"], ["minimumPay", "50"],
     ["activeOnly", "false"], ["activeOnly", "on"],
     ["includeMissingPay", "false"], ["includeMissingLocation", "false"]
@@ -49,6 +50,7 @@ describe("Discord notification settings", () => {
     expect(parseListingFilterForm(form)).toEqual(parseListingFilters(params));
     expect(parseListingFilterForm(form)).toMatchObject({
       companySlugs: ["amazon", "google"], roleCategories: ["SWE"], minimumPay: 50,
+      countries: ["US"], locations: ["Seattle"], positionTypes: ["INTERNSHIP", "NEW_GRAD"],
       activeOnly: true, includeMissingPay: false, includeMissingLocation: false
     });
   });

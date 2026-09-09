@@ -472,6 +472,16 @@ function getStringConfig(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function getBroadSearchText(value: unknown): string {
+  const searchText = getStringConfig(value).trim();
+  const stripped = searchText
+    .replace(/\b(?:intern(?:ship)?|new\s*grad(?:uate)?|early\s*career|graduate)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return !stripped || /^[\p{P}\p{S}\s]+$/u.test(stripped) ? "" : stripped;
+}
+
 function getStringArrayConfig(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
@@ -569,17 +579,13 @@ function buildAmazonSearchUrl(sourceUrl: string, offset: number, pageSize: numbe
     url.searchParams.set("sort", "recent");
   }
 
-  if (!url.searchParams.has("base_query")) {
-    url.searchParams.set("base_query", "");
-  }
+  url.searchParams.set("base_query", getBroadSearchText(url.searchParams.get("base_query")));
 
   if (!url.searchParams.has("loc_query")) {
     url.searchParams.set("loc_query", "");
   }
 
-  if (!url.searchParams.has("is_intern[]")) {
-    url.searchParams.append("is_intern[]", "1");
-  }
+  url.searchParams.delete("is_intern[]");
 
   return url.toString();
 }
@@ -702,6 +708,20 @@ function buildMicrosoftSearchUrl(sourceUrl: string, start: number): string {
 
   if (!url.searchParams.has("location")) {
     url.searchParams.set("location", "");
+  }
+
+  for (const key of ["query", "q", "keywords", "searchText"]) {
+    if (getBroadSearchText(url.searchParams.get(key)) === "") {
+      url.searchParams.delete(key);
+    }
+  }
+
+  for (const key of ["filter_employment_type", "employment_type", "employmentType"]) {
+    const value = url.searchParams.get(key);
+
+    if (value && /\b(?:intern(?:ship)?|student|graduate|early\s*career)\b/i.test(value)) {
+      url.searchParams.delete(key);
+    }
   }
 
   return url.toString();
@@ -853,7 +873,7 @@ function buildJibeJobsUrl(sourceUrl: string, page: number, context: AdapterFetch
   const url = new URL(sourceUrl);
 
   url.searchParams.set("page", String(page));
-  const query = getStringConfig(context.source.requestConfigJson?.query).trim();
+  const query = getBroadSearchText(context.source.requestConfigJson?.query);
   const queryParamName = getStringConfig(context.source.requestConfigJson?.queryParamName, "query");
 
   if (query) {
@@ -1207,7 +1227,7 @@ function buildIbmCareersSearchUrl(
 ): string {
   const url = new URL(context.source.sourceUrl);
   const appId = getStringConfig(context.source.requestConfigJson?.appId, "careers");
-  const query = getStringConfig(context.source.requestConfigJson?.query, "intern");
+  const query = getBroadSearchText(context.source.requestConfigJson?.query);
   const scope = getStringConfig(context.source.requestConfigJson?.scope, "careers2");
   const sortBy = getStringConfig(context.source.requestConfigJson?.sortBy, "-dcdate");
 
@@ -1407,8 +1427,10 @@ async function fetchMetaCareersPostings(
   context: AdapterFetchContext
 ): Promise<AdapterFetchedPosting[]> {
   const docId = getStringConfig(context.source.requestConfigJson?.docId, "26228555073499023");
-  const configuredQueries = getStringArrayConfig(context.source.requestConfigJson?.queries);
-  const fallbackQuery = getStringConfig(context.source.requestConfigJson?.query, "intern");
+  const configuredQueries = getStringArrayConfig(context.source.requestConfigJson?.queries)
+    .map((query) => getBroadSearchText(query))
+    .filter(Boolean);
+  const fallbackQuery = getBroadSearchText(context.source.requestConfigJson?.query);
   const queries = configuredQueries.length > 0 ? configuredQueries : [fallbackQuery];
   const postings: AdapterFetchedPosting[] = [];
   const seen = new Set<string>();
@@ -1459,10 +1481,9 @@ function buildOracleFinder(context: AdapterFetchContext, offset: number, limit: 
     context.source.requestConfigJson?.facetsList,
     "LOCATIONS;TITLES;CATEGORIES;POSTING_DATES"
   );
-  const searchText = getStringConfig(context.source.requestConfigJson?.searchText, "intern");
+  const searchText = getBroadSearchText(context.source.requestConfigJson?.searchText);
   const selectedLocationsFacet = getStringConfig(
-    context.source.requestConfigJson?.selectedLocationsFacet,
-    "300000000149325"
+    context.source.requestConfigJson?.selectedLocationsFacet
   );
   const parts = [
     `siteNumber=${siteNumber}`,
@@ -1625,7 +1646,7 @@ function buildSmartRecruitersSearchUrl(
   limit: number
 ): string {
   const url = new URL(context.source.sourceUrl);
-  const query = getStringConfig(context.source.requestConfigJson?.query, "intern");
+  const query = getBroadSearchText(context.source.requestConfigJson?.query);
 
   url.searchParams.set("limit", String(limit));
   url.searchParams.set("offset", String(offset));
@@ -1771,7 +1792,7 @@ async function fetchSmartRecruitersPostings(
 
 function buildEightfoldJobsUrl(context: AdapterFetchContext, start: number): string {
   const url = new URL(context.source.sourceUrl);
-  const query = getStringConfig(context.source.requestConfigJson?.query);
+  const query = getBroadSearchText(context.source.requestConfigJson?.query);
 
   url.searchParams.set("start", String(start));
 
@@ -1893,9 +1914,12 @@ function buildPhenomSearchBody(context: AdapterFetchContext, from: number, size:
     refNum: getStringConfig(context.source.requestConfigJson?.refNum),
     lang: getStringConfig(context.source.requestConfigJson?.lang, "en_us"),
     locale: getStringConfig(context.source.requestConfigJson?.locale, "en_us"),
+    // Phenom uses country as part of its locale/site contract. Preserve the
+    // configured value (global, us, etc.) instead of treating it as a
+    // geographic filter and blanking a required API field.
     country: getStringConfig(context.source.requestConfigJson?.country, "us"),
     pageId: getStringConfig(context.source.requestConfigJson?.pageId),
-    keywords: getStringConfig(context.source.requestConfigJson?.query, "intern")
+    keywords: getBroadSearchText(context.source.requestConfigJson?.query)
   });
 }
 
@@ -2092,8 +2116,7 @@ async function getTikTokLocationCodeGroups(context: AdapterFetchContext): Promis
     "https://api.lifeattiktok.com/api/v1/public/supplier/config/job/filters"
   );
   const countryName = getStringConfig(
-    context.source.requestConfigJson?.countryName,
-    "United States of America"
+    context.source.requestConfigJson?.countryName
   );
   const response = await fetchJsonRequest<TikTokFiltersResponse>(context, filtersUrl, {
     method: "POST",
@@ -2113,7 +2136,7 @@ function buildTikTokSearchBody(
   locationCodes: string[]
 ): string {
   return JSON.stringify({
-    keyword: getStringConfig(context.source.requestConfigJson?.query, "intern"),
+    keyword: getBroadSearchText(context.source.requestConfigJson?.query),
     limit,
     offset,
     job_category_id_list: getStringArrayConfig(context.source.requestConfigJson?.jobCategoryIds),
@@ -2285,7 +2308,7 @@ function getUberTotal(value: UberSearchResponse["data"]): number {
 async function fetchUberPostings(context: AdapterFetchContext): Promise<AdapterFetchedPosting[]> {
   const pageSize = Math.min(getNumericConfig(context.source.requestConfigJson?.pageSize, 25), 100);
   const maxPages = getNumericConfig(context.source.requestConfigJson?.maxPages, 4);
-  const query = getStringConfig(context.source.requestConfigJson?.query, "intern");
+  const query = getBroadSearchText(context.source.requestConfigJson?.query);
   const postings: AdapterFetchedPosting[] = [];
   const seen = new Set<string>();
   let page = 0;

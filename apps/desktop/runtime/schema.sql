@@ -98,6 +98,7 @@ CREATE TABLE "InternshipPosting" (
     "normalizedTitle" TEXT NOT NULL,
     "roleCategory" "RoleCategory" NOT NULL DEFAULT 'OTHER',
     "internshipFlag" BOOLEAN NOT NULL DEFAULT true,
+    "newGradFlag" BOOLEAN NOT NULL DEFAULT false,
     "season" TEXT,
     "year" INTEGER,
     "employmentType" TEXT,
@@ -310,6 +311,9 @@ CREATE INDEX "InternshipPosting_roleCategory_year_season_idx" ON "InternshipPost
 
 -- CreateIndex
 CREATE INDEX "InternshipPosting_remoteType_isActive_idx" ON "InternshipPosting"("remoteType", "isActive");
+
+-- CreateIndex
+CREATE INDEX "InternshipPosting_newGradFlag_isActive_idx" ON "InternshipPosting"("newGradFlag", "isActive");
 
 -- CreateIndex
 CREATE INDEX "InternshipPosting_dedupeFingerprint_idx" ON "InternshipPosting"("dedupeFingerprint");

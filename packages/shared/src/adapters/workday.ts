@@ -72,6 +72,16 @@ function getStringConfig(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+function getBroadSearchText(value: unknown): string {
+  const searchText = getStringConfig(value).trim();
+  const stripped = searchText
+    .replace(/\b(?:intern(?:ship)?|new\s*grad(?:uate)?|early\s*career|graduate)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return !stripped || /^[\p{P}\p{S}\s]+$/u.test(stripped) ? "" : stripped;
+}
+
 function getAppliedFacets(value: unknown): WorkdayAppliedFacets | undefined {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return undefined;
@@ -125,7 +135,7 @@ function parseRelativePostedOn(raw?: string): Date | undefined {
 }
 
 function buildSearchBody(context: AdapterFetchContext, limit: number, offset: number) {
-  const searchText = getStringConfig(context.source.requestConfigJson?.searchText, "");
+  const searchText = getBroadSearchText(context.source.requestConfigJson?.searchText);
   const appliedFacets = getAppliedFacets(context.source.requestConfigJson?.appliedFacets);
 
   return {

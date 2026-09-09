@@ -9,7 +9,6 @@ import {
 import {
   getPreferredPostingUrl,
   getAdapter,
-  isUsOrUnknownPostingLocation,
   isPotentialDuplicate,
   normalizeFetchedPosting,
   type AdapterFetchedPosting,
@@ -228,6 +227,7 @@ function buildCanonicalData(input: {
     normalizedTitle: normalized.normalizedTitle,
     roleCategory: normalized.roleCategory,
     internshipFlag: normalized.internshipFlag,
+    newGradFlag: normalized.newGradFlag,
     season: normalized.season,
     year: normalized.year,
     employmentType: normalized.employmentType,
@@ -569,11 +569,11 @@ async function processSource(
           posting
         });
 
-        if (
-          !normalized.internshipFlag ||
-          !isUsOrUnknownPostingLocation(normalized.locationCountries) ||
-          !normalized.applicationUrl
-        ) {
+        const supportsTracker =
+          normalized.internshipFlag ||
+          normalized.newGradFlag;
+
+        if (!supportsTracker || !normalized.applicationUrl) {
           stats.skipped += 1;
           continue;
         }

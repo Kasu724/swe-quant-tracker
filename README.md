@@ -1,8 +1,8 @@
 # SWE-Quant Tracker
 
-An open-source tracker for software engineering and quantitative internships. It brings postings from
-technology companies, trading firms, hedge funds, and other quantitative employers into one searchable
-feed, with saved searches, application tracking, and alerts.
+An open-source tracker for software engineering and quantitative early career roles. It brings
+internships and new grad postings from technology companies, trading firms, hedge funds, and other
+quantitative employers into one searchable feed, with saved searches, application tracking, and alerts.
 
 **Platform support: the desktop build is currently Windows-only (x64).** macOS and Linux desktop
 builds are not currently supported. See [Windows Tray Service](#windows-tray-service) for build and
@@ -14,9 +14,9 @@ Ashby, Workday, and selected official careers APIs and HTML payloads.
 
 ### What belongs here
 
-- software engineering internships across big tech, startups, developer tools, infrastructure, and
+- software engineering internships and new grad roles across big tech, startups, developer tools, infrastructure, and
   other software-focused employers
-- quantitative developer, researcher, and trader internships at trading firms, market makers, hedge
+- quantitative developer, researcher, and trader internships and new grad roles at trading firms, market makers, hedge
   funds, and related employers
 - reliable sources that link applicants back to an employer's official posting or application page
 
@@ -33,7 +33,7 @@ normalization, fix stale links, or make the product easier to use are welcome. S
 - `Tailwind CSS`
 - automatic single-user local profile with portable JSON backup/restore
 - background worker with recurring polling and digest scheduling
-- durable Discord webhook notifications for newly discovered internships
+- durable Discord webhook notifications for newly discovered early career roles
 - monorepo with `pnpm` workspaces
 
 ## Monorepo Layout
@@ -52,8 +52,8 @@ packages/
 
 ## Current Feature Set
 
-- searchable internship listings page
-- internship detail page
+- searchable internship and new grad listings page
+- internship and new grad detail page
 - companies page
 - saved searches page
 - local settings and portable backup/import page
@@ -74,8 +74,9 @@ Sources page for refreshing feeds and maintaining company/source configuration.
 
 ![Internship feed dashboard](docs/images/dashboard.png)
 
-_Internship feed: filter by keyword, company, bucket, role, season, year, location, workplace, pay,
-and minimum compensation; then save the filter set or act on individual postings._
+_Early career feed: filter by keyword, company, bucket, role, season, year, country, a specific
+location phrase, position type, workplace, pay, and minimum compensation; then save the filter set
+or act on individual postings._
 
 ![Source operations dashboard](docs/images/sources-dashboard.png)
 
@@ -84,13 +85,14 @@ tracked companies and configured source adapters._
 
 ## Using the Tracker
 
-### Find internships
+### Find internships and new grad roles
 
 1. Start the local stack using the [Local Setup](#local-setup) instructions, then open
    `http://localhost:3000`.
-2. Use the filter panel to narrow the feed. Keyword searches match company, title, and location;
-   the remaining controls cover company, company bucket, role category, season/year, workplace,
-   compensation, and minimum pay.
+2. Use the filter panel to narrow the feed. Choose a country first, then enter one specific location
+   phrase when needed (for example, `London, Ontario`). Select Internship, New grad, or both;
+   keyword searches match company, title, and location, and the remaining controls cover company,
+   company bucket, role category, season/year, workplace, compensation, and minimum pay.
 3. Select **Apply** to refresh the results. Use **Reset** to return to the complete active feed.
 4. Open a posting title for its detail page, or choose **Apply** to open the employer's official
    application/source page in a new tab.
@@ -99,7 +101,7 @@ tracked companies and configured source adapters._
 
 ### Save searches and alerts
 
-1. Run the filters you care about.
+1. Run the filters you care about, including country, specific location, and position type.
 2. Enter a name in **Saved search name**, choose **Immediate alerts** or **Daily digest**, and
    select **Save search**.
 3. Review saved filters and favorites from **Saved** in the site navigation. Saved searches keep
@@ -339,8 +341,8 @@ To announce newly discovered internships in a selected Discord server:
 3. Apply the database migrations with `pnpm db:migrate`, then run or restart the worker.
 
 The worker creates a durable notification record in the same database transaction as each new
-internship. Notification filters use the same company, keyword, bucket, role, season, year,
-location, workplace, pay, and missing-data options as the main feed, with a separate saved
+early career role. Notification filters use the same company, keyword, bucket, role, season, year,
+country, specific location phrase, position type, workplace, pay, and missing-data options as the main feed, with a separate saved
 configuration. Leave the company selection empty to include all companies. Email alerts continue
 to use each saved search's filters. Discord checks its saved filters before delivery; excluded
 postings are retired from the eligible queue and are not replayed when filters change. Existing
@@ -488,10 +490,26 @@ See `packages/db/prisma/schema.prisma` for the full schema.
 
 - adapters are defined in `packages/shared/src/adapters`
 - the worker normalizes each fetched record into canonical internship fields
+- normalized postings track internship and new grad flags, with internships taking precedence
 - independent Workday, Microsoft, and SmartRecruiters detail requests run concurrently within each page; set `detailConcurrency` in a source's request configuration to tune the limit from `1` to `10` (default `5`)
 - duplicate handling first checks source-record identity, then canonical fingerprint, then fuzzy title/location matching
 - source records keep raw payloads for traceability
 - stale postings are marked inactive after they fall past the configured last-seen threshold
+
+To upgrade an existing source installation for worldwide internships and new grad roles, run:
+
+```bash
+pnpm db:generate
+pnpm db:migrate
+pnpm db:seed
+pnpm worker:reclassify
+pnpm worker:ingest
+```
+
+Reclassification updates stored role and location data while preserving active/inactive status.
+Reseeding updates the tracked source configurations; ingestion discovers newly eligible roles.
+Desktop builds add the new database column when opening an existing database.
+Country matching uses employer location data; unspecified locations do not match a selected country.
 
 ## Adding Companies and Sources
 
@@ -571,6 +589,8 @@ Run:
 pnpm test
 pnpm typecheck
 pnpm build
+pnpm --filter @swe-quant/desktop test:database
+pnpm --filter @swe-quant/desktop test:filters
 pnpm db:migrate
 pnpm db:check
 ```

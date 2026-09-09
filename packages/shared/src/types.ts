@@ -4,6 +4,7 @@ import type {
   COMPENSATION_INTERVALS,
   INTERNSHIP_SEASONS,
   LISTING_SORT_OPTIONS,
+  POSITION_TYPES,
   REMOTE_TYPES,
   ROLE_CATEGORIES,
   SOURCE_TYPES
@@ -17,6 +18,7 @@ export type CompensationIntervalValue = (typeof COMPENSATION_INTERVALS)[number];
 export type AlertChannelValue = (typeof ALERT_CHANNELS)[number];
 export type InternshipSeasonValue = (typeof INTERNSHIP_SEASONS)[number];
 export type ListingSortValue = (typeof LISTING_SORT_OPTIONS)[number];
+export type PositionTypeValue = (typeof POSITION_TYPES)[number];
 
 export type NormalizedLocation = {
   raw: string;
@@ -27,6 +29,8 @@ export type NormalizedLocation = {
   regionCode?: string;
   country?: string;
   countryCode?: string;
+  countryInferred?: boolean;
+  isUnknown?: boolean;
   isRemote?: boolean;
   isUs?: boolean;
 };
@@ -89,6 +93,7 @@ export type NormalizedPostingRecord = {
   normalizedTitle: string;
   roleCategory: RoleCategoryValue;
   internshipFlag: boolean;
+  newGradFlag: boolean;
   season?: InternshipSeasonValue;
   year?: number;
   employmentType?: string;
@@ -120,10 +125,13 @@ export type ListingSearchRecord = {
   companyBucket: CompanyBucketValue;
   title: string;
   roleCategory: RoleCategoryValue;
+  internshipFlag?: boolean;
+  newGradFlag?: boolean;
   season?: string | null;
   year?: number | null;
   locationRaw?: string | null;
   locationCountries?: string[];
+  locationsNormalized?: NormalizedLocation[];
   remoteType: RemoteTypeValue;
   compensationMin?: number | null;
   compensationMax?: number | null;

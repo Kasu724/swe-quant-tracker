@@ -847,13 +847,13 @@ export const companySeeds: SeedCompany[] = Array.from(companyMap.values())
   .map((seed) => ({ ...seed, ...urlOverrides[seed.slug] }))
   .sort((left, right) => left.name.localeCompare(right.name));
 
-export const companySourceSeeds: SeedCompanySource[] = [
+const seededCompanySourceSeeds: SeedCompanySource[] = [
   {
     companySlug: "apple",
     sourceType: SourceType.CUSTOM_HTML,
     sourceName: "Official Apple internships search",
     sourceIdentifier: "apple-internships",
-    sourceUrl: "https://jobs.apple.com/en-us/search?team=internships-STDNT-INTRN",
+    sourceUrl: "https://jobs.apple.com/en-us/search",
     pollingEnabled: true,
     priority: 5,
     requestConfigJson: { maxPages: 8, rateLimitMs: 1500, validatePostingUrls: true },
@@ -866,7 +866,7 @@ export const companySourceSeeds: SeedCompanySource[] = [
     sourceName: "Official Amazon internships search",
     sourceIdentifier: "amazon-search",
     sourceUrl:
-      "https://www.amazon.jobs/en/search.json?base_query=&loc_query=&sort=recent&is_intern[]=1",
+      "https://www.amazon.jobs/en/search.json?base_query=&loc_query=&sort=recent",
     pollingEnabled: true,
     priority: 6,
     requestConfigJson: { pageSize: 100, maxPages: 6, rateLimitMs: 1500 },
@@ -878,7 +878,7 @@ export const companySourceSeeds: SeedCompanySource[] = [
     sourceType: SourceType.CUSTOM_HTML,
     sourceName: "Official Google careers internships search",
     sourceIdentifier: "google-careers-intern",
-    sourceUrl: "https://www.google.com/about/careers/applications/jobs/results?q=intern",
+    sourceUrl: "https://www.google.com/about/careers/applications/jobs/results",
     pollingEnabled: true,
     priority: 6,
     requestConfigJson: { maxPages: 3, rateLimitMs: 1500 },
@@ -894,7 +894,7 @@ export const companySourceSeeds: SeedCompanySource[] = [
     pollingEnabled: true,
     priority: 7,
     requestConfigJson: {
-      query: "intern",
+      query: "",
       docId: "26228555073499023",
       rateLimitMs: 1500
     },
@@ -907,7 +907,7 @@ export const companySourceSeeds: SeedCompanySource[] = [
     sourceName: "Official Microsoft careers internships search",
     sourceIdentifier: "microsoft-pcsx",
     sourceUrl:
-      "https://apply.careers.microsoft.com/api/pcsx/search?domain=microsoft.com&query=intern&location=&filter_employment_type=Internship",
+      "https://apply.careers.microsoft.com/api/pcsx/search?domain=microsoft.com&location=",
     pollingEnabled: true,
     priority: 7,
     requestConfigJson: { pageSize: 10, maxPages: 15, rateLimitMs: 1500 },
@@ -919,7 +919,7 @@ export const companySourceSeeds: SeedCompanySource[] = [
     sourceType: SourceType.CUSTOM_API,
     sourceName: "Official Micron careers via PCSX",
     sourceIdentifier: "micron-pcsx",
-    sourceUrl: "https://micron.eightfold.ai/api/pcsx/search?domain=micron.com&query=intern",
+    sourceUrl: "https://micron.eightfold.ai/api/pcsx/search?domain=micron.com",
     pollingEnabled: true,
     priority: 7,
     requestConfigJson: { pageSize: 10, maxPages: 12, rateLimitMs: 1500 },
@@ -961,9 +961,6 @@ export const companySourceSeeds: SeedCompanySource[] = [
     requestConfigJson: {
       pageSize: 20,
       maxPages: 3,
-      appliedFacets: {
-        workerSubType: ["0c40f6bd1d8f10adf6dae42e46d44a17"]
-      },
       rateLimitMs: 1500
     },
     isActive: true
@@ -1018,7 +1015,7 @@ export const companySourceSeeds: SeedCompanySource[] = [
     sourceType: SourceType.CUSTOM_HTML,
     sourceName: "Official Arm careers search",
     sourceIdentifier: "arm-talentbrew-intern",
-    sourceUrl: "https://careers.arm.com/search-jobs/intern",
+    sourceUrl: "https://careers.arm.com/search-jobs",
     pollingEnabled: true,
     priority: 7,
     requestConfigJson: { maxPages: 4, rateLimitMs: 1500 },
@@ -1106,7 +1103,7 @@ export const companySourceSeeds: SeedCompanySource[] = [
     sourceName: "Official Bloomberg careers search",
     sourceIdentifier: "bloomberg-avature",
     sourceUrl:
-      "https://bloomberg.avature.net/careers/SearchJobs/?jobOffset=0&jobRecordsPerPage=50&keywords=intern",
+      "https://bloomberg.avature.net/careers/SearchJobs/?jobOffset=0&jobRecordsPerPage=50",
     pollingEnabled: true,
     priority: 7,
     requestConfigJson: { pageSize: 50, maxPages: 12, rateLimitMs: 1500 },
@@ -2745,3 +2742,72 @@ export const companySourceSeeds: SeedCompanySource[] = [
     isActive: true
   }
 ];
+
+function broadenSeedSource(source: SeedCompanySource): SeedCompanySource {
+  const url = new URL(source.sourceUrl);
+
+  const broadenQuery = (value: string): string =>
+    value
+      .replace(/\b(?:intern(?:ship)?|new\s*grad(?:uate)?|early\s*career|graduate)\b/gi, "")
+      .replace(/\(\s*\)/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+  for (const [key, value] of Array.from(url.searchParams.entries())) {
+    if (/\b(?:intern(?:ship)?|new\s*grad(?:uate)?|early\s*career|graduate)\b/i.test(value)) {
+      const broadened = broadenQuery(value);
+
+      if (broadened) {
+        url.searchParams.set(key, broadened);
+      } else {
+        url.searchParams.delete(key);
+      }
+    }
+  }
+
+  const requestConfigJson = source.requestConfigJson
+    ? { ...source.requestConfigJson }
+    : undefined;
+
+  if (requestConfigJson) {
+    for (const key of ["query", "searchText", "keywords"]) {
+      const value = requestConfigJson[key];
+
+      if (typeof value === "string" && /\b(?:intern(?:ship)?|new\s*grad(?:uate)?|early\s*career|graduate)\b/i.test(value)) {
+        requestConfigJson[key] = broadenQuery(value);
+      }
+    }
+
+    if (typeof requestConfigJson.countryName === "string" && /united states|^us$/i.test(requestConfigJson.countryName)) {
+      requestConfigJson.countryName = "";
+    }
+
+    if ("selectedLocationsFacet" in requestConfigJson) {
+      requestConfigJson.selectedLocationsFacet = "";
+    }
+
+    if (Array.isArray(requestConfigJson.recruitmentIds)) {
+      requestConfigJson.recruitmentIds = [];
+    }
+
+    const maxPages = Number(requestConfigJson.maxPages);
+
+    if (Number.isFinite(maxPages) && maxPages > 0) {
+      requestConfigJson.maxPages = Math.max(maxPages, 20);
+    }
+
+    const maxPagesPerLocation = Number(requestConfigJson.maxPagesPerLocation);
+
+    if (Number.isFinite(maxPagesPerLocation) && maxPagesPerLocation > 0) {
+      requestConfigJson.maxPagesPerLocation = Math.max(maxPagesPerLocation, 10);
+    }
+  }
+
+  return {
+    ...source,
+    sourceUrl: url.toString(),
+    requestConfigJson
+  };
+}
+
+export const companySourceSeeds = seededCompanySourceSeeds.map(broadenSeedSource);

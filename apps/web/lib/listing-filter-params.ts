@@ -15,6 +15,16 @@ function readArrayParam(value: string | string[] | undefined): string[] {
     .filter(Boolean);
 }
 
+function readLocationParam(value: string | string[] | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return (Array.isArray(value) ? value : [value])
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
 function readBooleanParam(value: string | string[] | undefined, defaultValue: boolean): boolean {
   const first = Array.isArray(value) ? value.at(-1) : value;
 
@@ -63,13 +73,21 @@ export function parseListingFilters(searchParams: SearchParams): ListingFilters 
     years: readArrayParam(searchParams.year)
       .map(Number)
       .filter(Number.isInteger),
-    locations: readArrayParam(searchParams.location),
+    // Keep the country and the free-form location phrase separate. A phrase
+    // such as "London, Ontario" is one searchable location, not two values.
+    locations: readLocationParam(searchParams.location),
+    countries: readArrayParam(searchParams.country ?? searchParams.countries),
+    positionTypes: readArrayParam(searchParams.positionType ?? searchParams.positionTypes),
     remoteTypes: readArrayParam(searchParams.remote),
     payKnown: (Array.isArray(searchParams.payKnown) ? searchParams.payKnown[0] : searchParams.payKnown) ?? "all",
     minimumPay: readNumberParam(searchParams.minimumPay),
     activeOnly: readBooleanParam(searchParams.activeOnly, true),
     recentlyPostedDays: readNumberParam(searchParams.recent),
-    usOnly: readBooleanParam(searchParams.usOnly, true),
+    // Preserve an explicitly saved legacy preference, while a new country
+    // selection takes precedence over it.
+    usOnly: readArrayParam(searchParams.country ?? searchParams.countries).length
+      ? false
+      : readBooleanParam(searchParams.usOnly, false),
     includeMissingLocation: readBooleanParam(searchParams.includeMissingLocation, true),
     includeMissingPay: readBooleanParam(searchParams.includeMissingPay, true),
     sort: normalizeSortParam(searchParams.sort) ?? "postingDate"

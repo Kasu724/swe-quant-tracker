@@ -6,7 +6,7 @@ import { SiteNavLink } from "./site-nav-link";
 import { NavigationProgress } from "./navigation-progress";
 
 const navLinks = [
-  { href: "/", label: "Internships" },
+  { href: "/", label: "Jobs" },
   { href: "/list", label: "List" },
   { href: "/companies", label: "Companies" },
   { href: "/saved-searches", label: "Saved" },
@@ -27,7 +27,7 @@ export function SiteHeader() {
               SWE-Quant Tracker
             </div>
             <div className="truncate text-xs text-slate-500">
-              Open-source internship discovery
+              Internships and new grad roles
             </div>
           </div>
         </Link>

@@ -2,6 +2,16 @@ import { decodeHtmlEntities, normalizeWhitespace, uniqueStrings } from "../norma
 import type { AdapterFetchContext, AdapterFetchedPosting } from "../types";
 import { fetchText, type SourceAdapter } from "./base";
 
+function getBroadSearchText(value: string | null | undefined): string {
+  const searchText = value?.trim() ?? "";
+  const stripped = searchText
+    .replace(/\b(?:intern(?:ship)?|new\s*grad(?:uate)?|early\s*career|graduate)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  return !stripped || /^[\p{P}\p{S}\s]+$/u.test(stripped) ? "" : stripped;
+}
+
 type CustomHtmlParserId =
   | "apple-search"
   | "deshaw-careers"
@@ -292,6 +302,10 @@ async function fetchApplePostings(context: AdapterFetchContext): Promise<Adapter
   for (let page = 1; page <= maxPages; page += 1) {
     const url = new URL(context.source.sourceUrl);
 
+    if (/^internships-STDNT-INTRN$/i.test(url.searchParams.get("team") ?? "")) {
+      url.searchParams.delete("team");
+    }
+
     if (page > 1) {
       url.searchParams.set("page", String(page));
     }
@@ -427,9 +441,13 @@ function normalizeGooglePosting(
 
 function buildGoogleSearchUrl(sourceUrl: string, page: number): string {
   const url = new URL(sourceUrl);
+  const query = url.searchParams.get("q");
+  const broadQuery = getBroadSearchText(query);
 
-  if (!url.searchParams.has("q")) {
-    url.searchParams.set("q", "intern");
+  if (query !== null && broadQuery) {
+    url.searchParams.set("q", broadQuery);
+  } else if (query !== null) {
+    url.searchParams.delete("q");
   }
 
   if (page > 1) {
@@ -726,12 +744,16 @@ function parseBloombergPostings(html: string, baseUrl: string): AdapterFetchedPo
 
 function buildBloombergSearchUrl(sourceUrl: string, offset: number, pageSize: number): string {
   const url = new URL(sourceUrl);
+  const query = url.searchParams.get("keywords");
+  const broadQuery = getBroadSearchText(query);
 
   url.searchParams.set("jobOffset", String(offset));
   url.searchParams.set("jobRecordsPerPage", String(pageSize));
 
-  if (!url.searchParams.has("keywords")) {
-    url.searchParams.set("keywords", "intern");
+  if (query !== null && broadQuery) {
+    url.searchParams.set("keywords", broadQuery);
+  } else if (query !== null) {
+    url.searchParams.delete("keywords");
   }
 
   return url.toString();

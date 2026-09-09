@@ -45,15 +45,19 @@ export async function InternshipsFeedPage({
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
   let filters: ListingFilters;
+  let invalidFilters = false;
 
   try {
     filters = parseListingFilters(resolvedSearchParams);
   } catch {
     filters = parseListingFilters({});
+    invalidFilters = true;
   }
   const user = await getLocalProfile();
   const [{ listings, total }, companies] = await Promise.all([
-    getListingsPage(filters, user.id, { offset: 0, limit: LISTINGS_PER_PAGE }),
+    invalidFilters
+      ? Promise.resolve({ listings: [], total: 0 })
+      : getListingsPage(filters, user.id, { offset: 0, limit: LISTINGS_PER_PAGE }),
     getListingFilterMetadata()
   ]);
   const initialListings = listings;
@@ -74,8 +78,14 @@ export async function InternshipsFeedPage({
   return (
     <div className="relative">
       <Container className="space-y-8 py-12 xl:max-w-none xl:pl-[22rem]">
+        {invalidFilters ? (
+          <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Some filter values are invalid. Reset the filters and try again.
+            <a className="ml-2 font-semibold underline" href={basePath}>Reset filters</a>
+          </div>
+        ) : null}
         <PageHeader
-          title="Internship feed"
+          title="Early career job feed"
           actions={
             <Button asChild>
               <a href={exportHref}>Export CSV</a>
@@ -113,8 +123,8 @@ export async function InternshipsFeedPage({
           <div className="space-y-4">
             {total === 0 ? (
               <EmptyState
-                title="No internships matched"
-                description="Adjust season, location, pay, or company filters to widen the search."
+              title="No roles matched"
+                description="Adjust country, location, position type, pay, or company filters to widen the search."
               />
             ) : (
               <InfiniteListings
