@@ -124,6 +124,21 @@ describe("location normalization", () => {
       "Seattle, United States",
       "New York City, United States"
     ]);
+    expect(normalizeLocations(["Bangalore"])[0]?.display).toBe("Bangalore, India");
+    expect(normalizeLocations(["ES"])[0]?.display).toBe("Spain");
+    expect(normalizeLocations(["Toronto, CA, Canada"])[0]?.display).toBe("Toronto, Canada");
+    expect(normalizeLocations(["CA, United States"])[0]?.display).toBe(
+      "California, United States"
+    );
+    expect(normalizeLocations(["Berlin, DE, Germany"])[0]?.display).toBe("Berlin, Germany");
+    expect(normalizeLocations(["AU-Sydney"])[0]?.display).toBe("Sydney, Australia");
+    expect(normalizeLocations(["US-WA-Bellevue"])[0]?.display).toBe(
+      "Bellevue, Washington, United States"
+    );
+    expect(normalizeLocations(["Beijing OR Shanghai"]).map((location) => location.display)).toEqual([
+      "Beijing, China",
+      "Shanghai, China"
+    ]);
   });
 
   it("keeps unknown place names country-neutral", () => {
