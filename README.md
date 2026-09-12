@@ -606,7 +606,7 @@ Key variables:
 - `EMAIL_FROM`
 - `RESEND_API_KEY`
 - `SMTP_URL`
-- `POLL_CRON`
+- ingestion frequency (configured on the Sources page)
 - `DAILY_DIGEST_CRON`
 - `DISCORD_NOTIFICATION_CRON` (outbox delivery schedule, default every minute)
 - `INGESTION_CONCURRENCY`

@@ -36,6 +36,8 @@ async function main() {
     await prisma.$executeRawUnsafe('ALTER TABLE "DiscordDestination" DROP COLUMN "filterJson"');
     // Simulate a database created before new-graduate classification was added.
     await prisma.$executeRawUnsafe('ALTER TABLE "InternshipPosting" DROP COLUMN "newGradFlag"');
+    // Simulate a database created before configurable ingestion scheduling was added.
+    await prisma.$executeRawUnsafe('DROP TABLE "IngestionSchedule"');
     await prisma.$disconnect();
     prisma = undefined;
     await database.stop();
@@ -60,6 +62,12 @@ async function main() {
       WHERE schemaname = 'public' AND indexname = 'InternshipPosting_newGradFlag_isActive_idx'
     `;
     if (upgradedIndexes[0]?.count !== 1) throw new Error("New-graduate index was not restored by schema upgrade");
+    const upgradedSchedule = await prisma.$queryRaw`
+      SELECT COUNT(*)::int AS count
+      FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'IngestionSchedule'
+    `;
+    if (upgradedSchedule[0]?.count !== 1) throw new Error("Ingestion schedule table was not restored by schema upgrade");
     const persistedPosting = await prisma.internshipPosting.create({
       data: {
         companyId: persistedCompany.id,

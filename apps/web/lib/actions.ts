@@ -3,7 +3,11 @@
 import { parseListingFilterForm } from "./listing-filter-params";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { prisma } from "@swe-quant/db";
+import {
+  isIngestionIntervalMinutes,
+  prisma,
+  updateIngestionSchedule
+} from "@swe-quant/db";
 import { listingFilterSchema } from "@swe-quant/shared";
 import { getLocalProfile, LOCAL_PROFILE_EMAIL } from "./local-profile";
 import {
@@ -388,6 +392,17 @@ export async function toggleSourceActiveAction(formData: FormData) {
     }
   });
 
+  revalidatePath("/admin");
+}
+
+export async function updateIngestionScheduleAction(formData: FormData) {
+  const intervalMinutes = Number(formData.get("intervalMinutes"));
+
+  if (!Number.isInteger(intervalMinutes) || !isIngestionIntervalMinutes(intervalMinutes)) {
+    return;
+  }
+
+  await updateIngestionSchedule(intervalMinutes);
   revalidatePath("/admin");
 }
 

@@ -1,6 +1,6 @@
 import { subDays } from "date-fns";
 import { unstable_cache } from "next/cache";
-import { prisma, type ApplicationState, type Prisma } from "@swe-quant/db";
+import { ensureIngestionSchedule, prisma, type ApplicationState, type Prisma } from "@swe-quant/db";
 import {
   getPreferredPostingUrl,
   listingFilterSchema,
@@ -731,7 +731,7 @@ export async function getApplicationStateMap(userId: string, postingIds: string[
 }
 
 export async function getAdminDashboardData() {
-  const [runs, newPostings, companies, sources, searches, recentPostings, alertSearches, alertPreviewPostings] = await Promise.all([
+  const [runs, newPostings, companies, sources, searches, recentPostings, alertSearches, alertPreviewPostings, ingestionSchedule] = await Promise.all([
     prisma.ingestionRun.findMany({
       take: 20,
       orderBy: { startedAt: "desc" },
@@ -804,7 +804,8 @@ export async function getAdminDashboardData() {
       include: {
         company: true
       }
-    })
+    }),
+    ensureIngestionSchedule()
   ]);
 
   const duplicateMap = new Map<string, typeof recentPostings>();
@@ -838,6 +839,7 @@ export async function getAdminDashboardData() {
     newPostings,
     companies,
     sources,
+    ingestionSchedule,
     searches,
     potentialDuplicates,
     alertPreviewCount

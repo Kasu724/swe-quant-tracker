@@ -128,7 +128,6 @@ const baseEnvSchema = z.object({
 const webEnvSchema = baseEnvSchema;
 
 const workerEnvSchema = baseEnvSchema.extend({
-  POLL_CRON: z.string().default("*/30 * * * *"),
   DAILY_DIGEST_CRON: z.string().default("0 8 * * *"),
   DISCORD_NOTIFICATION_CRON: z.string().default("* * * * *"),
   INGESTION_CONCURRENCY: numericString.default(2),

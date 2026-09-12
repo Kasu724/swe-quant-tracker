@@ -155,6 +155,13 @@ model CompanySource {
   @@index([isActive, pollingEnabled, priority])
 }
 
+model IngestionSchedule {
+  id              String   @id
+  intervalMinutes Int      @default(30)
+  nextRunAt       DateTime
+  updatedAt       DateTime @updatedAt
+}
+
 model InternshipPosting {
   id                   String               @id @default(cuid())
   slug                 String               @unique

@@ -1,15 +1,17 @@
 import cron from "node-cron";
 import { readWorkerEnv } from "@swe-quant/config";
+import { claimDueIngestionSchedule } from "@swe-quant/db";
 import { runDailyDigestCycle } from "./jobs/digest";
 import { runDiscordNotifications } from "./jobs/discord";
 import { runIngestionCycle } from "./jobs/ingest";
 import { logger } from "./lib/logger";
 
 const env = readWorkerEnv();
+const ingestionScheduleCheckCron = "*/1 * * * *";
 
 logger.info(
   {
-    pollCron: env.POLL_CRON,
+    ingestionScheduleCheckCron,
     dailyDigestCron: env.DAILY_DIGEST_CRON,
     discordNotificationCron: env.DISCORD_NOTIFICATION_CRON
   },
@@ -35,8 +37,8 @@ async function runScheduledJob(name: string, job: () => Promise<unknown>) {
   }
 }
 
-if (!cron.validate(env.POLL_CRON)) {
-  throw new Error(`Invalid POLL_CRON expression: ${env.POLL_CRON}`);
+if (!cron.validate(ingestionScheduleCheckCron)) {
+  throw new Error(`Invalid ingestion schedule check expression: ${ingestionScheduleCheckCron}`);
 }
 
 if (!cron.validate(env.DAILY_DIGEST_CRON)) {
@@ -47,9 +49,17 @@ if (!cron.validate(env.DISCORD_NOTIFICATION_CRON)) {
   throw new Error(`Invalid DISCORD_NOTIFICATION_CRON expression: ${env.DISCORD_NOTIFICATION_CRON}`);
 }
 
-cron.schedule(env.POLL_CRON, async () => {
-  logger.info("Starting scheduled ingestion cycle");
-  await runScheduledJob("ingestion", runIngestionCycle);
+cron.schedule(ingestionScheduleCheckCron, async () => {
+  await runScheduledJob("ingestion", async () => {
+    const schedule = await claimDueIngestionSchedule();
+    if (!schedule) return;
+
+    logger.info(
+      { intervalMinutes: schedule.intervalMinutes },
+      "Starting scheduled ingestion cycle"
+    );
+    await runIngestionCycle();
+  });
 });
 
 cron.schedule(env.DAILY_DIGEST_CRON, async () => {

@@ -1,11 +1,17 @@
+import {
+  DEFAULT_INGESTION_INTERVAL_MINUTES,
+  INGESTION_INTERVAL_OPTIONS
+} from "@swe-quant/db";
 import { Badge, Button, Card, CardContent, Container, Input, PageHeader, Select } from "@swe-quant/ui";
 import {
   createCompanySourceAction,
   mergeDuplicatePostingsAction,
   toggleCompanyActiveAction,
-  toggleSourceActiveAction
+  toggleSourceActiveAction,
+  updateIngestionScheduleAction
 } from "../../lib/actions";
 import { IngestionControl } from "../../components/ingestion-control";
+import { LocalDateTime } from "../../components/local-date-time";
 import { getAdminDashboardData } from "../../lib/queries";
 
 export default async function AdminPage() {
@@ -41,6 +47,43 @@ export default async function AdminPage() {
           <CardContent className="space-y-2">
             <div className="text-sm text-slate-500">Would send now</div>
             <div className="text-3xl font-semibold">{data.alertPreviewCount}</div>
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-display text-2xl font-semibold">Automatic ingestion</h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Choose how often active sources are checked. The next run is shown in this device&apos;s local time.
+          </p>
+        </div>
+        <Card>
+          <CardContent className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <form action={updateIngestionScheduleAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+              <label className="grid gap-2 text-sm font-medium text-slate-700" htmlFor="ingestion-interval">
+                Run every
+                <Select
+                  id="ingestion-interval"
+                  name="intervalMinutes"
+                  defaultValue={String(data.ingestionSchedule.intervalMinutes || DEFAULT_INGESTION_INTERVAL_MINUTES)}
+                  className="min-w-48"
+                >
+                  {INGESTION_INTERVAL_OPTIONS.map((minutes) => (
+                    <option key={minutes} value={minutes}>
+                      {minutes < 60 ? `${minutes} minutes` : minutes === 60 ? "1 hour" : `${minutes / 60} hours`}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <Button type="submit">Save frequency</Button>
+            </form>
+            <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm">
+              <div className="text-slate-500">Next ingestion</div>
+              <div className="mt-1 font-semibold text-slate-900">
+                <LocalDateTime value={data.ingestionSchedule.nextRunAt.toISOString()} />
+              </div>
+            </div>
           </CardContent>
         </Card>
       </section>

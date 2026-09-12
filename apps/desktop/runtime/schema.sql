@@ -294,6 +294,16 @@ CREATE INDEX "CompanySource_isActive_pollingEnabled_priority_idx" ON "CompanySou
 -- CreateIndex
 CREATE UNIQUE INDEX "company_source_unique_identifier" ON "CompanySource"("companyId", "sourceType", "sourceIdentifier");
 
+-- CreateTable
+CREATE TABLE "IngestionSchedule" (
+    "id" TEXT NOT NULL,
+    "intervalMinutes" INTEGER NOT NULL DEFAULT 30,
+    "nextRunAt" TIMESTAMP(3) NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "IngestionSchedule_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "InternshipPosting_slug_key" ON "InternshipPosting"("slug");
 

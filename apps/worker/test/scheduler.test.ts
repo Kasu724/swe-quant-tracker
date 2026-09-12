@@ -21,8 +21,8 @@ vi.mock("node-cron", () => ({
 }));
 
 vi.mock("@swe-quant/config", () => ({
+  ensureRepoEnvLoaded: vi.fn(),
   readWorkerEnv: () => ({
-    POLL_CRON: "*/30 * * * *",
     DAILY_DIGEST_CRON: "0 8 * * *",
     DISCORD_NOTIFICATION_CRON: "* * * * *"
   })
