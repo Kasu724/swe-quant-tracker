@@ -27,14 +27,22 @@ function getRedirectPath(formData: FormData, fallback = "/internships") {
 export async function saveSearchAction(formData: FormData) {
   const user = await getLocalProfile();
   const name = String(formData.get("name") ?? "").trim();
-  const rawFilter = String(formData.get("filterPayload") ?? "{}");
+  const filterPayload = formData.get("filterPayload");
   const cadence = String(formData.get("alertCadence") ?? "IMMEDIATE");
   let parsedPayload: unknown;
 
-  try {
-    parsedPayload = JSON.parse(rawFilter);
-  } catch {
-    return;
+  if (typeof filterPayload === "string" && filterPayload.trim()) {
+    try {
+      parsedPayload = JSON.parse(filterPayload);
+    } catch {
+      return;
+    }
+  } else {
+    try {
+      parsedPayload = parseListingFilterForm(formData);
+    } catch {
+      return;
+    }
   }
 
   const parsedFilters = listingFilterSchema.safeParse(parsedPayload);

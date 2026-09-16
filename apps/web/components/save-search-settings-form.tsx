@@ -1,10 +1,6 @@
-"use client";
-
-import { useRef } from "react";
 import { Button, Input, Select } from "@swe-quant/ui";
 import type { ListingFilters } from "@swe-quant/shared";
 import { saveSearchAction } from "../lib/actions";
-import { parseListingFilterForm } from "../lib/listing-filter-params";
 import { ListingFilterFields } from "./listing-filter-fields";
 
 type Company = { slug: string; name: string; _count: { postings: number } };
@@ -16,19 +12,10 @@ export function SaveSearchSettingsForm({
   companies: Company[];
   filters: ListingFilters;
 }) {
-  const payloadRef = useRef<HTMLInputElement>(null);
-
   return (
     <form
       action={saveSearchAction}
-      className="space-y-5"
-      onSubmit={(event) => {
-        const form = event.currentTarget;
-        const parsedFilters = parseListingFilterForm(new FormData(form));
-        if (payloadRef.current) {
-          payloadRef.current.value = JSON.stringify(parsedFilters);
-        }
-      }}
+      className="space-y-6"
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
@@ -48,7 +35,7 @@ export function SaveSearchSettingsForm({
         </div>
       </div>
 
-      <fieldset className="space-y-4">
+      <fieldset className="space-y-4 border-t border-slate-200 pt-5">
         <legend className="text-sm font-medium text-slate-700">Search filters</legend>
         <p className="text-sm text-slate-600">
           Save a search using the same filters as the internships feed and receive alerts for new matches.
@@ -56,8 +43,9 @@ export function SaveSearchSettingsForm({
         <ListingFilterFields companies={companies} filters={filters} idPrefix="saved-search-filter" />
       </fieldset>
 
-      <input ref={payloadRef} type="hidden" name="filterPayload" defaultValue={JSON.stringify(filters)} />
-      <Button type="submit">Save search</Button>
+      <div className="flex justify-start border-t border-slate-200 pt-5">
+        <Button type="submit">Save search</Button>
+      </div>
     </form>
   );
 }
