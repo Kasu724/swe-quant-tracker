@@ -172,6 +172,15 @@ a {
 }
 
 @layer utilities {
+  .scrollbar-hidden {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hidden::-webkit-scrollbar {
+    display: none;
+  }
+
   .bg-white {
     background-color: rgb(var(--surface-1) / 1);
   }

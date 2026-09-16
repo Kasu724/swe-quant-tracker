@@ -65,7 +65,7 @@ export function SiteHeader() {
       </div>
       <nav
         aria-label="Primary navigation"
-        className="flex gap-5 overflow-x-auto border-t border-slate-100 px-4 py-2.5 md:hidden dark:border-slate-800"
+        className="scrollbar-hidden flex gap-5 overflow-x-auto border-t border-slate-100 px-4 py-2.5 md:hidden dark:border-slate-800"
       >
         {navLinks.map((link) => (
           <SiteNavLink
