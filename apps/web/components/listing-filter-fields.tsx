@@ -3,13 +3,14 @@ import { COUNTRY_OPTIONS } from "@swe-quant/shared";
 import type { ListingFilters } from "@swe-quant/shared";
 
 export function ListingFilterFields({
-  companies, filters, compact = false, multipleCompanies = false, showSort = true
+  companies, filters, compact = false, multipleCompanies = false, showSort = true, idPrefix = "filter"
 }: {
   companies: Array<{ slug: string; name: string; _count: { postings: number } }>;
   filters: ListingFilters;
   compact?: boolean;
   multipleCompanies?: boolean;
   showSort?: boolean;
+  idPrefix?: string;
 }) {
   return (
     <>
@@ -92,8 +93,8 @@ export function ListingFilterFields({
       </div>
       <div className={cn("grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")}>
         <div className="space-y-2">
-          <label htmlFor="filter-country" className="text-sm font-medium text-slate-700">Country</label>
-          <Select id="filter-country" name="country" defaultValue={filters.countries[0] ?? ""}>
+          <label htmlFor={`${idPrefix}-country`} className="text-sm font-medium text-slate-700">Country</label>
+          <Select id={`${idPrefix}-country`} name="country" defaultValue={filters.countries[0] ?? ""}>
             <option value="">All countries</option>
             {COUNTRY_OPTIONS.map((country) => (
               <option key={country.code} value={country.code}>
@@ -103,9 +104,9 @@ export function ListingFilterFields({
           </Select>
         </div>
         <div className="space-y-2">
-          <label htmlFor="filter-location" className="text-sm font-medium text-slate-700">Specific location</label>
+          <label htmlFor={`${idPrefix}-location`} className="text-sm font-medium text-slate-700">Specific location</label>
           <Input
-            id="filter-location"
+            id={`${idPrefix}-location`}
             name="location"
             defaultValue={filters.locations[0] ?? ""}
             placeholder="City, region, or phrase"
@@ -115,9 +116,9 @@ export function ListingFilterFields({
       </div>
       <div className={cn("grid gap-4", compact ? "grid-cols-1" : "sm:grid-cols-2")}>
         <div className="space-y-2">
-          <label htmlFor="filter-position-type" className="text-sm font-medium text-slate-700">Position type</label>
+          <label htmlFor={`${idPrefix}-position-type`} className="text-sm font-medium text-slate-700">Position type</label>
           <Select
-            id="filter-position-type"
+            id={`${idPrefix}-position-type`}
             name="positionType"
             defaultValue={filters.positionTypes.length === 1 ? filters.positionTypes[0] : ""}
           >

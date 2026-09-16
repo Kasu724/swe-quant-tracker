@@ -1,5 +1,6 @@
 import { listingFilterSchema } from "@swe-quant/shared";
 import { ListingFilterFields } from "../../components/listing-filter-fields";
+import { SaveSearchSettingsForm } from "../../components/save-search-settings-form";
 import { Button, Card, CardContent, Container, Input, PageHeader } from "@swe-quant/ui";
 import { PortableDataManager } from "../../components/portable-data-manager";
 import {
@@ -8,12 +9,16 @@ import {
   updateSettingsAction
 } from "../../lib/actions";
 import { getLocalProfile, isPlaceholderLocalEmail } from "../../lib/local-profile";
-import { getDiscordSettings } from "../../lib/queries";
+import { getDiscordSettings, getListingFilterMetadata } from "../../lib/queries";
 
 export default async function SettingsPage() {
   const user = await getLocalProfile();
-  const discord = await getDiscordSettings(user.id);
+  const [discord, companies] = await Promise.all([
+    getDiscordSettings(user.id),
+    getListingFilterMetadata()
+  ]);
   const notificationFilters = discord.destination?.filters ?? listingFilterSchema.parse({});
+  const savedSearchFilters = listingFilterSchema.parse({});
 
   return (
     <Container className="space-y-8 py-12">
@@ -107,6 +112,7 @@ export default async function SettingsPage() {
                 filters={notificationFilters}
                 multipleCompanies
                 showSort={false}
+                idPrefix="discord-filter"
               />
             </fieldset>
 
@@ -141,6 +147,17 @@ export default async function SettingsPage() {
               </form>
             </div>
           ) : null}
+        </CardContent>
+      </Card>
+      <Card className="max-w-3xl">
+        <CardContent className="space-y-5">
+          <div>
+            <h2 className="font-display text-xl font-semibold text-ink">Saved search alerts</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Save a reusable feed search here. The filters below are independent from your Discord notification filters.
+            </p>
+          </div>
+          <SaveSearchSettingsForm companies={companies} filters={savedSearchFilters} />
         </CardContent>
       </Card>
       <Card className="max-w-3xl">
