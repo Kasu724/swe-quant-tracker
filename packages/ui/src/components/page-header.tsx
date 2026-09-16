@@ -8,8 +8,8 @@ export function PageHeader({
   actions?: ReactNode;
 }>) {
   return (
-    <div className="flex flex-col gap-4 border-b border-slate-200 pb-6 md:flex-row md:items-end md:justify-between">
-      <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">{title}</h1>
+    <div className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
+      <h1 className="font-display text-3xl font-semibold tracking-tight text-ink md:text-4xl">{title}</h1>
       {actions ? <div className="flex items-center gap-3">{actions}</div> : null}
     </div>
   );

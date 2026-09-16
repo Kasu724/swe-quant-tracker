@@ -4,7 +4,7 @@ import { cn } from "../cn";
 export function Card({ children, className, ...props }: PropsWithChildren<HTMLAttributes<HTMLDivElement>>) {
   return (
     <div
-      className={cn("rounded-3xl border border-slate-200 bg-white shadow-panel", className)}
+      className={cn("rounded-2xl border border-slate-200 bg-white shadow-none dark:bg-slate-900", className)}
       {...props}
     >
       {children}
@@ -18,9 +18,8 @@ export function CardContent({
   ...props
 }: PropsWithChildren<HTMLAttributes<HTMLDivElement>>) {
   return (
-    <div className={cn("p-6", className)} {...props}>
+    <div className={cn("p-5 sm:p-6", className)} {...props}>
       {children}
     </div>
   );
 }
-

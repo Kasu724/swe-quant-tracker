@@ -16,12 +16,12 @@ type ButtonProps = PropsWithChildren<
 
 export function Button({ children, className, variant = "primary", asChild = false, ...props }: ButtonProps) {
   const buttonClassName = cn(
-    "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60 motion-safe:hover:-translate-y-px motion-safe:active:translate-y-0",
+    "inline-flex min-h-10 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-[color,background-color,border-color,box-shadow] duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-60",
     variant === "primary" &&
       "bg-brand-600 text-white shadow-sm hover:bg-brand-700",
     variant === "secondary" &&
-      "border border-slate-200 bg-white text-slate-700 hover:border-brand-200 hover:text-brand-700",
-    variant === "ghost" && "bg-transparent text-slate-600 hover:bg-slate-100",
+      "border border-slate-300 bg-white text-slate-700 hover:border-brand-300 hover:bg-slate-50 hover:text-brand-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800",
+    variant === "ghost" && "bg-transparent text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800",
     className
   );
 

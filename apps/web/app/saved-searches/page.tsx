@@ -32,7 +32,7 @@ export default async function SavedSearchesPage() {
         ) : (
           <div className="grid gap-4">
             {savedSearches.map((search) => (
-              <Card key={search.id}>
+              <Card key={search.id} className="rounded-xl shadow-none">
                 <CardContent className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
@@ -40,7 +40,7 @@ export default async function SavedSearchesPage() {
                       {search.alertsEnabled ? <Badge tone="success">Alerts on</Badge> : <Badge>Alerts off</Badge>}
                     </div>
                     <div className="text-xl font-semibold text-ink">{search.name}</div>
-                    <pre className="overflow-x-auto rounded-2xl bg-slate-50 p-3 text-xs text-slate-600">
+                    <pre className="overflow-x-auto border-l-2 border-slate-200 bg-transparent p-3 text-xs text-slate-600 dark:border-slate-700">
                       {JSON.stringify(search.filterJson, null, 2)}
                     </pre>
                   </div>
@@ -67,7 +67,7 @@ export default async function SavedSearchesPage() {
         ) : (
           <div className="grid gap-4">
             {favorites.map((favorite) => (
-              <Card key={favorite.id}>
+              <Card key={favorite.id} className="rounded-xl shadow-none">
                 <CardContent className="space-y-2">
                   <IntentLink href={`/internships/${favorite.internshipPosting.slug}`} className="font-display text-xl font-semibold hover:text-brand-700">
                     {favorite.internshipPosting.title}

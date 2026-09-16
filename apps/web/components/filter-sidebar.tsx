@@ -42,10 +42,10 @@ export function FilterSidebar({
 }) {
   const shellClassName =
     variant === "rail"
-      ? "flex h-full flex-col rounded-none border-0 border-r border-slate-200 bg-white/88 shadow-none backdrop-blur-xl"
+      ? "flex h-full flex-col rounded-none border-0 border-r border-slate-200 bg-white shadow-none dark:bg-slate-950"
       : variant === "responsive"
-        ? "border border-slate-200 bg-white shadow-panel xl:flex xl:h-full xl:flex-col xl:rounded-none xl:border-0 xl:border-r xl:bg-white/88 xl:shadow-none xl:backdrop-blur-xl"
-      : "border border-slate-200 bg-white shadow-panel";
+        ? "border border-slate-200 bg-white shadow-none xl:flex xl:h-full xl:flex-col xl:rounded-none xl:border-0 xl:border-r xl:bg-white xl:shadow-none dark:bg-slate-950"
+      : "border border-slate-200 bg-white shadow-none";
 
   const contentClassName = variant === "rail" || variant === "responsive"
     ? "flex min-h-0 flex-col space-y-5 p-5"
@@ -54,7 +54,7 @@ export function FilterSidebar({
   return (
     <Card className={cn(shellClassName)}>
       <CardContent className={contentClassName}>
-        <h2 className="font-display text-xl font-semibold text-ink">Search</h2>
+        <h2 className="font-display text-lg font-semibold tracking-tight text-ink">Search</h2>
         <FilterSidebarForm
           companies={companies}
           filters={filters}

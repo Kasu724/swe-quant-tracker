@@ -7,8 +7,8 @@ export function EmptyState({
   children
 }: PropsWithChildren<{ title: string; description: string }>) {
   return (
-    <Card>
-      <CardContent className="space-y-3 text-center">
+    <Card className="border-dashed bg-transparent shadow-none">
+      <CardContent className="space-y-3 py-12 text-center">
         <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
         <p className="text-sm text-slate-600">{description}</p>
         {children}
@@ -16,4 +16,3 @@ export function EmptyState({
     </Card>
   );
 }
-
