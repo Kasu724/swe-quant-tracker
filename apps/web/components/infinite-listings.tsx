@@ -178,7 +178,7 @@ export function InfiniteListings({
           />
         ))}
         {errorText ? (
-          <div className="border-l-2 border-rose-400 bg-transparent px-4 py-3 text-sm text-slate-600">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600">
             {errorText}
             <button
               type="button"
@@ -191,12 +191,12 @@ export function InfiniteListings({
         ) : null}
         <div ref={sentinelRef} className="h-8" aria-hidden="true" />
         {isLoading ? (
-          <div className="border-y border-slate-200 px-4 py-3 text-center text-sm text-slate-500">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm text-slate-500">
             Loading more roles...
           </div>
         ) : null}
         {!hasMore && listings.length > 0 ? (
-          <div className="border-y border-slate-200 px-4 py-3 text-center text-sm text-slate-500">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-center text-sm text-slate-500">
             End of results
           </div>
         ) : null}

@@ -34,12 +34,12 @@ export function ListingCard({
   const outboundUrl = safeExternalUrl(getPreferredPostingUrl(posting));
 
   return (
-    <Card className="rounded-xl transition-[border-color,background-color] duration-200 hover:border-brand-300 hover:bg-slate-50/70 dark:hover:bg-slate-800/60">
-      <CardContent className="space-y-5">
+    <Card className="transition-[border-color,box-shadow,transform] duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-brand-200 motion-safe:hover:shadow-lg">
+      <CardContent className="space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="font-display text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+              <div className="font-display text-2xl font-semibold tracking-tight text-brand-700">
                 {posting.companyNameSnapshot}
               </div>
               <Badge tone="neutral">{posting.company.companyBucket.replaceAll("_", " ")}</Badge>
@@ -73,7 +73,7 @@ export function ListingCard({
           </div>
         </div>
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="min-w-0 flex-1 space-y-1 border-l-2 border-slate-200 pl-4 text-sm text-slate-600 dark:border-slate-700">
+          <div className="min-w-0 flex-1 space-y-1 text-sm text-slate-600">
             <div>
               <span className="font-semibold text-slate-900">Compensation:</span> {compensation}
             </div>

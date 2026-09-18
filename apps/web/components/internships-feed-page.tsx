@@ -76,9 +76,9 @@ export async function InternshipsFeedPage({
 
   return (
     <div className="relative">
-      <Container className="space-y-8 py-10 xl:max-w-none xl:pl-[22rem]">
+      <Container className="space-y-8 py-12 xl:max-w-none xl:pl-[22rem]">
         {invalidFilters ? (
-          <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Some filter values are invalid. Reset the filters and try again.
             <a className="ml-2 font-semibold underline" href={basePath}>Reset filters</a>
           </div>
@@ -93,8 +93,8 @@ export async function InternshipsFeedPage({
         />
 
         <div className="space-y-8">
-          <aside className="xl:fixed xl:bottom-0 xl:left-0 xl:top-16 xl:z-20 xl:w-80 xl:overflow-hidden">
-            <div className="xl:flex xl:h-full xl:flex-col xl:overflow-hidden xl:border-r xl:border-slate-200 xl:bg-white dark:border-slate-800 dark:bg-slate-950">
+          <aside className="xl:fixed xl:bottom-0 xl:left-0 xl:top-20 xl:z-20 xl:w-80 xl:overflow-hidden">
+            <div className="xl:flex xl:h-full xl:flex-col xl:overflow-hidden xl:border-r xl:border-white/60 xl:bg-white/84 xl:shadow-[12px_0_40px_rgba(15,23,42,0.12)] xl:backdrop-blur-xl">
               <FilterSidebar
                 companies={companies}
                 filters={filters}

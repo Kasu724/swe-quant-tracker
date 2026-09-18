@@ -25,8 +25,8 @@ function pageHref(searchParams: SearchParams, page: number) {
 
 function CompanyCard({ company }: { company: CompanyOverview }) {
   return (
-    <Card className="rounded-xl shadow-none">
-      <CardContent className="space-y-5">
+    <Card>
+      <CardContent className="space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -55,7 +55,7 @@ function CompanyCard({ company }: { company: CompanyOverview }) {
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <div className="border-l-2 border-slate-200 px-4 py-1 text-sm text-slate-600 dark:border-slate-700">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
             <div className="font-semibold text-slate-900">Tracked sources</div>
             <div className="mt-2 flex flex-wrap gap-2">
               {company.sources.map((source) => (
@@ -66,7 +66,7 @@ function CompanyCard({ company }: { company: CompanyOverview }) {
             </div>
           </div>
 
-          <div className="border-l-2 border-slate-200 px-4 py-1 text-sm text-slate-600 dark:border-slate-700">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
             <div className="font-semibold text-slate-900">Quick links</div>
             <div className="mt-3 flex flex-wrap gap-3">
               {safeExternalUrl(company.careersUrl) ? (

@@ -16,10 +16,10 @@ const navLinks = [
 
 export function SiteHeader() {
   return (
-    <header className="relative sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95">
-      <div className="grid min-h-16 w-full grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:px-8">
+    <header className="relative sticky top-0 z-40 border-b border-white/60 bg-white/80 backdrop-blur-xl">
+      <div className="grid min-h-20 w-full grid-cols-[1fr_auto] items-center gap-4 px-4 sm:px-6 md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:px-8">
         <Link href="/" className="flex min-w-0 items-center gap-3 justify-self-start">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-brand-600 text-sm font-bold text-white">
             SQ
           </div>
           <div className="hidden min-w-0 sm:block">
@@ -37,7 +37,7 @@ export function SiteHeader() {
             <SiteNavLink
               key={link.href}
               href={link.href}
-              className="whitespace-nowrap text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-brand-700 dark:text-slate-300"
+              className="whitespace-nowrap text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-brand-700"
             >
               {link.label}
             </SiteNavLink>
@@ -65,13 +65,13 @@ export function SiteHeader() {
       </div>
       <nav
         aria-label="Primary navigation"
-        className="scrollbar-hidden flex gap-5 overflow-x-auto border-t border-slate-100 px-4 py-2.5 md:hidden dark:border-slate-800"
+        className="scrollbar-hidden flex gap-5 overflow-x-auto border-t border-slate-100 px-4 py-3 md:hidden"
       >
         {navLinks.map((link) => (
           <SiteNavLink
             key={link.href}
             href={link.href}
-            className="shrink-0 whitespace-nowrap text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-brand-700 dark:text-slate-300"
+            className="shrink-0 whitespace-nowrap text-sm font-medium text-slate-600 transition-colors duration-200 hover:text-brand-700"
           >
             {link.label}
           </SiteNavLink>

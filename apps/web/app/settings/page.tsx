@@ -21,11 +21,11 @@ export default async function SettingsPage() {
   const savedSearchFilters = listingFilterSchema.parse({});
 
   return (
-    <Container className="space-y-8 py-10">
+    <Container className="space-y-8 py-12">
       <PageHeader
         title="Local settings and backups"
       />
-      <Card className="max-w-xl rounded-xl shadow-none">
+      <Card className="max-w-xl">
         <CardContent className="space-y-4">
           <form action={updateSettingsAction} className="space-y-4">
             <div className="space-y-2">
@@ -58,7 +58,7 @@ export default async function SettingsPage() {
           </form>
         </CardContent>
       </Card>
-      <Card className="max-w-3xl rounded-xl shadow-none">
+      <Card className="max-w-3xl">
         <CardContent className="space-y-5">
           <div>
             <h2 className="font-display text-xl font-semibold text-ink">Discord notifications</h2>
@@ -69,7 +69,7 @@ export default async function SettingsPage() {
             </p>
           </div>
 
-          <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
+          <div className="rounded-2xl border border-brand-100 bg-brand-50 px-4 py-3 text-sm text-brand-900">
             Create a webhook in <span className="font-semibold">Server Settings → Integrations → Webhooks</span>.
             The webhook secret is stored locally and is never shown in this page or a backup export.
           </div>
@@ -127,7 +127,7 @@ export default async function SettingsPage() {
           </form>
 
           {discord.destination ? (
-            <div className="flex flex-col gap-3 border-t border-slate-200 px-1 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="font-semibold text-slate-800">
                   {discord.destination.enabled ? "Discord is enabled" : "Discord is paused"}
@@ -149,7 +149,7 @@ export default async function SettingsPage() {
           ) : null}
         </CardContent>
       </Card>
-      <Card className="max-w-3xl rounded-xl shadow-none">
+      <Card className="max-w-3xl">
         <CardContent className="space-y-5">
           <div>
             <h2 className="font-display text-xl font-semibold text-ink">Saved search alerts</h2>
@@ -160,7 +160,7 @@ export default async function SettingsPage() {
           <SaveSearchSettingsForm companies={companies} filters={savedSearchFilters} />
         </CardContent>
       </Card>
-      <Card className="max-w-3xl rounded-xl shadow-none">
+      <Card className="max-w-3xl">
         <CardContent className="space-y-4">
           <div>
             <h2 className="font-display text-xl font-semibold text-ink">Portable backup</h2>
