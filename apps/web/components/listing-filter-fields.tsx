@@ -1,5 +1,5 @@
 import { Checkbox, Input, Select, cn } from "@swe-quant/ui";
-import { COUNTRY_OPTIONS } from "@swe-quant/shared";
+import { COUNTRY_OPTIONS, ROLE_CATEGORIES, ROLE_CATEGORY_LABELS } from "@swe-quant/shared/role-categories";
 import type { ListingFilters } from "@swe-quant/shared";
 
 export function ListingFilterFields({
@@ -63,15 +63,9 @@ export function ListingFilterFields({
           <label className="text-sm font-medium text-slate-700">Role</label>
           <Select name="category" defaultValue={filters.roleCategories[0] ?? ""}>
             <option value="">All roles</option>
-            <option value="SWE">SWE</option>
-            <option value="QUANT_DEV">Quant Dev</option>
-            <option value="QUANT_RESEARCH">Quant Research</option>
-            <option value="TRADING">Trading</option>
-            <option value="DATA_ML_AI">Data / ML / AI</option>
-            <option value="SECURITY">Security</option>
-            <option value="INFRA_SYSTEMS">Infra / Systems</option>
-            <option value="HARDWARE_FPGA_LOW_LATENCY">Hardware / FPGA</option>
-            <option value="PRODUCT_PM">Product</option>
+            {ROLE_CATEGORIES.map((category) => (
+              <option key={category} value={category}>{ROLE_CATEGORY_LABELS[category]}</option>
+            ))}
           </Select>
         </div>
       </div>

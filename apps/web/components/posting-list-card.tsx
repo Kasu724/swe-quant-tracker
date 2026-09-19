@@ -4,6 +4,7 @@ import { useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { CheckCircle2, ExternalLink, Trash2 } from "lucide-react";
 import { Badge, Button, Card, CardContent, Checkbox, cn } from "@swe-quant/ui";
+import { roleCategoryLabel } from "@swe-quant/shared/role-categories";
 import { getPreferredPostingUrl } from "@swe-quant/shared/posting-links";
 import type { PostingListItem } from "../lib/queries";
 import { safeExternalUrl } from "../lib/validation";
@@ -102,7 +103,7 @@ export function PostingListCard({ item }: { item: PostingListItem }) {
                   {item.posting.companyNameSnapshot}
                 </span>
                 <Badge tone="brand" className="dark:bg-brand-900 dark:text-brand-100">
-                  {item.posting.roleCategory.replaceAll("_", " ")}
+                  {roleCategoryLabel(item.posting.roleCategory)}
                 </Badge>
                 {isCompleted ? (
                   <Badge tone="success">

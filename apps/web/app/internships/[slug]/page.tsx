@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { Badge, Button, Card, CardContent, Container, PageHeader } from "@swe-quant/ui";
-import { getPreferredPostingUrl } from "@swe-quant/shared";
+import { getPreferredPostingUrl, roleCategoryLabel } from "@swe-quant/shared";
 import { toggleFavoriteAction, updateApplicationStateAction } from "../../../lib/actions";
 import { getLocalProfile } from "../../../lib/local-profile";
 import { getInternshipBySlug } from "../../../lib/queries";
@@ -43,7 +43,7 @@ export default async function InternshipDetailPage({
             <CardContent className="space-y-4">
               <div className="flex flex-wrap gap-2">
                 <Badge tone="brand">{posting.company.companyBucket.replaceAll("_", " ")}</Badge>
-                <Badge tone="neutral">{posting.roleCategory.replaceAll("_", " ")}</Badge>
+                <Badge tone="neutral">{roleCategoryLabel(posting.roleCategory)}</Badge>
                 {posting.internshipFlag ? <Badge tone="neutral">Internship</Badge> : null}
                 {posting.newGradFlag ? <Badge tone="success">New grad</Badge> : null}
                 <Badge tone="neutral">{posting.sourceName}</Badge>
