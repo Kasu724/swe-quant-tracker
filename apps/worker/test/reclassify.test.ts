@@ -13,6 +13,7 @@ describe("classifyStoredPosting", () => {
 
     expect(result.internshipFlag).toBe(false);
     expect(result.newGradFlag).toBe(true);
+    expect(result.roleCategory).toBe("SWE");
     expect(result.locationCountries).toContain("GB");
   });
 
@@ -41,5 +42,6 @@ describe("classifyStoredPosting", () => {
     });
 
     expect(result.locationCountries).toEqual(["DE"]);
+    expect(result.roleCategory).toBe("ENGINEERING");
   });
 });

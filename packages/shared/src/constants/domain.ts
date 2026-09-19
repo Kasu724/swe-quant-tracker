@@ -22,13 +22,37 @@ export const ROLE_CATEGORIES = [
   "QUANT_DEV",
   "QUANT_RESEARCH",
   "TRADING",
-  "DATA_ML_AI",
+  "DATA",
+  "ML_AI",
   "SECURITY",
   "INFRA_SYSTEMS",
-  "HARDWARE_FPGA_LOW_LATENCY",
+  "HARDWARE_EMBEDDED",
+  "ENGINEERING",
   "PRODUCT_PM",
   "OTHER"
 ] as const;
+
+export const ROLE_CATEGORY_LABELS: Record<(typeof ROLE_CATEGORIES)[number], string> = {
+  SWE: "Software Engineering",
+  QUANT_DEV: "Quant Engineering",
+  QUANT_RESEARCH: "Quant Research",
+  TRADING: "Trading",
+  DATA: "Data / Analytics",
+  ML_AI: "ML / AI",
+  SECURITY: "Security",
+  INFRA_SYSTEMS: "Infrastructure / Systems",
+  HARDWARE_EMBEDDED: "Hardware / FPGA / Embedded",
+  ENGINEERING: "General Engineering",
+  PRODUCT_PM: "Product / Program Management",
+  OTHER: "Other"
+};
+
+/** Old values remain readable while stored postings and saved filters are upgraded. */
+export function roleCategoryLabel(category: string): string {
+  if (category === "DATA_ML_AI") return "Data / ML / AI (legacy)";
+  if (category === "HARDWARE_FPGA_LOW_LATENCY") return "Hardware / Low Latency (legacy)";
+  return ROLE_CATEGORY_LABELS[category as keyof typeof ROLE_CATEGORY_LABELS] ?? category.replaceAll("_", " ");
+}
 
 export const REMOTE_TYPES = ["REMOTE", "HYBRID", "ONSITE", "UNKNOWN"] as const;
 

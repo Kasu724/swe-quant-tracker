@@ -10,6 +10,7 @@ import {
 } from "../constants/domain";
 import type { ListingSearchRecord, NormalizedLocation } from "../types";
 import { canonicalizeSearchText as canonicalizeText } from "../normalization/text";
+import { categorizeRole } from "../normalization/role";
 import {
   isUsOrUnknownPostingLocation,
   normalizeLocations
@@ -27,7 +28,16 @@ export const listingFilterSchema = z.object({
   q: z.string().trim().optional(),
   companySlugs: z.array(z.string()).default([]),
   companyBuckets: z.array(z.enum(COMPANY_BUCKETS)).default([]),
-  roleCategories: z.array(z.enum(ROLE_CATEGORIES)).default([]),
+  roleCategories: z.preprocess(
+    (value) => Array.isArray(value)
+      ? value.flatMap((category) => {
+          if (category === "DATA_ML_AI") return ["DATA", "ML_AI"];
+          if (category === "HARDWARE_FPGA_LOW_LATENCY") return ["HARDWARE_EMBEDDED", "INFRA_SYSTEMS"];
+          return [category];
+        })
+      : value,
+    z.array(z.enum(ROLE_CATEGORIES)).default([])
+  ),
   seasons: z.array(z.string()).default([]),
   years: z.array(z.coerce.number().int()).default([]),
   locations: z.array(z.string().trim()).default([]),
@@ -189,7 +199,11 @@ export function matchesListingFilters(record: ListingSearchRecord, filters: List
     return false;
   }
 
-  if (filters.roleCategories.length && !filters.roleCategories.includes(record.roleCategory)) {
+  const roleCategory = record.roleCategory === "DATA_ML_AI" || record.roleCategory === "HARDWARE_FPGA_LOW_LATENCY"
+    ? categorizeRole(record.title)
+    : record.roleCategory;
+
+  if (filters.roleCategories.length && !filters.roleCategories.includes(roleCategory)) {
     return false;
   }
 

@@ -25,6 +25,16 @@ async function initializeSchema(db, schemaPath) {
 
   // Apply additive upgrades before starting services against an existing database.
   if (result.rows[0]?.exists) {
+    for (const category of ["DATA", "ML_AI", "HARDWARE_EMBEDDED", "ENGINEERING"]) {
+      await db.exec(`ALTER TYPE "RoleCategory" ADD VALUE IF NOT EXISTS '${category}';`);
+    }
+    const roleBackfillPath = require("node:path").join(
+      require("node:path").dirname(schemaPath),
+      "role-backfill.sql"
+    );
+    if (fs.existsSync(roleBackfillPath)) {
+      await db.exec(fs.readFileSync(roleBackfillPath, "utf8"));
+    }
     await db.exec('ALTER TABLE "DiscordDestination" ADD COLUMN IF NOT EXISTS "filterJson" JSONB;');
     await db.exec('ALTER TABLE "InternshipPosting" ADD COLUMN IF NOT EXISTS "newGradFlag" BOOLEAN NOT NULL DEFAULT false;');
     await db.exec('CREATE INDEX IF NOT EXISTS "InternshipPosting_newGradFlag_isActive_idx" ON "InternshipPosting"("newGradFlag", "isActive");');

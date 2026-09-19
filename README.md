@@ -506,7 +506,11 @@ pnpm worker:reclassify
 pnpm worker:ingest
 ```
 
-Reclassification updates stored role and location data while preserving active/inactive status.
+Role classification uses job titles rather than incidental keywords in descriptions. Data/Analytics,
+ML/AI, Hardware/FPGA/Embedded, Infrastructure/Systems, and General Engineering have separate
+filters. The role-category migration backfills existing cloud postings; desktop upgrades backfill
+their embedded database when reopened. `pnpm worker:reclassify` can reapply the current rules to
+stored roles and locations without changing active/inactive status.
 Reseeding updates the tracked source configurations; ingestion discovers newly eligible roles.
 Desktop builds add the new database column when opening an existing database.
 Country matching uses employer location data; unspecified locations do not match a selected country.

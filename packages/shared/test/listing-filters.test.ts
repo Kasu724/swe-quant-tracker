@@ -17,6 +17,11 @@ const baseRecord: ListingSearchRecord = {
 };
 
 describe("listing filters", () => {
+  it("upgrades legacy role filters without merging Data and ML/AI in new searches", () => {
+    expect(listingFilterSchema.parse({ roleCategories: ["DATA_ML_AI"] }).roleCategories).toEqual(["DATA", "ML_AI"]);
+    expect(listingFilterSchema.parse({ roleCategories: ["HARDWARE_FPGA_LOW_LATENCY"] }).roleCategories).toEqual(["HARDWARE_EMBEDDED", "INFRA_SYSTEMS"]);
+    expect(listingFilterSchema.parse({ roleCategories: ["DATA"] }).roleCategories).toEqual(["DATA"]);
+  });
   it("matches international text without turning non-Latin queries into match-all", () => {
     expect(matchesListingFilters(baseRecord, listingFilterSchema.parse({ q: "東京" }))).toBe(false);
     expect(matchesListingFilters({ ...baseRecord, locationRaw: "東京, Japan" }, listingFilterSchema.parse({ q: "東京", countries: ["JP"], locations: ["東京"] }))).toBe(true);

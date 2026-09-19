@@ -120,6 +120,10 @@ function generateFinalSchema() {
   }
 
   fs.writeFileSync(path.join(outputDirectory, "schema.sql"), result.stdout);
+  fs.copyFileSync(
+    path.join(desktopDirectory, "runtime", "role-backfill.sql"),
+    path.join(outputDirectory, "role-backfill.sql")
+  );
 }
 
 function copyCityGazetteer() {

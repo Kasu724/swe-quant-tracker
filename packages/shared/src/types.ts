@@ -13,6 +13,7 @@ import type {
 export type CompanyBucketValue = (typeof COMPANY_BUCKETS)[number];
 export type SourceTypeValue = (typeof SOURCE_TYPES)[number];
 export type RoleCategoryValue = (typeof ROLE_CATEGORIES)[number];
+export type LegacyRoleCategoryValue = "DATA_ML_AI" | "HARDWARE_FPGA_LOW_LATENCY";
 export type RemoteTypeValue = (typeof REMOTE_TYPES)[number];
 export type CompensationIntervalValue = (typeof COMPENSATION_INTERVALS)[number];
 export type AlertChannelValue = (typeof ALERT_CHANNELS)[number];
@@ -124,7 +125,7 @@ export type ListingSearchRecord = {
   companyNameSnapshot: string;
   companyBucket: CompanyBucketValue;
   title: string;
-  roleCategory: RoleCategoryValue;
+  roleCategory: RoleCategoryValue | LegacyRoleCategoryValue;
   internshipFlag?: boolean;
   newGradFlag?: boolean;
   season?: string | null;

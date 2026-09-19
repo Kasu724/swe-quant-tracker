@@ -1,6 +1,7 @@
 import { prisma, type Prisma } from "@swe-quant/db";
 import {
   extractLocationCountries,
+  categorizeRole,
   isInternshipPosting,
   isNewGradPosting,
   normalizeLocations,
@@ -62,7 +63,13 @@ export function classifyStoredPosting(input: {
       metadata
     });
 
-  return { internshipFlag, newGradFlag, locations, locationCountries };
+  return {
+    internshipFlag,
+    newGradFlag,
+    roleCategory: categorizeRole(input.title, description),
+    locations,
+    locationCountries
+  };
 }
 
 export async function runInternshipReclassification() {
@@ -70,6 +77,7 @@ export async function runInternshipReclassification() {
     select: {
       id: true,
       title: true,
+      roleCategory: true,
       descriptionText: true,
       descriptionRaw: true,
       employmentType: true,
@@ -93,6 +101,7 @@ export async function runInternshipReclassification() {
       data: {
         internshipFlag: update.internshipFlag,
         newGradFlag: update.newGradFlag,
+        roleCategory: update.roleCategory,
         locationsNormalized: update.locations as Prisma.InputJsonValue,
         locationCountries: update.locationCountries
       }
@@ -104,7 +113,8 @@ export async function runInternshipReclassification() {
       inspected: postings.length,
       deactivated: 0,
       internships: updates.filter((posting) => posting.internshipFlag).length,
-      newGrad: updates.filter((posting) => posting.newGradFlag).length
+      newGrad: updates.filter((posting) => posting.newGradFlag).length,
+      roleCategoriesChanged: updates.filter((posting, index) => posting.roleCategory !== postings[index]?.roleCategory).length
     },
     "Internship reclassification completed"
   );

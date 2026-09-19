@@ -1,43 +1,53 @@
 import type { RoleCategoryValue } from "../types";
 import { canonicalizeText } from "./text";
 
-const CATEGORY_RULES: Array<[RoleCategoryValue, RegExp[]]> = [
-  [
-    "HARDWARE_FPGA_LOW_LATENCY",
-    [/\bfpga\b/i, /\bhardware\b/i, /\bembedded\b/i, /\blow latency\b/i]
-  ],
-  [
-    "QUANT_RESEARCH",
-    [/\bquant(itative)? research/i, /\bresearch scientist\b/i, /\balpha research\b/i]
-  ],
-  [
-    "QUANT_DEV",
-    [/\bquant(itative)? developer\b/i, /\btrading systems\b/i, /\bstrats?\b/i]
-  ],
-  [
-    "TRADING",
-    [/\btrader\b/i, /\btrading\b/i, /\bexecution\b/i, /\bmarket making\b/i]
-  ],
-  [
-    "DATA_ML_AI",
-    [/\bmachine learning\b/i, /\bml\b/i, /\bartificial intelligence\b/i, /\bdata science\b/i, /\bapplied scientist\b/i]
-  ],
-  [
-    "SECURITY",
-    [/\bsecurity\b/i, /\bappsec\b/i, /\bcyber\b/i, /\bthreat\b/i, /\bred team\b/i]
-  ],
-  [
-    "INFRA_SYSTEMS",
-    [/\binfrastructure\b/i, /\bsite reliability\b/i, /\bsre\b/i, /\bplatform\b/i, /\bdistributed systems\b/i, /\bdevops\b/i, /\bnetwork\b/i]
-  ],
-  [
-    "PRODUCT_PM",
-    [/\bproduct manager\b/i, /\bproduct management\b/i, /\btechnical pm\b/i]
-  ],
-  [
-    "SWE",
-    [/\bsoftware engineer\b/i, /\bsoftware developer\b/i, /\bfull stack\b/i, /\bfrontend\b/i, /\bbackend\b/i, /\bweb developer\b/i]
-  ]
+type RoleRule = [RoleCategoryValue, RegExp[]];
+
+// A description can mention technologies or collaborating teams from several
+// disciplines. The title is the reliable signal for the role being hired.
+const TITLE_RULES: RoleRule[] = [
+  ["QUANT_RESEARCH", [
+    /\bquant(?:itative)? (?:research(?:er)?|analyst|scientist)\b/,
+    /\balpha research(?:er)?\b/
+  ]],
+  ["QUANT_DEV", [
+    /\bquant(?:itative)? (?:developer|engineer|dev|software (?:developer|engineer))\b/,
+    /\b(?:trading|market making) (?:systems? )?(?:software )?(?:developer|engineer)\b/,
+    /\b(?:trading|execution) systems?\b/,
+    /\b(?:low latency|execution) (?:trading|quant)\b/,
+    /\b(?:trading|quant) (?:execution|low latency)\b/,
+    /\bstrats? (?:developer|engineer)\b/
+  ]],
+  ["TRADING", [
+    /\b(?:trader|trading analyst|trading intern|market maker|market making analyst|execution trader)\b/
+  ]],
+  ["ML_AI", [
+    /\b(?:machine learning|deep learning|artificial intelligence|generative ai|gen ai|ml|ai)\b/,
+    /\b(?:applied scientist|nlp|computer vision)\b/
+  ]],
+  ["DATA", [
+    /\bdata (?:scientist|science|engineer|engineering|analyst|analytics|architect)\b/,
+    /\b(?:analytics engineer|business intelligence|bi analyst|data platform)\b/
+  ]],
+  ["SECURITY", [
+    /\b(?:security|cybersecurity|cyber security|appsec|infosec|threat intelligence|penetration test(?:er|ing)|red team)\b/
+  ]],
+  ["HARDWARE_EMBEDDED", [
+    /\b(?:fpga|asic|firmware|embedded(?: systems| software)?|hardware|electrical engineer|electrical engineering|vlsi|semiconductor|chip design|circuit design)\b/
+  ]],
+  ["INFRA_SYSTEMS", [
+    /\b(?:infrastructure|site reliability|sre|devops|platform engineering|platform engineer|distributed systems|cloud engineer|cloud infrastructure|network engineer|network engineering|systems engineer|systems engineering|low latency)\b/,
+    /\bdata center (?:engineer|engineering|infrastructure)\b/
+  ]],
+  ["PRODUCT_PM", [
+    /\b(?:product (?:manager|management)|technical (?:program|product) manager|program manager|technical pm|product owner)\b/
+  ]],
+  ["SWE", [
+    /\b(?:software (?:engineer|engineering|developer|development)|full stack|frontend|front end|backend|back end|web developer|web engineer|mobile developer|mobile engineer|ios developer|android developer|swe|sde)\b/
+  ]],
+  ["ENGINEERING", [
+    /\b(?:engineer|engineering|mechanical|manufacturing|industrial|civil|chemical|aerospace|robotics)\b/
+  ]]
 ];
 
 export function normalizeTitle(title: string): string {
@@ -55,11 +65,11 @@ export function normalizeTitle(title: string): string {
     .trim();
 }
 
-export function categorizeRole(title: string, description?: string | null): RoleCategoryValue {
-  const combined = `${title} ${description ?? ""}`;
+export function categorizeRole(title: string, _description?: string | null): RoleCategoryValue {
+  const normalizedTitle = canonicalizeText(title);
 
-  for (const [category, patterns] of CATEGORY_RULES) {
-    if (patterns.some((pattern) => pattern.test(combined))) {
+  for (const [category, patterns] of TITLE_RULES) {
+    if (patterns.some((pattern) => pattern.test(normalizedTitle))) {
       return category;
     }
   }
