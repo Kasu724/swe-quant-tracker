@@ -23,16 +23,16 @@ const config: Config = {
           900: "#581c87"
         },
         accent: "#7c3aed",
-        ink: "#101828",
-        mist: "#f8fafc",
-        shell: "#eef2f6"
+        ink: "#18181b",
+        mist: "#fafafa",
+        shell: "#f4f4f5"
       },
       fontFamily: {
         sans: ["var(--font-sans)", "ui-sans-serif", "system-ui"],
         display: ["var(--font-display)", "ui-sans-serif", "system-ui"]
       },
       boxShadow: {
-        panel: "0 10px 30px rgba(15, 23, 42, 0.08)"
+        panel: "0 10px 30px rgba(24, 24, 27, 0.08)"
       }
     }
   },
