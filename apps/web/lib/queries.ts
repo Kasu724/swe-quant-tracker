@@ -730,7 +730,7 @@ export async function getApplicationStateMap(userId: string, postingIds: string[
   );
 }
 
-export async function getAdminDashboardData() {
+export async function getSourcesDashboardData() {
   const [runs, newPostings, companies, sources, searches, recentPostings, alertSearches, alertPreviewPostings, ingestionSchedule] = await Promise.all([
     prisma.ingestionRun.findMany({
       take: 20,

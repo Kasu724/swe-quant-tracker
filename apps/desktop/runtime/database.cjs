@@ -1,5 +1,27 @@
 const fs = require("node:fs");
 const net = require("node:net");
+const path = require("node:path");
+
+function loadPrismaClient() {
+  const packagedClient = path.join(
+    __dirname,
+    "..",
+    "server",
+    "apps",
+    "web",
+    "node_modules",
+    "@prisma",
+    "client"
+  );
+
+  // The packaged desktop app already carries the generated Prisma client with the standalone web
+  // server. Development and database smoke tests resolve it through the workspace dependency.
+  return fs.existsSync(path.join(packagedClient, "package.json"))
+    ? require(packagedClient).PrismaClient
+    : require("@prisma/client").PrismaClient;
+}
+
+const PrismaClient = loadPrismaClient();
 
 async function reserveLoopbackPort() {
   return new Promise((resolve, reject) => {
@@ -73,34 +95,37 @@ async function startEmbeddedDatabase({ dataDirectory, schemaPath }) {
   });
   await socketServer.start();
 
+  const connectionUrl = `postgresql://postgres:postgres@127.0.0.1:${port}/postgres?sslmode=disable&pgbouncer=true&connection_limit=1&connect_timeout=2&pool_timeout=2`;
+  const healthClient = new PrismaClient({
+    datasources: {
+      db: { url: connectionUrl }
+    }
+  });
+
   async function checkHealth() {
-    await db.query("SELECT 1");
-
-    return new Promise((resolve, reject) => {
-      const socket = net.createConnection({ host: "127.0.0.1", port });
-      const timeout = setTimeout(() => {
-        socket.destroy(new Error(`Embedded database socket health check timed out on port ${port}`));
-      }, 1_000);
-
-      const finish = (error) => {
-        clearTimeout(timeout);
-        socket.destroy();
-        if (error) reject(error);
-        else resolve();
-      };
-
-      socket.once("connect", () => finish());
-      socket.once("error", finish);
-      socket.once("timeout", () => finish(new Error(`Embedded database socket timed out on port ${port}`)));
-    });
+    // Exercise the same PostgreSQL protocol path as the application. A bare TCP probe followed by
+    // an immediate destroy can make the socket server emit ECONNRESET, while querying `db` directly
+    // can interleave with an application transaction and observe its aborted state.
+    await healthClient.$queryRawUnsafe("SELECT 1");
   }
 
   return {
-    connectionUrl: `postgresql://postgres:postgres@127.0.0.1:${port}/postgres?sslmode=disable&pgbouncer=true&connection_limit=1`,
+    connectionUrl,
     checkHealth,
     async stop() {
-      await socketServer.stop();
-      await db.close();
+      let stopError;
+      for (const stop of [
+        () => healthClient.$disconnect(),
+        () => socketServer.stop(),
+        () => db.close()
+      ]) {
+        try {
+          await stop();
+        } catch (error) {
+          stopError ??= error;
+        }
+      }
+      if (stopError) throw stopError;
     }
   };
 }

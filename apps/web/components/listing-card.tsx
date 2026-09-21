@@ -38,11 +38,19 @@ export function ListingCard({
     <Card className="transition-[border-color,box-shadow,transform] duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:border-brand-200 motion-safe:hover:shadow-lg">
       <CardContent className="space-y-4">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="min-w-0 space-y-3">
+            <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
               <div className="font-display text-2xl font-semibold tracking-tight text-brand-700">
                 {posting.companyNameSnapshot}
               </div>
+              <IntentLink
+                href={`/internships/${posting.slug}`}
+                className="min-w-0 font-display text-xl font-semibold tracking-tight text-ink hover:text-brand-700"
+              >
+                {posting.title}
+              </IntentLink>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
               <Badge tone="neutral">{posting.company.companyBucket.replaceAll("_", " ")}</Badge>
               <Badge tone="brand" className="dark:bg-brand-900 dark:text-brand-100">
                 {roleCategoryLabel(posting.roleCategory)}
@@ -52,12 +60,6 @@ export function ListingCard({
               <Badge tone="neutral">{posting.remoteType}</Badge>
               {isNew ? <Badge tone="success">New</Badge> : null}
             </div>
-            <IntentLink
-              href={`/internships/${posting.slug}`}
-              className="block font-display text-xl font-semibold tracking-tight text-ink hover:text-brand-700"
-            >
-              {posting.title}
-            </IntentLink>
             <div className="text-sm text-slate-500">
               {posting.locationRaw ?? "Location not listed"} / {posting.season ?? "Season TBD"}{" "}
               {posting.year ?? ""}

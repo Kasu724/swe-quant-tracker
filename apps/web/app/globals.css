@@ -176,6 +176,28 @@ a {
     display: none;
   }
 
+  .filter-sidebar-scrollbar {
+    scrollbar-color: rgb(var(--border-soft) / 1) transparent;
+    scrollbar-width: thin;
+  }
+
+  .filter-sidebar-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .filter-sidebar-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .filter-sidebar-scrollbar::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background-color: rgb(var(--border-soft) / 1);
+  }
+
+  .filter-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgb(var(--text-muted) / 1);
+  }
+
   .bg-white {
     background-color: rgb(var(--surface-1) / 1);
   }

@@ -12,10 +12,10 @@ import {
 } from "../../lib/actions";
 import { IngestionControl } from "../../components/ingestion-control";
 import { LocalDateTime } from "../../components/local-date-time";
-import { getAdminDashboardData } from "../../lib/queries";
+import { getSourcesDashboardData } from "../../lib/queries";
 
-export default async function AdminPage() {
-  const data = await getAdminDashboardData();
+export default async function SourcesPage() {
+  const data = await getSourcesDashboardData();
 
   return (
     <Container className="space-y-10 py-12">

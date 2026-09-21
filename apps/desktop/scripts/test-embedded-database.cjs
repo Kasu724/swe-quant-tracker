@@ -32,6 +32,24 @@ async function main() {
         companyBucket: "FAANG"
       }
     });
+    let duplicateRejected = false;
+    try {
+      await prisma.$transaction(async (tx) => {
+        await tx.company.create({
+          data: {
+            name: "Desktop duplicate transaction test",
+            slug: "desktop-persistence-test",
+            companyBucket: "FAANG"
+          }
+        });
+      });
+    } catch (error) {
+      if (error?.code !== "P2002") throw error;
+      duplicateRejected = true;
+    }
+    if (!duplicateRejected) throw new Error("Duplicate desktop transaction unexpectedly succeeded");
+    await database.checkHealth();
+    await prisma.$queryRaw`SELECT 1`;
     // Simulate a database created before notification filters were introduced.
     await prisma.$executeRawUnsafe('ALTER TABLE "DiscordDestination" DROP COLUMN "filterJson"');
     // Simulate a database created before new-graduate classification was added.

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => {
       update: vi.fn()
     },
     internshipPosting: {
+      findUnique: vi.fn(),
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn()
@@ -118,6 +119,7 @@ describe("persistPosting", () => {
     vi.clearAllMocks();
     mocks.events.length = 0;
     mocks.transactionClient.postingSourceRecord.findUnique.mockResolvedValue(null);
+    mocks.transactionClient.internshipPosting.findUnique.mockResolvedValue(null);
     mocks.transactionClient.internshipPosting.findMany.mockResolvedValue([]);
     mocks.transactionClient.internshipPosting.create.mockImplementation(async () => {
       mocks.events.push("posting:create");
@@ -202,6 +204,44 @@ describe("persistPosting", () => {
         data: expect.objectContaining({ postingDate: discoveredAt })
       })
     );
+  });
+
+  it("updates an exact slug match instead of triggering a unique-constraint failure", async () => {
+    const discoveredAt = new Date("2026-08-01T00:00:00.000Z");
+    mocks.transactionClient.internshipPosting.findUnique.mockResolvedValue({
+      id: "posting-with-matching-slug",
+      canonicalSourceId: source.id,
+      canonicalSource: source,
+      companyNameSnapshot: source.company.name,
+      title: "A formerly different title",
+      normalizedTitle: "formerly different title",
+      locationsNormalized: [{ raw: "Remote", key: "remote" }],
+      season: null,
+      year: null,
+      postingDate: null,
+      discoveredAt
+    });
+    mocks.transactionClient.postingSourceRecord.create.mockResolvedValue({});
+    mocks.transactionClient.internshipPosting.update.mockResolvedValue({});
+
+    await expect(
+      persistPosting({
+        source: source as never,
+        normalized: normalized as never,
+        discordNotificationEligible: true
+      })
+    ).resolves.toEqual({ postingId: "posting-with-matching-slug", discovered: false });
+
+    expect(mocks.transactionClient.internshipPosting.findMany).not.toHaveBeenCalled();
+    expect(mocks.transactionClient.internshipPosting.create).not.toHaveBeenCalled();
+    expect(mocks.transactionClient.postingSourceRecord.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        internshipPostingId: "posting-with-matching-slug",
+        companySourceId: source.id,
+        externalJobId: normalized.externalJobId
+      })
+    });
+    expect(mocks.transactionClient.discordNotification.create).not.toHaveBeenCalled();
   });
 
   it("never stores a new posting date later than its discovery time", async () => {

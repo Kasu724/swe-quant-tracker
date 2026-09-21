@@ -379,7 +379,7 @@ export async function toggleCompanyActiveAction(formData: FormData) {
     data: { isActive: nextValue }
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/sources");
   revalidatePath("/companies");
 }
 
@@ -400,7 +400,7 @@ export async function toggleSourceActiveAction(formData: FormData) {
     }
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/sources");
 }
 
 export async function updateIngestionScheduleAction(formData: FormData) {
@@ -411,7 +411,7 @@ export async function updateIngestionScheduleAction(formData: FormData) {
   }
 
   await updateIngestionSchedule(intervalMinutes);
-  revalidatePath("/admin");
+  revalidatePath("/sources");
 }
 
 export async function createCompanySourceAction(formData: FormData) {
@@ -440,7 +440,7 @@ export async function createCompanySourceAction(formData: FormData) {
     }
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/sources");
 }
 
 export async function mergeDuplicatePostingsAction(formData: FormData) {
@@ -533,6 +533,6 @@ export async function mergeDuplicatePostingsAction(formData: FormData) {
     });
   });
 
-  revalidatePath("/admin");
+  revalidatePath("/sources");
   revalidatePath("/internships");
 }

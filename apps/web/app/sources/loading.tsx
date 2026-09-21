@@ -4,7 +4,7 @@ function Skeleton({ className }: { className: string }) {
   return <div aria-hidden="true" className={`rounded-md bg-zinc-200/80 motion-safe:animate-pulse dark:bg-zinc-700 ${className}`} />;
 }
 
-export default function AdminLoading() {
+export default function SourcesLoading() {
   return (
     <Container className="space-y-10 py-10" role="status" aria-label="Loading source operations">
       <div className="flex items-end justify-between border-b border-slate-200 pb-5"><div className="space-y-3"><Skeleton className="h-3 w-28" /><Skeleton className="h-9 w-80 max-w-[70vw]" /></div><Skeleton className="h-10 w-36" /></div>

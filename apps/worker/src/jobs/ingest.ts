@@ -332,46 +332,62 @@ export async function persistPosting(input: {
       };
     }
 
-    const candidates = await tx.internshipPosting.findMany({
-      where: {
-        companyId: source.companyId,
-        OR: [
-          { dedupeFingerprint: normalized.dedupeFingerprint },
-          { normalizedTitle: normalized.normalizedTitle }
-        ]
-      },
+    // The public slug is unique independently of the fuzzy duplicate fields below. An ATS can
+    // change location/date metadata or issue IDs that normalize to the same slug, so resolve that
+    // collision before attempting an insert. Besides preserving the existing URL, this avoids an
+    // expected constraint failure that some embedded PostgreSQL protocol bridges cannot recover
+    // from cleanly inside an interactive transaction.
+    const exactSlugMatch = await tx.internshipPosting.findUnique({
+      where: { slug: normalized.slug },
       include: {
         canonicalSource: true
-      },
-      orderBy: {
-        discoveredAt: "desc"
-      },
-      take: 25
+      }
     });
 
-    const duplicate = candidates.find((candidate) =>
-      candidate.dedupeFingerprint === normalized.dedupeFingerprint ||
-      isPotentialDuplicate(
-        {
-          companyName: source.company.name,
-          title: normalized.title,
-          normalizedTitle: normalized.normalizedTitle,
-          locationKeys: normalized.locationsNormalized.map((location) => location.key),
-          season: normalized.season,
-          year: normalized.year,
-          postingDate: normalized.postingDate
-        },
-        {
-          companyName: candidate.companyNameSnapshot,
-          title: candidate.title,
-          normalizedTitle: candidate.normalizedTitle,
-          locationKeys: extractLocationKeys(candidate.locationsNormalized),
-          season: candidate.season,
-          year: candidate.year,
-          postingDate: candidate.postingDate
-        }
-      )
-    );
+    const candidates = exactSlugMatch
+      ? []
+      : await tx.internshipPosting.findMany({
+          where: {
+            companyId: source.companyId,
+            OR: [
+              { dedupeFingerprint: normalized.dedupeFingerprint },
+              { normalizedTitle: normalized.normalizedTitle }
+            ]
+          },
+          include: {
+            canonicalSource: true
+          },
+          orderBy: {
+            discoveredAt: "desc"
+          },
+          take: 25
+        });
+
+    const duplicate =
+      exactSlugMatch ??
+      candidates.find((candidate) =>
+        candidate.dedupeFingerprint === normalized.dedupeFingerprint ||
+        isPotentialDuplicate(
+          {
+            companyName: source.company.name,
+            title: normalized.title,
+            normalizedTitle: normalized.normalizedTitle,
+            locationKeys: normalized.locationsNormalized.map((location) => location.key),
+            season: normalized.season,
+            year: normalized.year,
+            postingDate: normalized.postingDate
+          },
+          {
+            companyName: candidate.companyNameSnapshot,
+            title: candidate.title,
+            normalizedTitle: candidate.normalizedTitle,
+            locationKeys: extractLocationKeys(candidate.locationsNormalized),
+            season: candidate.season,
+            year: candidate.year,
+            postingDate: candidate.postingDate
+          }
+        )
+      );
 
     if (duplicate) {
       const promote = shouldPromoteCanonical(duplicate, source);

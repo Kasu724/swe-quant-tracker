@@ -468,7 +468,7 @@ signing certificate.
 - the seed script creates one automatic local profile; there is no sign-in or account creation
 - favorites, saved jobs, saved searches, application state, and notification preferences attach to that profile
 - Settings exports this state plus company/source configuration as versioned JSON and can merge or replace it on another machine
-- source-management tools live at `/admin` and are labeled **Sources** in the site navigation
+- source-management tools live at `/sources` and are labeled **Sources** in the site navigation
 
 ## Data Model Highlights
 

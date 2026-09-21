@@ -15,7 +15,11 @@ function FilterSidebarForm({
   compact: boolean;
 }) {
   return (
-    <form className="space-y-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1" method="GET" action={basePath}>
+    <form
+      className="filter-sidebar-scrollbar space-y-4 xl:-mr-5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-5"
+      method="GET"
+      action={basePath}
+    >
       <ListingFilterFields companies={companies} filters={filters} compact={compact} />
       <div className={cn("flex gap-3", compact && "flex-col")}>
         <Button type="submit" className="flex-1">
