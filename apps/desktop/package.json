@@ -13,6 +13,8 @@
   "scripts": {
     "build:runtime": "node scripts/build-next.cjs && node scripts/prepare-runtime.cjs",
     "test:database": "node scripts/test-embedded-database.cjs",
+    "test:supervision": "node scripts/test-supervision.cjs",
+    "test": "pnpm test:supervision && pnpm test:database",
     "test:roles": "node scripts/test-role-categories.cjs",
     "test:filters": "node scripts/test-listing-filters.cjs",
     "test:packaged": "node scripts/test-packaged-runtime.cjs",

@@ -115,8 +115,11 @@ async function startEmbeddedDatabase({ dataDirectory, schemaPath }) {
     async stop() {
       let stopError;
       for (const stop of [
-        () => healthClient.$disconnect(),
         () => socketServer.stop(),
+        // Closing the socket server first interrupts an in-flight health query. Disconnecting the
+        // Prisma client first can otherwise wait forever on the same wedged protocol connection
+        // that caused recovery to run.
+        () => healthClient.$disconnect(),
         () => db.close()
       ]) {
         try {

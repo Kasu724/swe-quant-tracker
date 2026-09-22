@@ -5,8 +5,10 @@ const net = require("node:net");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { startEmbeddedDatabase } = require("./database.cjs");
+const { probeHttp, withTimeout } = require("./supervision.cjs");
 
 const PRODUCT_NAME = "SWE-Quant Tracker";
+const DATABASE_HEALTH_CHECK_TIMEOUT_MS = 4_000;
 const distributionDirectory = path.join(__dirname, "..");
 let database;
 let serverProcess;
@@ -138,14 +140,7 @@ async function waitForServer(origin, child) {
       if (spawnError) throw new Error(`The local web server could not start: ${errorMessage(spawnError)}`);
       if (child.exitCode !== null) throw new Error(`The local web server exited with ${child.signalCode || `code ${child.exitCode}`}.`);
 
-      const reachable = await new Promise((resolve) => {
-        const request = http.get(origin, (response) => {
-          response.resume();
-          resolve(true);
-        });
-        request.setTimeout(1_000, () => request.destroy());
-        request.once("error", () => resolve(false));
-      });
+      const reachable = await probeHttp(origin);
 
       if (reachable) return;
       await new Promise((resolve) => setTimeout(resolve, 250));
@@ -175,7 +170,11 @@ function watchDatabaseHealth() {
     }
 
     databaseHealthCheckInFlight = true;
-    void database.checkHealth()
+    void withTimeout(
+      () => database.checkHealth(),
+      DATABASE_HEALTH_CHECK_TIMEOUT_MS,
+      `Embedded database health check timed out after ${DATABASE_HEALTH_CHECK_TIMEOUT_MS}ms`
+    )
       .then(() => {
         databaseHealthFailures = 0;
       })

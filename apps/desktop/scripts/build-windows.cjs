@@ -97,6 +97,7 @@ function stageRuntime() {
   copy(process.execPath, path.join(runtimeDirectory, "node.exe"));
   copy(path.join(desktopDirectory, "service.cjs"), path.join(runtimeDirectory, "service.cjs"));
   copy(path.join(desktopDirectory, "runtime", "database.cjs"), path.join(runtimeDirectory, "database.cjs"));
+  copy(path.join(desktopDirectory, "runtime", "supervision.cjs"), path.join(runtimeDirectory, "supervision.cjs"));
   copy(path.join(desktopDirectory, "build", "schema.sql"), path.join(runtimeDirectory, "schema.sql"));
   copy(path.join(desktopDirectory, "build", "cities.pbf"), path.join(runtimeDirectory, "cities.pbf"));
   copy(path.join(desktopDirectory, "build", "seed.cjs"), path.join(runtimeDirectory, "seed.cjs"));
