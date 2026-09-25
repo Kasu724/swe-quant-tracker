@@ -58,6 +58,7 @@ async function initializeSchema(db, schemaPath) {
       await db.exec(fs.readFileSync(roleBackfillPath, "utf8"));
     }
     await db.exec('ALTER TABLE "DiscordDestination" ADD COLUMN IF NOT EXISTS "filterJson" JSONB;');
+    await db.exec('ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "feedFilters" JSONB;');
     await db.exec('ALTER TABLE "InternshipPosting" ADD COLUMN IF NOT EXISTS "newGradFlag" BOOLEAN NOT NULL DEFAULT false;');
     await db.exec('CREATE INDEX IF NOT EXISTS "InternshipPosting_newGradFlag_isActive_idx" ON "InternshipPosting"("newGradFlag", "isActive");');
     await db.exec(`

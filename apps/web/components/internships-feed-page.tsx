@@ -1,5 +1,6 @@
 import { Container, EmptyState, PageHeader, Button } from "@swe-quant/ui";
-import type { ApplicationState } from "@swe-quant/db";
+import { Prisma, prisma, type ApplicationState } from "@swe-quant/db";
+import { redirect } from "next/navigation";
 import { FilterSidebar } from "./filter-sidebar";
 import { InfiniteListings } from "./infinite-listings";
 import { getLocalProfile } from "../lib/local-profile";
@@ -12,7 +13,9 @@ import {
   parseListingFilters,
   serializeFeedListing
 } from "../lib/queries";
+import { buildListingFilterQuery as serializeListingFilters } from "../lib/listing-filter-params";
 import type { ListingFilters } from "@swe-quant/shared";
+import { listingFilterSchema } from "@swe-quant/shared";
 
 const LISTINGS_PER_PAGE = 25;
 
@@ -43,16 +46,42 @@ export async function InternshipsFeedPage({
   basePath: string;
 }) {
   const resolvedSearchParams = (await searchParams) ?? {};
+  const queryString = buildSearchQuery(resolvedSearchParams);
+  const clearFilters = [resolvedSearchParams.clearFilters]
+    .flat()
+    .some((value) => value === "1" || value === "true");
+  const user = await getLocalProfile();
+
+  if (clearFilters) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { feedFilters: Prisma.DbNull }
+    });
+    redirect(basePath);
+  }
+
   let filters: ListingFilters;
   let invalidFilters = false;
 
-  try {
-    filters = parseListingFilters(resolvedSearchParams);
-  } catch {
-    filters = parseListingFilters({});
-    invalidFilters = true;
+  if (queryString) {
+    try {
+      filters = parseListingFilters(resolvedSearchParams);
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { feedFilters: filters }
+      });
+    } catch {
+      filters = parseListingFilters({});
+      invalidFilters = true;
+    }
+  } else {
+    const storedFilters = listingFilterSchema.safeParse(user.feedFilters);
+    filters = storedFilters.success ? storedFilters.data : parseListingFilters({});
   }
-  const user = await getLocalProfile();
+
+  const effectiveQueryString = queryString || (
+    user.feedFilters == null ? "" : serializeListingFilters(filters)
+  );
   const [{ listings, total }, companies] = await Promise.all([
     invalidFilters
       ? Promise.resolve({ listings: [], total: 0 })
@@ -66,9 +95,8 @@ export async function InternshipsFeedPage({
     getPostingListIds(user.id, postingIds),
     getApplicationStateMap(user.id, postingIds)
   ]);
-  const queryString = buildSearchQuery(resolvedSearchParams);
-  const listHref = queryString ? `${basePath}?${queryString}` : basePath;
-  const exportHref = `/api/internships${queryString ? `?${queryString}&` : "?"}format=csv`;
+  const listHref = effectiveQueryString ? `${basePath}?${effectiveQueryString}` : basePath;
+  const exportHref = `/api/internships${effectiveQueryString ? `?${effectiveQueryString}&` : "?"}format=csv`;
   const applicationStates = Object.fromEntries(applicationStateMap.entries()) as Record<
     string,
     ApplicationState
@@ -80,7 +108,7 @@ export async function InternshipsFeedPage({
         {invalidFilters ? (
           <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Some filter values are invalid. Reset the filters and try again.
-            <a className="ml-2 font-semibold underline" href={basePath}>Reset filters</a>
+            <a className="ml-2 font-semibold underline" href={`${basePath}?clearFilters=1`}>Reset filters</a>
           </div>
         ) : null}
         <PageHeader
@@ -114,7 +142,7 @@ export async function InternshipsFeedPage({
                 initialListings={initialListings.map(serializeFeedListing)}
                 total={total}
                 batchSize={LISTINGS_PER_PAGE}
-                queryString={queryString}
+                queryString={effectiveQueryString}
                 listHref={listHref}
                 favoriteIds={Array.from(favoriteIds)}
                 listIds={Array.from(listIds)}

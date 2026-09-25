@@ -94,6 +94,37 @@ export function parseListingFilters(searchParams: SearchParams): ListingFilters 
   });
 }
 
+export function buildListingFilterQuery(filters: ListingFilters): string {
+  const params = new URLSearchParams();
+
+  const appendAll = (name: string, values: string[] | number[]) => {
+    values.forEach((value) => params.append(name, String(value)));
+  };
+
+  if (filters.q) params.set("q", filters.q);
+  appendAll("company", filters.companySlugs);
+  appendAll("bucket", filters.companyBuckets);
+  appendAll("category", filters.roleCategories);
+  appendAll("season", filters.seasons);
+  appendAll("year", filters.years);
+  appendAll("country", filters.countries);
+  appendAll("location", filters.locations);
+  appendAll("positionType", filters.positionTypes);
+  appendAll("remote", filters.remoteTypes);
+  if (filters.payKnown !== "all") params.set("payKnown", filters.payKnown);
+  if (typeof filters.minimumPay === "number") params.set("minimumPay", String(filters.minimumPay));
+  params.set("activeOnly", String(filters.activeOnly));
+  if (typeof filters.recentlyPostedDays === "number") {
+    params.set("recent", String(filters.recentlyPostedDays));
+  }
+  if (filters.usOnly) params.set("usOnly", "true");
+  params.set("includeMissingLocation", String(filters.includeMissingLocation));
+  params.set("includeMissingPay", String(filters.includeMissingPay));
+  params.set("sort", filters.sort);
+
+  return params.toString();
+}
+
 export function parseListingFilterForm(formData: FormData): ListingFilters {
   const params: SearchParams = {};
   for (const key of new Set(formData.keys())) {

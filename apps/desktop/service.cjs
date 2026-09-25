@@ -5,7 +5,7 @@ const net = require("node:net");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { startEmbeddedDatabase } = require("./database.cjs");
-const { probeHttp, withTimeout } = require("./supervision.cjs");
+const { isConnectionResetError, probeHttp, withTimeout } = require("./supervision.cjs");
 
 const PRODUCT_NAME = "SWE-Quant Tracker";
 const DATABASE_HEALTH_CHECK_TIMEOUT_MS = 4_000;
@@ -481,6 +481,23 @@ function reportFatal(error) {
   });
 }
 
+function reportProcessError(error, source) {
+  // The PGlite socket bridge intentionally treats a client disconnect as normal, but an async
+  // cleanup rejection can still reach the process-level handler. Keep the tray service alive and
+  // let the database health watcher decide whether the bridge needs a full restart.
+  if (
+    isConnectionResetError(error) &&
+    databaseHealthTimer &&
+    !cleanupStarted
+  ) {
+    databaseHealthFailures = Math.max(databaseHealthFailures, 2);
+    logMessage(`Transient database connection reset from ${source}; deferring to health recovery`, error);
+    return;
+  }
+
+  reportFatal(error);
+}
+
 async function handleCommand(command) {
   if (command === "ingest" && applicationEnvironment && !cleanupStarted) {
     try {
@@ -509,6 +526,6 @@ process.stdin.on("end", () => void cleanup().finally(() => process.exit(0)));
 process.on("SIGINT", () => void cleanup().finally(() => process.exit(0)));
 process.on("SIGTERM", () => void cleanup().finally(() => process.exit(0)));
 process.on("uncaughtException", reportFatal);
-process.on("unhandledRejection", reportFatal);
+process.on("unhandledRejection", (error) => reportProcessError(error, "unhandled rejection"));
 
 startLocalService().catch(reportFatal);

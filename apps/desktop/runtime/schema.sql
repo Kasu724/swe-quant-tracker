@@ -42,6 +42,7 @@ CREATE TABLE "User" (
     "image" TEXT,
     "alertEmailsEnabled" BOOLEAN NOT NULL DEFAULT true,
     "digestTimezone" TEXT NOT NULL DEFAULT 'America/New_York',
+    "feedFilters" JSONB,
     "unsubscribeToken" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,

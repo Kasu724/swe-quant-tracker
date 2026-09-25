@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const http = require("node:http");
-const { probeHttp, withTimeout } = require("../runtime/supervision.cjs");
+const { isConnectionResetError, probeHttp, withTimeout } = require("../runtime/supervision.cjs");
 
 async function listen(handler) {
   const server = http.createServer(handler);
@@ -18,6 +18,10 @@ async function close(server) {
 }
 
 async function main() {
+  assert.equal(isConnectionResetError(Object.assign(new Error("read ECONNRESET"), { code: "ECONNRESET" })), true);
+  assert.equal(isConnectionResetError(new Error("connection refused")), false);
+  assert.equal(isConnectionResetError({ cause: new Error("read ECONNRESET") }), true);
+
   assert.equal(await withTimeout(() => Promise.resolve("healthy"), 100, "unexpected timeout"), "healthy");
 
   const startedAt = Date.now();

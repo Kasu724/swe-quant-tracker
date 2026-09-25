@@ -104,6 +104,7 @@ model User {
   image              String?
   alertEmailsEnabled Boolean                @default(true)
   digestTimezone     String                 @default("America/New_York")
+  feedFilters        Json?
   unsubscribeToken   String                 @unique @default(cuid())
   createdAt          DateTime               @default(now())
   updatedAt          DateTime               @updatedAt

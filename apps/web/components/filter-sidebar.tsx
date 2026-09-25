@@ -26,7 +26,7 @@ function FilterSidebarForm({
           Apply
         </Button>
         <Button variant="secondary" asChild>
-          <a href={basePath}>Reset</a>
+          <a href={`${basePath}?clearFilters=1`}>Reset</a>
         </Button>
       </div>
     </form>
