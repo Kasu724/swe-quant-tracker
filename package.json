@@ -33,9 +33,9 @@
     "worker:reclassify": "pnpm --filter @swe-quant/worker reclassify"
   },
   "devDependencies": {
-    "turbo": "^2.5.0",
+    "turbo": "^2.9.14",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.1"
+    "vitest": "^3.2.6"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
